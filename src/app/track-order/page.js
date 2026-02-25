@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Search, Package, CheckCircle2, Clock, MapPin, Phone, User, ArrowLeft, Loader2, Truck } from 'lucide-react';
 import Link from 'next/link';
 
-export default function TrackOrderPage() {
+function TrackOrderContent() {
     const searchParams = useSearchParams();
     const [orderId, setOrderId] = useState(searchParams.get('id') || '');
     const [order, setOrder] = useState(null);
@@ -198,5 +198,17 @@ export default function TrackOrderPage() {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             `}</style>
         </div>
+    );
+}
+
+export default function TrackOrderPage() {
+    return (
+        <Suspense fallback={
+            <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 className="animate-spin" size={32} />
+            </div>
+        }>
+            <TrackOrderContent />
+        </Suspense>
     );
 }
