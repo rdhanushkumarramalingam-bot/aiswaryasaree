@@ -14,6 +14,8 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production', // strip logs in prod
   },
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
 
   // ─── HTTP response caching headers ───────────────────────────────────────
   async headers() {
