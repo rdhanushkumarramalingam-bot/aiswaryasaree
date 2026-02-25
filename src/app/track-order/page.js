@@ -203,11 +203,7 @@ function TrackOrderContent() {
 
 export default function TrackOrderPage() {
     return (
-        <Suspense fallback={
-            <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 className="animate-spin" size={32} />
-            </div>
-        }>
+        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#fff' }}>Loading...</div>}>
             <TrackOrderContent />
         </Suspense>
     );
