@@ -259,30 +259,11 @@ export async function sendMainMenu(to) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // ── Message 1: Welcome image + NATIVE SHOP BUTTON ──
-    // Using cta_url is the most integrated way to launch the store.
-    await sendRawMessage(to, {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "interactive",
-        interactive: {
-            type: "cta_url",
-            header: {
-                type: "image",
-                image: { link: welcomeImg }
-            },
-            body: { text: welcomeMsg + "\n\nTap below to open our store natively in the app." },
-            footer: { text: "Premium Shopping Experience" },
-            action: {
-                name: "cta_url",
-                parameters: {
-                    display_text: "🛍️ Open Store",
-                    url: shopUrl
-                }
-            }
-        }
-    });
+    // ── Message 1: Welcome image + SHOP BUTTON ──
+    // Using regular button to stay in WhatsApp browser
+    await sendImageButtons(to, welcomeImg, welcomeMsg + "\n\nTap below to open our store:", [
+        { id: `open_store_${encodeURIComponent(to)}`, title: "🛍️ Open Store" }
+    ]);
 
     // ── Message 2: Quick actions ──
     await sendButtons(to, "Manage your orders:", [
@@ -796,7 +777,15 @@ export async function processIncomingMessage(body) {
 
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_shop_web') {
-                // Customer tapped "Shop Now" — send the shopping website URL
+                // Customer tapped "Shop Now" — send shopping website URL
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
+                const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
+                return await sendText(from,
+                    `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 🌸`
+                );
+            }
+            if (id.startsWith('open_store_')) {
+                // Customer tapped "Open Store" button
                 const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
                 const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
