@@ -8,11 +8,11 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 3600,
   },
-
+ 
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-
+ 
   async headers() {
     return [
       {
@@ -35,5 +35,5 @@ const nextConfig = {
     ];
   },
 };
-
+ 
 export default nextConfig;
