@@ -212,16 +212,16 @@ p {
 }
 
 .sidebar a.active {
-  background: linear-gradient(90deg, hsl(var(--primary) / 0.15), transparent);
-  border: 1px solid hsl(var(--primary) / 0.2);
-  color: hsl(var(--primary));
+  background: linear-gradient(90deg, hsl(var(--success) / 0.15), transparent);
+  border: 1px solid hsl(var(--success) / 0.2);
+  color: hsl(var(--success));
   font-weight: 600;
-  box-shadow: 0 4px 12px -5px hsl(var(--primary) / 0.2);
+  box-shadow: 0 4px 12px -5px hsl(var(--success) / 0.2);
 }
 
 .sidebar a.active svg {
-  stroke: hsl(var(--primary));
-  filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.5));
+  stroke: hsl(var(--success));
+  filter: drop-shadow(0 0 5px hsl(var(--success) / 0.5));
 }
 
 /* ── Glass Cards ── */
