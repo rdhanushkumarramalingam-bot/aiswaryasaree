@@ -106,7 +106,7 @@ export default function PaymentPage({ params }) {
                     <p className="text-gray-400 mb-6">Order <span className="text-white font-mono">#{orderId}</span> has been confirmed.</p>
                     <p className="text-xs text-gray-500 mb-6 uppercase tracking-wider">Invoice sent to WhatsApp</p>
                     <button
-                        onClick={() => window.location.href = `https://wa.me/15551678232`}
+                        onClick={() => window.open(`https://wa.me/15551678232`, '_self')}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '1rem', border: 'none', background: '#e0f7fa', color: '#00796b', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', marginTop: '1rem' }}
                     >
                         Return to WhatsApp

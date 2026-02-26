@@ -141,9 +141,9 @@ function InvoiceContent() {
                     <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1rem', borderRadius: '15px', background: '#333', color: '#fff', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                         <Printer size={18} /> Print Bill
                     </button>
-                    <a href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1rem', borderRadius: '15px', background: '#25D366', color: '#fff', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                    <button onClick={() => window.open(`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`, '_self')} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1rem', borderRadius: '15px', background: '#25D366', color: '#fff', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                         Need help? Contact on WhatsApp
-                    </a>
+                    </button>
                 </div>
             </div>
 

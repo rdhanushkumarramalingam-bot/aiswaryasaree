@@ -300,14 +300,14 @@ export default function InvoicesPage() {
                             }} title="Print">
                                 <Printer size={20} />
                             </button>
-                            <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_self" style={{
+                            <button onClick={() => window.open(`https://wa.me/${selectedInvoice.customer_phone}`, '_self')} style={{
                                 width: '3rem', height: '3rem', borderRadius: '50%',
                                 background: '#25D366', color: 'white', border: 'none',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
                             }} title="WhatsApp">
                                 <MessageCircle size={20} />
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>

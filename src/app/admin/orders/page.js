@@ -301,10 +301,10 @@ export default function OrdersPage() {
                                             <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <Phone size={14} /> {selectedOrder.customer_phone}
                                             </div>
-                                            <a href={`https://wa.me/${selectedOrder.customer_phone}`} target="_self"
+                                            <button onClick={() => window.open(`https://wa.me/${selectedOrder.customer_phone}`, '_self')}
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: '#25D366', fontWeight: 600, fontSize: '0.85rem' }}>
                                                 <MessageCircle size={16} /> Chat on WhatsApp
-                                            </a>
+                                            </button>
                                         </div>
                                         <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.75rem' }}>Payment & Billing</h4>

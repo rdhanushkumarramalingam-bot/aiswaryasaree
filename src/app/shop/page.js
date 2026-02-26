@@ -559,7 +559,7 @@ function ShopContent() {
             <footer className={styles.footer}>
                 <div className={styles.footerContent}>
                     <div>🌸 Aiswarya Sarees — Premium Ethnic Wear</div>
-                    <div>📱 WhatsApp: <a href={`https://wa.me/15551678232`} target="_self" style={{ color: '#25D366' }}>+1 555 167 8232</a></div>
+                    <div>📱 WhatsApp: <button onClick={() => window.open('https://wa.me/15551678232', '_self')} style={{ background: 'none', border: 'none', color: '#25D366', textDecoration: 'underline', cursor: 'pointer' }}>+1 555 167 8232</button></div>
                 </div>
             </footer>
         </div>

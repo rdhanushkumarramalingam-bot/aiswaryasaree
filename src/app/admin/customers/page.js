@@ -191,8 +191,10 @@ export default function CustomersPage() {
                                                     {new Date(customer.lastOrder).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    <a href={`https://wa.me/${customer.phone}`} target="_self"
-                                                        onClick={(e) => e.stopPropagation()}
+                                                    <button onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        window.open(`https://wa.me/${customer.phone}`, '_self');
+                                                    }}
                                                         className="btn"
                                                         style={{
                                                             padding: '0.4rem 0.8rem', fontSize: '0.75rem',
@@ -201,7 +203,7 @@ export default function CustomersPage() {
                                                             display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
                                                         }}>
                                                         <MessageCircle size={14} /> Chat
-                                                    </a>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );
@@ -285,7 +287,7 @@ export default function CustomersPage() {
                                         ))}
                                     </div>
 
-                                    <a href={`https://wa.me/${selectedCustomer.phone}`} target="_self" style={{
+                                    <button onClick={() => window.open(`https://wa.me/${selectedCustomer.phone}`, '_self')} style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
                                         padding: '1rem', background: 'hsl(var(--success))', color: 'hsl(var(--bg-app))', marginTop: '2rem',
                                         borderRadius: 'var(--radius-sm)', fontWeight: 700, fontSize: '0.95rem',
@@ -294,7 +296,7 @@ export default function CustomersPage() {
                                         cursor: 'pointer'
                                     }}>
                                         <MessageCircle size={20} /> Chat on WhatsApp
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                         </div>
