@@ -681,23 +681,56 @@ export async function processIncomingMessage(body) {
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
             // Handle Website Checkout Redirection
-            if (text.startsWith('finish order #')) {
-                const orderId = text.replace('finish order #', '').trim().toUpperCase();
+            if (text.includes('i just placed an order #') || text.startsWith('finish order #')) {
+                const match = text.match(/order #([a-z0-9-]+)/i);
+                if (match) {
+                    const orderId = match[1].toUpperCase();
 
-                const { data: existingDraft } = await supabase.from('orders').select('id').eq('id', orderId).eq('status', 'DRAFT').single();
+                    const { data: order } = await supabase.from('orders').select('id, status, payment_method, total_amount, delivery_address, customer_name').eq('id', orderId).single();
 
-                if (existingDraft) {
-                    await supabase.from('orders').update({
-                        customer_phone: from
-                    }).eq('id', orderId).eq('status', 'DRAFT');
+                    if (order) {
+                        // If it's still a draft from old flow
+                        if (order.status === 'DRAFT') {
+                            await supabase.from('orders').update({ customer_phone: from }).eq('id', orderId);
+                            await sendText(from,
+                                `📝 *Complete Your Order* (#${orderId})\n\n` +
+                                `Please reply with your delivery details in this format:\n\n` +
+                                `*Name, Mobile Number, Full Address*\n\n` +
+                                `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore_`
+                            );
+                            return;
+                        }
 
-                    await sendText(from,
-                        `📝 *Complete Your Order* (#${orderId})\n\n` +
-                        `Please reply with your delivery details in this format:\n\n` +
-                        `*Name, Mobile Number, Full Address*\n\n` +
-                        `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore_`
-                    );
-                    return;
+                        // Order placed completely on website
+                        await sendText(from, `✅ *Order Confirmed! (#${orderId})*\n\nThank you, ${order.customer_name || 'Customer'}!\n\n📍 *Delivery Address:*\n${order.delivery_address}\n\n🛒 *Total Billing:* ₹${order.total_amount.toLocaleString()}`);
+
+                        if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
+                            const rawAmount = order.total_amount || 0;
+                            const upiId = 'samypranesh@okicici';
+                            const payeeName = 'Aiswarya+Sarees';
+                            const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=Order+${orderId}`;
+
+                            await sendText(from,
+                                `📲 *UPI Payment — ₹${rawAmount.toLocaleString()}*\n\n` +
+                                `Tap the link below to pay via GPay, PhonePe or any UPI app:\n\n` +
+                                `👉 ${upiLink}\n\n` +
+                                `UPI ID: *${upiId}*`
+                            );
+
+                            await sendButtons(from, `⏳ After completing the payment, tap below to confirm:`, [
+                                { id: `paid_confirm_${orderId}`, title: "✅ I Have Paid" }
+                            ]);
+                        } else if (order.payment_method === 'COD') {
+                            await sendText(from, "📄 Generating your invoice...");
+                            const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
+                            const invoiceUrl = await generateAndUploadInvoice(fullOrder);
+                            if (invoiceUrl) {
+                                await sendDocument(from, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+                            }
+                            await sendText(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!");
+                        }
+                        return;
+                    }
                 }
             }
 
