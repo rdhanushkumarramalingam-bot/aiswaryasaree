@@ -145,13 +145,10 @@ export default function OrdersPage() {
 
 
     const openOrderDetail = async (order) => {
-
         setSelectedOrder(order);
-
+        setOrderItems([]); // Clear previous items to avoid flickering
         const { data } = await supabase.from('order_items').select('*').eq('order_id', order.id);
-
         setOrderItems(data || []);
-
     };
 
 
@@ -529,27 +526,18 @@ export default function OrdersPage() {
 
 
                     {/* ────── ORDER DETAIL MODAL ────── */}
-
                     {selectedOrder && (
-
                         <div style={{
-
                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-
-                            backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center',
-
-                            justifyContent: 'center', zIndex: 1000
-
-                        }} onClick={() => setSelectedOrder(null)}>
-
+                            backdropFilter: 'blur(8px)', zIndex: 1000,
+                            overflowY: 'auto', display: 'grid', placeItems: 'center', padding: '2rem'
+                        }} onClick={() => { setSelectedOrder(null); setOrderItems([]); }}>
                             <div onClick={(e) => e.stopPropagation()} className="card" style={{
-
-                                width: '650px', maxHeight: '90vh', overflow: 'auto', padding: 0,
-
+                                width: '100%', maxWidth: '650px', padding: 0,
                                 border: '1px solid hsl(var(--primary) / 0.3)',
-
-                                boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
-
+                                boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+                                backgroundColor: 'hsl(var(--bg-panel))',
+                                position: 'relative'
                             }}>
 
                                 {/* Modal Header */}
