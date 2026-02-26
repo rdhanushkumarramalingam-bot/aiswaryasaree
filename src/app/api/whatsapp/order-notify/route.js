@@ -30,6 +30,41 @@ async function sendText(to, text) {
     return data;
 }
 
+async function sendButtons(to, bodyText, buttons) {
+    const PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+
+    const res = await fetch(`${WHATSAPP_API_URL}/${PHONE_ID}/messages`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${TOKEN}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to,
+            type: "interactive",
+            interactive: {
+                type: "button",
+                body: { text: bodyText },
+                action: {
+                    buttons: buttons.map(b => ({
+                        type: "reply",
+                        reply: { id: b.id, title: b.title }
+                    }))
+                }
+            }
+        })
+    });
+
+    const data = await res.json();
+    if (data.error) {
+        console.error('WhatsApp API Error:', JSON.stringify(data.error));
+    }
+    return data;
+}
+
 export async function POST(request) {
     try {
         const { orderId, customerPhone, customerName, address, items, total, paymentMethod } = await request.json();
@@ -43,7 +78,7 @@ export async function POST(request) {
         const paymentText = paymentMethod === 'COD' ? '💵 Cash on Delivery' : '📲 UPI / Online';
 
         const message =
-            `🌸 *AISWARYA SAREES — ORDER CONFIRMED!*\n\n` +
+            `🌸 *Cast Prince — ORDER CONFIRMED!*\n\n` +
             `✅ Your website order has been placed successfully!\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `📋 *Order ID:* #${orderId}\n` +
@@ -57,10 +92,13 @@ export async function POST(request) {
             (paymentMethod === 'UPI'
                 ? `📲 *UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${total.toLocaleString()}*\n\nPlease complete the payment and reply *PAID ✓* to confirm.\n\n`
                 : `Our team will contact you to confirm your delivery date.\n\n`) +
-            `💗 Thank you for shopping with *Aiswarya Sarees*!\n` +
-            `Send *Hi* anytime to browse our collection again.`;
+            `💗 Thank you for shopping with *Cast Prince*!\n` +
+            `Tap the buttons below to manage your orders.`;
 
-        await sendText(customerPhone, message);
+        await sendButtons(customerPhone, message, [
+            { id: "menu_track", title: "Track Order" },
+            { id: "menu_my_orders", title: "My Orders" }
+        ]);
 
         return Response.json({ success: true });
 

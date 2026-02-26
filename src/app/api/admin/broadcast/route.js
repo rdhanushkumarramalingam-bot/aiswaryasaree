@@ -29,7 +29,7 @@ export async function POST(req) {
                     body: {
                         text: `*${product.name}*\n\n${message}`
                     },
-                    footer: { text: "Aiswarya Sarees • Exclusive Collection" },
+                    footer: { text: "Cast Prince • Exclusive Collection" },
                     action: {
                         name: "cta_url",
                         parameters: {

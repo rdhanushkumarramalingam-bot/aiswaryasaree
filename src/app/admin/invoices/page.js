@@ -376,7 +376,7 @@ export default function InvoicesPage() {
 
                                         <span style={{ fontSize: '1.75rem' }}>🌸</span>
 
-                                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>Aiswarya Sarees</h1>
+                                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>Cast Prince</h1>
 
                                     </div>
 
@@ -554,7 +554,7 @@ export default function InvoicesPage() {
 
                             }}>
 
-                                Thank you for shopping with Aiswarya Sarees • WhatsApp: +91 75581 89732
+                                Thank you for shopping with Cast Prince • WhatsApp: +91 75581 89732
 
                             </div>
 

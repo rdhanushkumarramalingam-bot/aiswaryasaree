@@ -484,13 +484,10 @@ function ShopContent() {
 
 
 
-            setOrderData({ orderId, customerName: checkoutForm.name, total: finalTotal, paymentMethod: checkoutForm.paymentMethod, customerPhone: fullPhone });
-
             setCart([]);
-
-            setView('success');
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('Order Placed! Redirecting to WhatsApp...', 'success');
+            const message = encodeURIComponent(`please confirm is this your order in the website? Order #${orderId}`);
+            window.open(`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`, '_self');
 
         } catch (err) {
 
@@ -552,7 +549,7 @@ function ShopContent() {
 
                         <div>
 
-                            <div className={styles.logoName}>Aiswarya Sarees</div>
+                            <div className={styles.logoName}>Cast Prince</div>
 
                             <div className={styles.logoTagline}>Premium Silk & Cotton Collection</div>
 
@@ -1118,7 +1115,7 @@ function ShopContent() {
 
                 <div className={styles.footerContent}>
 
-                    <div>🌸 Aiswarya Sarees — Premium Ethnic Wear</div>
+                    <div>🌸 Cast Prince — Premium Ethnic Wear</div>
 
                     <div>📱 WhatsApp: <a href={`https://wa.me/15551678232`} target="_self" style={{ color: '#25D366' }}>+1 555 167 8232</a></div>
 

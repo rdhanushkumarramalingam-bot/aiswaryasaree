@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════════════
-//  AISWARYA SAREES — WHATSAPP BUSINESS BOT (Premium Edition)
+//  Cast Prince — WHATSAPP BUSINESS BOT (Premium Edition)
 // ════════════════════════════════════════════════════════════════════════════════
 
 import { createClient } from '@supabase/supabase-js';
@@ -127,7 +127,7 @@ export async function sendButtons(to, bodyText, buttons) {
     });
 }
 
-export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Aiswarya Sarees • Premium Collection") {
+export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Prince • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
     return sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
@@ -185,7 +185,7 @@ async function generateAndUploadInvoice(order) {
         const doc = new jsPDF();
 
         // Header
-        doc.setFontSize(22); doc.text("AISWARYA SAREES", 105, 20, { align: "center" });
+        doc.setFontSize(22); doc.text("Cast Prince", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
@@ -248,7 +248,7 @@ async function generateAndUploadInvoice(order) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "🌸 *Welcome to Aiswarya Sarees!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "🌸 *Welcome to Cast Prince!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
@@ -557,7 +557,7 @@ export async function finalizeOrder(to, method, orderId) {
         // Build UPI deep link — opens GPay / PhonePe / any UPI app with amount pre-filled
         const rawAmount = order?.total_amount || 0;
         const upiId = 'samypranesh@okicici';
-        const payeeName = 'Aiswarya+Sarees';
+        const payeeName = 'Cast Prince+Sarees';
         const note = `Order+${orderId}`;
         const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=${note}`;
 
@@ -593,8 +593,10 @@ export async function finalizeOrder(to, method, orderId) {
         if (invoiceUrl) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
-
-        await sendText(to, "💗 Thank you for shopping with *Aiswarya Sarees*!\n\nSend *Hi* anytime to shop again.");
+        await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
+            { id: "menu_track", title: "Track Order" },
+            { id: "menu_my_orders", title: "My Orders" }
+        ]);
     }
 }
 
@@ -615,9 +617,11 @@ export async function handlePaymentConfirmed(to, orderId) {
         await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
     }
 
-    await sendText(to, "💗 Thank you for shopping with *Aiswarya Sarees*!\n\nSend *Hi* anytime to shop again.");
+    await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
+        { id: "menu_track", title: "Track Order" },
+        { id: "menu_my_orders", title: "My Orders" }
+    ]);
 }
-
 export async function handleTrackOrder(to) {
     const { data: orders } = await supabase.from('orders').select('*').eq('customer_phone', to).neq('status', 'DRAFT').order('created_at', { ascending: false }).limit(1);
     if (!orders?.length) return sendText(to, "No previous orders found.");
@@ -627,7 +631,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@aiswaryatextiles.com");
+    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@castprince.com");
     await sendText(to, contactMsg);
 }
 
@@ -682,7 +686,7 @@ export async function processIncomingMessage(body) {
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
             // Handle Website Checkout Redirection
-            if (text.includes('i just placed an order #') || text.startsWith('finish order #')) {
+            if (text.includes('i just placed an order #') || text.startsWith('finish order #') || text.includes('please confirm is this your order in the website')) {
                 const match = text.match(/order #([a-z0-9-]+)/i);
                 if (match) {
                     const orderId = match[1].toUpperCase();
@@ -708,7 +712,7 @@ export async function processIncomingMessage(body) {
                         if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
                             const rawAmount = order.total_amount || 0;
                             const upiId = 'samypranesh@okicici';
-                            const payeeName = 'Aiswarya+Sarees';
+                            const payeeName = 'Cast Prince+Sarees';
                             const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=Order+${orderId}`;
 
                             await sendText(from,
@@ -805,7 +809,7 @@ export async function processIncomingMessage(body) {
             }
             if (id === 'menu_browse') return await sendCatalog(from);
             if (id === 'menu_cart') return await handleViewCart(from);
-            if (id === 'menu_track') return await handleTrackOrder(from);
+            if (id === 'menu_track' || id === 'menu_my_orders') return await handleTrackOrder(from);
             if (id === 'menu_contact') return await handleContact(from);
 
             if (id.startsWith('cat_')) return await sendProductsByCategory(from, id);

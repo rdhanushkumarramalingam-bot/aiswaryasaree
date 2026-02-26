@@ -63,7 +63,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `🔗 *View Full Bill:* ${invoiceUrl}`,
                 ``,
                 `Your order is being processed. Thank you! 🌸`,
-                `— Aiswarya Sarees`
+                `— Cast Prince`
             ].join('\n');
 
         case 'CANCELLED':
@@ -75,7 +75,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 ``,
                 `If you did not request this cancellation, please contact us!`,
                 ``,
-                `— Aiswarya Sarees 🌸`
+                `— Cast Prince 🌸`
             ].join('\n');
 
         case 'SHIPPED':
@@ -101,7 +101,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `Hope you love your new saree! 💕`,
                 `Type *Hi* to shop again anytime.`,
                 ``,
-                `— Aiswarya Sarees 🌸`
+                `— Cast Prince 🌸`
             ].join('\n');
 
         case 'PLACED':
@@ -112,11 +112,11 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `We are preparing your saree for shipping.`,
-                `— Aiswarya Sarees 🌸`
+                `— Cast Prince 🌸`
             ].join('\n');
 
         default:
-            return `📋 Order #${orderId} status updated to: ${status}\n— Aiswarya Sarees`;
+            return `📋 Order #${orderId} status updated to: ${status}\n— Cast Prince`;
     }
 }
 

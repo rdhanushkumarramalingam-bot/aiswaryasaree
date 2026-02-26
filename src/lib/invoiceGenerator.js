@@ -6,7 +6,7 @@ export async function generateInvoicePDF(order) {
 
     // Header
     doc.setFontSize(22);
-    doc.text("Aiswarya Sarees", 105, 20, { align: "center" });
+    doc.text("Cast Prince", 105, 20, { align: "center" });
 
     doc.setFontSize(12);
     doc.text("Premium Silk & Designer Weaves", 105, 28, { align: "center" });

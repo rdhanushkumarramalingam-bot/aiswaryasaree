@@ -157,7 +157,7 @@ export default function ForgotPasswordPage() {
                     </form>
                 )}
 
-                <p className={styles.footer}>🔐 Aiswarya Sarees — Admin Portal</p>
+                <p className={styles.footer}>🔐 Cast Prince — Admin Portal</p>
             </div>
         </div>
     );

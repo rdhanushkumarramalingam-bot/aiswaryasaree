@@ -90,7 +90,7 @@ export default function PaymentPage({ params }) {
 
         const upiId = '917558189732@upi';
 
-        const name = 'Aiswarya Sarees';
+        const name = 'Cast Prince';
 
         const amount = order.total_amount;
 
@@ -256,7 +256,7 @@ export default function PaymentPage({ params }) {
 
                     <h2 className="text-3xl font-extrabold text-white tracking-tight">Checkout</h2>
 
-                    <p className="mt-2 text-sm text-red-500 uppercase tracking-widest font-semibold">Aiswarya Sarees Secure Payment</p>
+                    <p className="mt-2 text-sm text-red-500 uppercase tracking-widest font-semibold">Cast Prince Secure Payment</p>
 
                 </div>
 
@@ -438,7 +438,7 @@ export default function PaymentPage({ params }) {
 
                 <p className="text-center text-xs text-neutral-600 mt-8">
 
-                    Secure Payment Gateway by Aiswarya Sarees<br />
+                    Secure Payment Gateway by Cast Prince<br />
 
                     Need help? WhatsApp <span className="text-red-500">+1 555 167 8232</span>
 

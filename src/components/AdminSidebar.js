@@ -45,7 +45,7 @@ export default function AdminSidebar({ isOpen }) {
                     <h1 style={{
                         fontSize: '1.25rem', fontWeight: 700, margin: 0,
                         fontFamily: 'var(--font-heading)', letterSpacing: '0'
-                    }}>Aiswarya</h1>
+                    }}>Cast Prince</h1>
                     <p style={{
                         fontSize: '0.65rem', color: 'hsl(var(--primary))', margin: 0,
                         textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600

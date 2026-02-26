@@ -150,7 +150,7 @@ function InvoiceContent() {
 
                         <div>
 
-                            <div style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: 'hsl(var(--primary))' }}>🌸 Aiswarya Sarees</div>
+                            <div style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: 'hsl(var(--primary))' }}>🌸 Cast Prince</div>
 
                             <div style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Premium Ethnic Wear</div>
 
@@ -266,7 +266,7 @@ function InvoiceContent() {
 
                         <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>This is a computer-generated digital invoice.</p>
 
-                        <p style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '0.5rem' }}>Thank you for shopping with <strong>Aiswarya Sarees</strong>.</p>
+                        <p style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '0.5rem' }}>Thank you for shopping with <strong>Cast Prince</strong>.</p>
 
                     </div>
 

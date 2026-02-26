@@ -42,7 +42,7 @@ export default function LoginPage() {
             <div className={styles.card}>
                 <div className={styles.logo}>
                     <div className={styles.logoIcon}>🌸</div>
-                    <h1 className={styles.brand}>Aiswarya Sarees</h1>
+                    <h1 className={styles.brand}>Cast Prince</h1>
                     <p className={styles.subtitle}>Business Admin Portal</p>
                 </div>
 
