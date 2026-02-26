@@ -255,7 +255,8 @@ export async function sendMainMenu(to) {
     );
 
     // Build shop URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Automatically detect Vercel URL or fallback to env variable
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
     // ── Message 1: Welcome image + NATIVE SHOP BUTTON ──
@@ -796,7 +797,7 @@ export async function processIncomingMessage(body) {
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_shop_web') {
                 // Customer tapped "Shop Now" — send the shopping website URL
-                const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
                 const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
                     `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 🌸`
