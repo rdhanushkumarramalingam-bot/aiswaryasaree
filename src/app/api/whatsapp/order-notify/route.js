@@ -78,7 +78,7 @@ export async function POST(request) {
         const paymentText = paymentMethod === 'COD' ? '💵 Cash on Delivery' : '📲 UPI / Online';
 
         const message =
-            `🌸 *Cast Prince — ORDER CONFIRMED!*\n\n` +
+            `💮 *Cast Prince — ORDER CONFIRMED!*\n\n` +
             `✅ Your website order has been placed successfully!\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `📋 *Order ID:* #${orderId}\n` +

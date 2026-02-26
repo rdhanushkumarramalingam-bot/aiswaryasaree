@@ -374,7 +374,7 @@ export default function InvoicesPage() {
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
 
-                                        <span style={{ fontSize: '1.75rem' }}>🌸</span>
+                                        <span style={{ fontSize: '1.75rem' }}>💮</span>
 
                                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>Cast Prince</h1>
 

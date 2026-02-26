@@ -73,13 +73,13 @@
 
 .logoIcon {
     font-size: 2rem;
-    filter: drop-shadow(0 0 10px rgba(244, 195, 65, 0.5));
+    filter: drop-shadow(0 0 10px rgba(37, 163, 102, 0.5));
 }
 
 .logoName {
     font-size: 1.15rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -103,25 +103,25 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.6rem 1.25rem;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
-    color: #1a1200;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #ffffff;
     border-radius: 50px;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
     border: none;
     transition: all 0.2s;
-    box-shadow: 0 4px 15px rgba(244, 195, 65, 0.3);
+    box-shadow: 0 4px 15px rgba(37, 163, 102, 0.3);
 }
 
 .cartBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(244, 195, 65, 0.4);
+    box-shadow: 0 6px 20px rgba(37, 163, 102, 0.4);
 }
 
 .cartBadge {
-    background: #1a1200;
-    color: #f4c342;
+    background: #ffffff;
+    color: #25a366;
     border-radius: 50%;
     width: 20px;
     height: 20px;
@@ -163,7 +163,7 @@
     background:
         linear-gradient(135deg, rgba(15, 8, 40, 0.95) 0%, rgba(25, 15, 60, 0.9) 60%, rgba(10, 5, 25, 0.95) 100%),
         url('https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1400&q=80') center/cover no-repeat;
-    border-bottom: 1px solid rgba(244, 195, 65, 0.15);
+    border-bottom: 1px solid rgba(37, 163, 102, 0.15);
     position: relative;
     overflow: hidden;
 }
@@ -175,7 +175,7 @@
     right: -10%;
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(244, 195, 65, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(37, 163, 102, 0.08) 0%, transparent 70%);
     pointer-events: none;
 }
 
@@ -190,10 +190,10 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.4rem 1rem;
-    background: rgba(244, 195, 65, 0.1);
-    border: 1px solid rgba(244, 195, 65, 0.3);
+    background: rgba(37, 163, 102, 0.1);
+    border: 1px solid rgba(37, 163, 102, 0.3);
     border-radius: 50px;
-    color: #f4c342;
+    color: #25a366;
     font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -231,7 +231,7 @@
 .heroStat span {
     font-size: 1.5rem;
     font-weight: 800;
-    color: #f4c342;
+    color: #25a366;
 }
 
 .heroStat small {
@@ -285,9 +285,9 @@
 }
 
 .searchInput:focus {
-    border-color: rgba(244, 195, 65, 0.4);
+    border-color: rgba(37, 163, 102, 0.4);
     background: rgba(255, 255, 255, 0.07);
-    box-shadow: 0 0 0 3px rgba(244, 195, 65, 0.08);
+    box-shadow: 0 0 0 3px rgba(37, 163, 102, 0.08);
 }
 
 .categoryScroll {
@@ -315,14 +315,14 @@
 }
 
 .catChip:hover {
-    border-color: rgba(244, 195, 65, 0.3);
-    color: #f4c342;
+    border-color: rgba(37, 163, 102, 0.3);
+    color: #25a366;
 }
 
 .catChipActive {
-    background: linear-gradient(135deg, rgba(244, 195, 65, 0.15), rgba(244, 195, 65, 0.08));
-    border-color: rgba(244, 195, 65, 0.5);
-    color: #f4c342;
+    background: linear-gradient(135deg, rgba(37, 163, 102, 0.15), rgba(37, 163, 102, 0.08));
+    border-color: rgba(37, 163, 102, 0.5);
+    color: #25a366;
     font-weight: 600;
 }
 
@@ -343,8 +343,8 @@
 
 .productCard:hover {
     transform: translateY(-6px);
-    border-color: rgba(244, 195, 65, 0.2);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(244, 195, 65, 0.05);
+    border-color: rgba(37, 163, 102, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(37, 163, 102, 0.05);
 }
 
 .productImageWrap {
@@ -410,7 +410,7 @@
 
 .productCategory {
     font-size: 0.7rem;
-    color: #f4c342;
+    color: #25a366;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -432,7 +432,7 @@
 }
 
 .productName:hover {
-    color: #f4c342;
+    color: #25a366;
 }
 
 .productPricing {
@@ -445,7 +445,7 @@
 .productPrice {
     font-size: 1.2rem;
     font-weight: 800;
-    color: #f4c342;
+    color: #25a366;
 }
 
 .originalPrice {
@@ -462,15 +462,15 @@
     font-weight: 600;
     cursor: pointer;
     border: none;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
-    color: #1a1200;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #ffffff;
     transition: all 0.2s;
 }
 
 .addToCartBtn:hover:not(:disabled) {
     filter: brightness(1.1);
     transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(244, 195, 65, 0.3);
+    box-shadow: 0 4px 15px rgba(37, 163, 102, 0.3);
 }
 
 .addToCartDisabled {
@@ -623,7 +623,7 @@
 }
 
 .cartItem:hover {
-    border-color: rgba(244, 195, 65, 0.15);
+    border-color: rgba(37, 163, 102, 0.15);
 }
 
 .cartItemImage {
@@ -640,7 +640,7 @@
 
 .cartItemCategory {
     font-size: 0.7rem;
-    color: #f4c342;
+    color: #25a366;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -717,7 +717,7 @@
 .cartItemTotal {
     font-size: 1.15rem;
     font-weight: 800;
-    color: #f4c342;
+    color: #25a366;
 }
 
 .removeBtn {
@@ -814,8 +814,8 @@
     width: 100%;
     padding: 1rem;
     margin-top: 1.25rem;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
-    color: #1a1200;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #ffffff;
     border: none;
     border-radius: 12px;
     font-size: 1rem;
@@ -829,7 +829,7 @@
 .placeOrderBtn:hover:not(:disabled) {
     filter: brightness(1.08);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(244, 195, 65, 0.35);
+    box-shadow: 0 6px 20px rgba(37, 163, 102, 0.35);
 }
 
 .placeOrderBtn:disabled {
@@ -860,8 +860,8 @@
 .shopNowBtn {
     margin-top: 1rem;
     padding: 0.85rem 2.5rem;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
-    color: #1a1200;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #ffffff;
     border: none;
     border-radius: 50px;
     font-size: 1rem;
@@ -951,9 +951,9 @@
 
 .formInput:focus,
 .formTextarea:focus {
-    border-color: rgba(244, 195, 65, 0.4);
+    border-color: rgba(37, 163, 102, 0.4);
     background: rgba(255, 255, 255, 0.07);
-    box-shadow: 0 0 0 3px rgba(244, 195, 65, 0.06);
+    box-shadow: 0 0 0 3px rgba(37, 163, 102, 0.06);
 }
 
 .paymentOptions {
@@ -975,12 +975,12 @@
 }
 
 .paymentOption:hover {
-    border-color: rgba(244, 195, 65, 0.3);
+    border-color: rgba(37, 163, 102, 0.3);
 }
 
 .paymentOptionActive {
-    border-color: rgba(244, 195, 65, 0.6) !important;
-    background: rgba(244, 195, 65, 0.07) !important;
+    border-color: rgba(37, 163, 102, 0.6) !important;
+    background: rgba(37, 163, 102, 0.07) !important;
 }
 
 .payIcon {
@@ -1273,7 +1273,7 @@
 
 .modalCategory {
     font-size: 0.7rem;
-    color: #f4c342;
+    color: #25a366;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -1295,7 +1295,7 @@
 .modalPrice {
     font-size: 2rem;
     font-weight: 800;
-    color: #f4c342;
+    color: #25a366;
 }
 
 .modalOriginal {
@@ -1330,7 +1330,7 @@
 }
 
 .stockLow {
-    color: #f4c342;
+    color: #25a366;
 }
 
 .stockOut {
@@ -1339,8 +1339,8 @@
 
 .modalAddBtn {
     padding: 1rem 1.5rem;
-    background: linear-gradient(135deg, #f4c342, #e8a020);
-    color: #1a1200;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #ffffff;
     border: none;
     border-radius: 12px;
     font-size: 1rem;
@@ -1353,7 +1353,7 @@
 .modalAddBtn:hover:not(:disabled) {
     filter: brightness(1.08);
     transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(244, 195, 65, 0.35);
+    box-shadow: 0 5px 20px rgba(37, 163, 102, 0.35);
 }
 
 /* ── FOOTER ───────────────────────────────────────────────────────────────── */

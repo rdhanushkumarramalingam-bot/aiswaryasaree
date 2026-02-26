@@ -30,7 +30,7 @@ export default function ProductsPage() {
 
     const shareToStatus = (product) => {
         const url = getShopUrl(product.id);
-        const text = encodeURIComponent(`🌸 Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
+        const text = encodeURIComponent(`💮 Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
         window.open(`https://wa.me/?text=${text}`, '_self');
     };
 
@@ -295,7 +295,7 @@ export default function ProductsPage() {
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                         ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>🌸</div>
+                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>💮</div>
                                         )}
                                         {/* Stock badge */}
                                         <div style={{ position: 'absolute', top: '10px', right: '10px' }}>

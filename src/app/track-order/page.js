@@ -76,7 +76,7 @@ function TrackOrderContent() {
                 <Link href="/shop" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))', fontSize: '0.9rem' }}>
                     <ArrowLeft size={18} /> Back to Shop
                 </Link>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'hsl(var(--primary))' }}>🌸 Cast Prince</div>
+                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'hsl(var(--primary))' }}>💮 Cast Prince</div>
                 <div style={{ width: 80 }}></div> {/* spacer */}
             </div>
 

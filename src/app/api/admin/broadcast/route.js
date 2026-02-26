@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sendRawMessage } from '@/services/whatsappService';
 
 // Admin Broadcast Route - Handles sending bulk messages to customers
-// v2.0 - Shop Now opens store, Add to Cart opens product page
+// v3.0 - Product image + Shop Now + Add to Cart buttons
 
 export async function POST(req) {
     try {
@@ -13,7 +13,8 @@ export async function POST(req) {
         let payload;
 
         if (product && product.image_url) {
-            // Send product image with "Shop Now" CTA button
+            // ── Message 1: Product Image + "Add to Cart" button ──
+            // Send product image with details and Add to Cart CTA
             payload = {
                 messaging_product: "whatsapp",
                 recipient_type: "individual",
@@ -26,7 +27,7 @@ export async function POST(req) {
                         image: { link: product.image_url }
                     },
                     body: {
-                        text: `*${product.name}*\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${message}\n\n🛒 Tap "Add to Cart" to order this product directly!\n🛍️ Tap "Shop Now" to browse our full collection.`
+                        text: `*${product.name}*\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${message}`
                     },
                     footer: { text: "Cast Prince • Exclusive Collection" },
                     action: {
@@ -41,7 +42,7 @@ export async function POST(req) {
 
             await sendRawMessage(to, payload);
 
-            // Second message: Shop Now button to browse the full store
+            // ── Message 2: "Shop Now" button to browse the full store ──
             await sendRawMessage(to, {
                 messaging_product: "whatsapp",
                 recipient_type: "individual",
@@ -49,7 +50,7 @@ export async function POST(req) {
                 type: "interactive",
                 interactive: {
                     type: "cta_url",
-                    body: { text: "🛍️ Or browse our full collection:" },
+                    body: { text: "🛍️ Browse our full collection:" },
                     action: {
                         name: "cta_url",
                         parameters: {

@@ -248,7 +248,7 @@ async function generateAndUploadInvoice(order) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "🌸 *Welcome to Cast Prince!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "💮 *Welcome to Cast Prince!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
@@ -806,7 +806,7 @@ export async function processIncomingMessage(body) {
                 const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
                 const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
-                    `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 🌸`
+                    `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 💮`
                 );
             }
             if (id === 'menu_browse') return await sendCatalog(from);

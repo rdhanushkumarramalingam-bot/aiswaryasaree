@@ -39,7 +39,7 @@ export default function AdminSidebar({ isOpen }) {
                     fontSize: '1.5rem', color: 'hsl(var(--bg-app))',
                     boxShadow: '0 0 15px hsl(var(--primary) / 0.4)'
                 }}>
-                    🌸
+                    💮
                 </div>
                 <div>
                     <h1 style={{

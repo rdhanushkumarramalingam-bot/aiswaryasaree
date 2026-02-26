@@ -53,7 +53,7 @@ export default function BroadcastPage() {
                 // Construct the message
                 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
                 const shopUrl = baseUrl + '/shop';
-                const addToCartUrl = selectedProduct ? `${baseUrl}/shop?pid=${selectedProduct.id}` : shopUrl;
+                const addToCartUrl = selectedProduct ? `${baseUrl}/shop?pid=${selectedProduct.id}&action=addtocart` : shopUrl;
 
                 await fetch('/api/admin/broadcast', {
                     method: 'POST',

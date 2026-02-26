@@ -150,7 +150,7 @@ function InvoiceContent() {
 
                         <div>
 
-                            <div style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: 'hsl(var(--primary))' }}>🌸 Cast Prince</div>
+                            <div style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: 'hsl(var(--primary))' }}>💮 Cast Prince</div>
 
                             <div style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Premium Ethnic Wear</div>
 

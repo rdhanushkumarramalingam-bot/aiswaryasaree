@@ -30,6 +30,8 @@ function ShopContent() {
 
     const pidInput = searchParams.get('pid') || '';
 
+    const actionInput = searchParams.get('action') || '';
+
 
 
     // ── STATE ──
@@ -160,7 +162,19 @@ function ShopContent() {
 
                 setCart([{ ...target, qty: 1 }]);
 
-                setView('checkout');
+                // If action=addtocart, go to cart view; otherwise go to checkout
+
+                if (actionInput === 'addtocart') {
+
+                    setView('cart');
+
+                    showToast(`✨ ${target.name} added to cart!`);
+
+                } else {
+
+                    setView('checkout');
+
+                }
 
                 setSelectedProduct(null);
 
@@ -168,7 +182,7 @@ function ShopContent() {
 
         }
 
-    }, [whatsappPhone, pidInput, products]);
+    }, [whatsappPhone, pidInput, actionInput, products]);
 
 
 
@@ -545,7 +559,7 @@ function ShopContent() {
 
                     <div className={styles.logo}>
 
-                        <span className={styles.logoIcon}>🌸</span>
+                        <span className={styles.logoIcon}>💮</span>
 
                         <div>
 
@@ -697,7 +711,7 @@ function ShopContent() {
 
                             <div className={styles.emptyState}>
 
-                                <div className={styles.emptyIcon}>🌸</div>
+                                <div className={styles.emptyIcon}>💮</div>
 
                                 <h3>No sarees found</h3>
 
@@ -1115,7 +1129,7 @@ function ShopContent() {
 
                 <div className={styles.footerContent}>
 
-                    <div>🌸 Cast Prince — Premium Ethnic Wear</div>
+                    <div>💮 Cast Prince — Premium Ethnic Wear</div>
 
                     <div>📱 WhatsApp: <a href={`https://wa.me/15551678232`} target="_self" style={{ color: '#25D366' }}>+1 555 167 8232</a></div>
 
