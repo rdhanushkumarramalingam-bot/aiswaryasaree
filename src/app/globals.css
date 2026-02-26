@@ -13,11 +13,11 @@
   --bg-card: 222 40% 13%;
   /* #141C33 - Card surface */
 
-  /* Gold Accents - More Metallic */
-  --primary: 45 93% 58%;
-  /* #F4D03F - Classic Champagne Gold */
-  --primary-light: 45 93% 70%;
-  --primary-dark: 45 60% 45%;
+  /* Green Accents */
+  --primary: 152 76% 45%;
+  /* Emerald Green */
+  --primary-light: 152 70% 60%;
+  --primary-dark: 152 60% 35%;
 
   --secondary: 265 50% 60%;
   /* #9B72CF - Royal Purple (Subtle) */
@@ -212,16 +212,16 @@ p {
 }
 
 .sidebar a.active {
-  background: linear-gradient(90deg, hsl(var(--success) / 0.15), transparent);
-  border: 1px solid hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.15), transparent);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  color: hsl(var(--primary));
   font-weight: 600;
-  box-shadow: 0 4px 12px -5px hsl(var(--success) / 0.2);
+  box-shadow: 0 4px 12px -5px hsl(var(--primary) / 0.2);
 }
 
 .sidebar a.active svg {
-  stroke: hsl(var(--success));
-  filter: drop-shadow(0 0 5px hsl(var(--success) / 0.5));
+  stroke: hsl(var(--primary));
+  filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.5));
 }
 
 /* ── Glass Cards ── */
@@ -259,8 +259,8 @@ p {
 
 .btn-primary {
   background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
-  color: hsl(222 47% 10%);
-  /* Dark text on gold */
+  color: #fff;
+  /* White text on green */
   font-weight: 600;
   box-shadow: 0 4px 15px hsl(var(--primary) / 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }

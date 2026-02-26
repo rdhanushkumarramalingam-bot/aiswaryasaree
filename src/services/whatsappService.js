@@ -624,10 +624,12 @@ export async function handlePaymentConfirmed(to, orderId) {
 }
 export async function handleTrackOrder(to) {
     const { data: orders } = await supabase.from('orders').select('*').eq('customer_phone', to).neq('status', 'DRAFT').order('created_at', { ascending: false }).limit(1);
-    if (!orders?.length) return sendText(to, "No previous orders found.");
+    if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
 
     const o = orders[0];
-    await sendText(to, `📦 *Last Order Details*\n\nID: #${o.id}\nStatus: ${o.status}\nAmount: ₹${o.total_amount}\nDate: ${new Date(o.created_at).toLocaleDateString()}\n\nSend 'Menu' for options.`);
+    await sendButtons(to, `📦 *Last Order Details*\n\nID: #${o.id}\nStatus: ${o.status}\nAmount: ₹${o.total_amount}\nDate: ${new Date(o.created_at).toLocaleDateString()}`, [
+        { id: "menu_main", title: "🏠 Main Menu" }
+    ]);
 }
 
 export async function handleContact(to) {
