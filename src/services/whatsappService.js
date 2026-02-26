@@ -388,12 +388,14 @@ export async function sendProductsByCategory(to, categoryIdRaw, startOffset = 0)
     }
 }
 
-export async function handleAddToCart(to, productIdRaw) {
+export async function handleAddToCart(to, productIdRaw, directViewCart = false) {
     const productId = productIdRaw.replace('addcart_', '');
     const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
     if (!product || product.stock < 1) return sendText(to, "⚠️ Sorry, this item is out of stock.");
 
     await addToCart(to, product, 1);
+
+    if (directViewCart) return await handleViewCart(to);
 
     // Fetch updated quantity
     const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).single();
@@ -824,6 +826,7 @@ export async function processIncomingMessage(body) {
                 return await sendProductsByCategory(from, catId, offset);
             }
             if (id.startsWith('addcart_')) return await handleAddToCart(from, id);
+            if (id.startsWith('bc_addcart_')) return await handleAddToCart(from, id.replace('bc_addcart_', 'addcart_'), true);
 
 
             if (id === 'clear_cart') {

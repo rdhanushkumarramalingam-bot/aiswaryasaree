@@ -21,21 +21,26 @@ export async function POST(req) {
                 to,
                 type: "interactive",
                 interactive: {
-                    type: "cta_url",
+                    type: "button",
                     header: {
                         type: "image",
                         image: { link: product.image_url }
                     },
                     body: {
-                        text: `*${product.name}*\n\n${message}`
+                        text: `*${product.name}*\n\n${message}\n\n🌐 View our collection:\n${shopUrl.split('?')[0]}` // Ensure no ?pid= attached just in case
                     },
                     footer: { text: "Cast Prince • Exclusive Collection" },
                     action: {
-                        name: "cta_url",
-                        parameters: {
-                            display_text: "🛒 Shop Now",
-                            url: shopUrl
-                        }
+                        buttons: [
+                            {
+                                type: "reply",
+                                reply: { id: `bc_addcart_${product.id}`, title: "🛒 Add to Cart" }
+                            },
+                            {
+                                type: "reply",
+                                reply: { id: "menu_shop_web", title: "🛍️ Shop Now" }
+                            }
+                        ]
                     }
                 }
             };
