@@ -191,7 +191,7 @@ export default function CustomersPage() {
                                                     {new Date(customer.lastOrder).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    <a href={`https://wa.me/${customer.phone}`} target="_blank" rel="noopener noreferrer"
+                                                    <a href={`https://wa.me/${customer.phone}`} target="_self"
                                                         onClick={(e) => e.stopPropagation()}
                                                         className="btn"
                                                         style={{
@@ -285,7 +285,7 @@ export default function CustomersPage() {
                                         ))}
                                     </div>
 
-                                    <a href={`https://wa.me/${selectedCustomer.phone}`} target="_blank" rel="noopener noreferrer" style={{
+                                    <a href={`https://wa.me/${selectedCustomer.phone}`} target="_self" style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
                                         padding: '1rem', background: 'hsl(var(--success))', color: 'hsl(var(--bg-app))', marginTop: '2rem',
                                         borderRadius: 'var(--radius-sm)', fontWeight: 700, fontSize: '0.95rem',

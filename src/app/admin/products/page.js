@@ -31,7 +31,7 @@ export default function ProductsPage() {
     const shareToStatus = (product) => {
         const url = getShopUrl(product.id);
         const text = encodeURIComponent(`🌸 Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
+        window.open(`https://wa.me/?text=${text}`, '_self');
     };
 
     const fetchProducts = async () => {

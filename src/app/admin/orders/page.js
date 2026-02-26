@@ -301,7 +301,7 @@ export default function OrdersPage() {
                                             <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <Phone size={14} /> {selectedOrder.customer_phone}
                                             </div>
-                                            <a href={`https://wa.me/${selectedOrder.customer_phone}`} target="_blank" rel="noopener noreferrer"
+                                            <a href={`https://wa.me/${selectedOrder.customer_phone}`} target="_self"
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: '#25D366', fontWeight: 600, fontSize: '0.85rem' }}>
                                                 <MessageCircle size={16} /> Chat on WhatsApp
                                             </a>
@@ -318,7 +318,7 @@ export default function OrdersPage() {
                                                 ₹{(selectedOrder.total_amount || 0).toLocaleString()}
                                             </div>
                                             {selectedOrder.invoice_url && (
-                                                <a href={selectedOrder.invoice_url} target="_blank" rel="noopener noreferrer"
+                                                <a href={selectedOrder.invoice_url} target="_self"
                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: 'hsl(var(--info))', fontWeight: 600, fontSize: '0.85rem' }}>
                                                     <Download size={16} /> Download Invoice
                                                 </a>

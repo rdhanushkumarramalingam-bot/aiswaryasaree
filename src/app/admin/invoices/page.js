@@ -300,7 +300,7 @@ export default function InvoicesPage() {
                             }} title="Print">
                                 <Printer size={20} />
                             </button>
-                            <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_blank" rel="noopener noreferrer" style={{
+                            <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_self" style={{
                                 width: '3rem', height: '3rem', borderRadius: '50%',
                                 background: '#25D366', color: 'white', border: 'none',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',

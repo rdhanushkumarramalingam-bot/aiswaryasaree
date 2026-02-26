@@ -174,7 +174,7 @@ function ShopContent() {
             await supabase.from('order_items').insert(items);
 
             const message = encodeURIComponent(`Finish Order #${orderId}`);
-            window.location.href = `https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`;
+            window.open(`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`, '_self');
         } catch (err) {
             console.error(err);
             showToast('Failed to start checkout. Please try again.', 'error');
@@ -255,7 +255,7 @@ function ShopContent() {
 
     function goToWhatsApp(orderId) {
         const message = encodeURIComponent(`Hi! I just placed an order #${orderId} on your website. Please confirm.`);
-        window.location.href = `https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`;
+        window.open(`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`, '_self');
     }
 
     // ── RENDER ──
@@ -559,7 +559,7 @@ function ShopContent() {
             <footer className={styles.footer}>
                 <div className={styles.footerContent}>
                     <div>🌸 Aiswarya Sarees — Premium Ethnic Wear</div>
-                    <div>📱 WhatsApp: <a href="https://wa.me/15551678232" style={{ color: '#25D366' }}>+1 555 167 8232</a></div>
+                    <div>📱 WhatsApp: <a href={`https://wa.me/15551678232`} target="_self" style={{ color: '#25D366' }}>+1 555 167 8232</a></div>
                 </div>
             </footer>
         </div>
