@@ -15,6 +15,7 @@ export default function ProductsPage() {
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
     const [copiedId, setCopiedId] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
+    const [groupFilter, setGroupFilter] = useState('ALL');
 
     const getShopUrl = (pid) => {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -59,6 +60,7 @@ export default function ProductsPage() {
         const productData = {
             name: formData.get('name'),
             category: formData.get('category'),
+            product_group: formData.get('product_group') || null,
             price: Number(formData.get('price')),
             stock: Number(formData.get('stock')),
             image_url: formData.get('image') || '',
@@ -87,12 +89,15 @@ export default function ProductsPage() {
     };
 
     const categories = ['ALL', ...new Set(products.map(p => p.category).filter(Boolean))];
+    const groups = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
     let filtered = products.filter(p => {
         const term = searchTerm.toLowerCase();
         return (
             (p.name || '').toLowerCase().includes(term) ||
-            (p.category || '').toLowerCase().includes(term)
-        ) && (categoryFilter === 'ALL' || p.category === categoryFilter);
+            (p.category || '').toLowerCase().includes(term) ||
+            (p.product_group || '').toLowerCase().includes(term)
+        ) && (categoryFilter === 'ALL' || p.category === categoryFilter)
+            && (groupFilter === 'ALL' || p.product_group === groupFilter);
     });
     filtered.sort((a, b) => {
         if (sortBy === 'low_stock') return (a.stock || 0) - (b.stock || 0);
@@ -150,6 +155,24 @@ export default function ProductsPage() {
                     </button>
                 ))}
             </div>
+
+            {/* Group Tags Filter */}
+            {groups.length > 1 && (
+                <div className="admin-filter-row" style={{ marginTop: '-0.75rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>🏷️ Groups:</span>
+                    {groups.map(grp => (
+                        <button key={grp} onClick={() => setGroupFilter(grp)} style={{
+                            padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600,
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            background: groupFilter === grp ? 'hsl(var(--accent))' : 'hsl(var(--bg-card))',
+                            color: groupFilter === grp ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                            border: groupFilter === grp ? '1px solid hsl(var(--accent))' : '1px solid hsl(var(--border-subtle))',
+                        }}>
+                            {grp === 'ALL' ? 'All Groups' : grp}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Toolbar */}
             <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -211,6 +234,7 @@ export default function ProductsPage() {
                                     <th>#</th>
                                     <th>Product</th>
                                     <th>Category</th>
+                                    <th>Group</th>
                                     <th style={{ textAlign: 'right' }}>Price</th>
                                     <th style={{ textAlign: 'center' }}>Stock</th>
                                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -218,7 +242,7 @@ export default function ProductsPage() {
                             </thead>
                             <tbody>
                                 {filtered.length === 0 ? (
-                                    <tr><td colSpan={6} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
+                                    <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
                                 ) : filtered.map((product, idx) => (
                                     <tr key={product.id}>
                                         <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
@@ -246,6 +270,15 @@ export default function ProductsPage() {
                                             <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' }}>
                                                 {product.category}
                                             </span>
+                                        </td>
+                                        <td>
+                                            {product.product_group ? (
+                                                <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
+                                                    🏷️ {product.product_group}
+                                                </span>
+                                            ) : (
+                                                <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
+                                            )}
                                         </td>
                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                         <td style={{ textAlign: 'center' }}>
@@ -306,7 +339,14 @@ export default function ProductsPage() {
                                     </div>
                                     {/* Info */}
                                     <div style={{ padding: '1rem' }}>
-                                        <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>{product.category}</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {product.category}
+                                            {product.product_group && (
+                                                <span style={{ padding: '1px 6px', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
+                                                    {product.product_group}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.95rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
                                         <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.description || '—'}</div>
                                         <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
@@ -385,6 +425,11 @@ export default function ProductsPage() {
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
                                 <textarea name="description" defaultValue={currentProduct?.description} rows={3}
                                     style={{ ...inputStyle, resize: 'vertical' }} placeholder="Fabric, colors, design details..." />
+                            </div>
+                            <div style={{ marginTop: '1.25rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>🏷️ Product Group / Tag</label>
+                                <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" style={inputStyle} />
+                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted) / 0.7)', marginTop: '4px' }}>Group products together for easy filtering & broadcast targeting</div>
                             </div>
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>

@@ -470,36 +470,31 @@ function ShopContent() {
 
 
 
-            await fetch('/api/whatsapp/order-notify', {
-
-                method: 'POST',
-
-                headers: { 'Content-Type': 'application/json' },
-
-                body: JSON.stringify({
-
-                    orderId,
-
-                    customerPhone: fullPhone,
-
-                    customerName: checkoutForm.name,
-
-                    address: fullAddress,
-
-                    items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-
-                    total: finalTotal,
-
-                    paymentMethod: checkoutForm.paymentMethod
-
-                })
-
-            });
-
-
+            // Send WhatsApp notification with full order details
+            try {
+                await fetch('/api/whatsapp/order-notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId,
+                        customerPhone: fullPhone,
+                        customerName: checkoutForm.name,
+                        address: fullAddress,
+                        items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+                        total: finalTotal,
+                        paymentMethod: checkoutForm.paymentMethod
+                    })
+                });
+            } catch (notifyErr) {
+                console.error('WhatsApp notification failed:', notifyErr);
+            }
 
             setCart([]);
             showToast('Order Placed! Redirecting to WhatsApp...', 'success');
+
+            // Wait 2 seconds for WhatsApp notification to be delivered before redirecting
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             const message = encodeURIComponent(`please confirm is this your order in the website? Order #${orderId}`);
             window.open(`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=${message}`, '_self');
 

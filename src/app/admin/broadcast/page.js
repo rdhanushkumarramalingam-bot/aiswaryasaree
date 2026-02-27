@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Megaphone, Users, MessageSquare, Send, CheckCircle2, Loader2, Search, ArrowRight, Package } from 'lucide-react';
+import { Megaphone, Users, MessageSquare, Send, CheckCircle2, Loader2, Search, ArrowRight, Package, Tag } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function BroadcastPage() {
@@ -15,6 +15,7 @@ export default function BroadcastPage() {
     const [stats, setStats] = useState({ sent: 0, total: 0 });
     const [completed, setCompleted] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
+    const [broadcastGroupFilter, setBroadcastGroupFilter] = useState('ALL');
 
     useEffect(() => {
         setHasMounted(true);
@@ -52,8 +53,9 @@ export default function BroadcastPage() {
             try {
                 // Construct the message
                 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-                const shopUrl = baseUrl + '/shop';
-                const addToCartUrl = selectedProduct ? `${baseUrl}/shop?pid=${selectedProduct.id}&action=addtocart` : shopUrl;
+                const customerPhone = customer.customer_phone;
+                const shopUrl = `${baseUrl}/shop?phone=${encodeURIComponent(customerPhone)}`;
+                const addToCartUrl = selectedProduct ? `${baseUrl}/shop?pid=${selectedProduct.id}&action=addtocart&phone=${encodeURIComponent(customerPhone)}` : shopUrl;
 
                 await fetch('/api/admin/broadcast', {
                     method: 'POST',
@@ -97,13 +99,34 @@ export default function BroadcastPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {/* Step 1: Select Product */}
                             <div className="card" style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                                     <div className="badge badge-delivered" style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>
                                     <h3 style={{ margin: 0 }}>Select Saree / Collection</h3>
                                 </div>
 
+                                {/* Group Filter Tabs */}
+                                {(() => {
+                                    const groupList = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
+                                    return groupList.length > 1 ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem', alignItems: 'center' }}>
+                                            <Tag size={14} style={{ color: 'hsl(var(--text-muted))' }} />
+                                            {groupList.map(g => (
+                                                <button key={g} onClick={() => setBroadcastGroupFilter(g)} style={{
+                                                    padding: '0.3rem 0.75rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 600,
+                                                    cursor: 'pointer', transition: 'all 0.2s',
+                                                    background: broadcastGroupFilter === g ? 'hsl(var(--accent))' : 'hsl(var(--bg-app))',
+                                                    color: broadcastGroupFilter === g ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                                    border: broadcastGroupFilter === g ? '1px solid hsl(var(--accent))' : '1px solid hsl(var(--border-subtle))',
+                                                }}>
+                                                    {g === 'ALL' ? 'All Groups' : g}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : null;
+                                })()}
+
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', maxHeight: '400px', overflowY: 'auto', padding: '0.5rem' }}>
-                                    {products.map(p => (
+                                    {products.filter(p => broadcastGroupFilter === 'ALL' || p.product_group === broadcastGroupFilter).map(p => (
                                         <div
                                             key={p.id}
                                             onClick={() => setSelectedProduct(p)}
@@ -120,7 +143,14 @@ export default function BroadcastPage() {
                                                 <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             </div>
                                             <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                            <div style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontSize: '0.8rem' }}>₹{p.price.toLocaleString()}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontSize: '0.8rem' }}>₹{p.price.toLocaleString()}</span>
+                                                {p.product_group && (
+                                                    <span style={{ padding: '1px 5px', borderRadius: '9999px', fontSize: '0.6rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))' }}>
+                                                        {p.product_group}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

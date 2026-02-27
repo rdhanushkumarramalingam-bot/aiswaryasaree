@@ -284,8 +284,9 @@ export async function sendMainMenu(to) {
         }
     });
 
-    // ── Message 2: Quick actions ──
-    await sendButtons(to, "Manage your orders:", [
+    // ── Message 2: Quick actions with View Catalogue ──
+    await sendButtons(to, "Explore our collections & manage orders:", [
+        { id: "menu_catalogue", title: "📖 View Catalogue" },
         { id: "menu_track", title: "My Orders" },
         { id: "menu_contact", title: "Contact Us" }
     ]);
@@ -304,6 +305,142 @@ export async function sendCatalog(to) {
         { id: "cat_designer", title: "💎 Designer Studio", description: "Party & Bridal" },
         { id: "cat_all", title: "🌟 View All", description: "Full Inventory" }
     ]);
+}
+
+// ─── CATALOGUE FLOW (Dynamic categories from DB) ────────────────────────────
+
+const CATEGORY_EMOJIS = {
+    'silk saree': '✨', 'cotton saree': '🌿', 'designer': '💎',
+    'georgette': '🌸', 'banarasi': '🏛️', 'chiffon': '🦋',
+    'linen': '🌾', 'pattu': '🪔', 'kanjivaram': '👑',
+    'organza': '💫', 'tussar': '🍂', 'crepe': '🌙'
+};
+
+function getCategoryEmoji(category) {
+    const lower = (category || '').toLowerCase();
+    for (const [key, emoji] of Object.entries(CATEGORY_EMOJIS)) {
+        if (lower.includes(key)) return emoji;
+    }
+    return '🧵';
+}
+
+export async function sendCatalogueCategories(to) {
+    // Dynamically fetch all distinct categories from the products table
+    const { data: products } = await supabase
+        .from('products')
+        .select('category')
+        .eq('is_active', true);
+
+    // Count products per category
+    const catMap = {};
+    (products || []).forEach(p => {
+        if (p.category) {
+            catMap[p.category] = (catMap[p.category] || 0) + 1;
+        }
+    });
+
+    const categories = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+
+    if (categories.length === 0) {
+        return sendText(to, "⚠️ Our catalogue is being updated. Please check back soon!");
+    }
+
+    // Build list rows — max 10 rows in a WhatsApp list
+    const rows = categories.slice(0, 9).map(([cat, count]) => ({
+        id: `ctlg_${cat.replace(/\s+/g, '_').toLowerCase()}`,
+        title: `${getCategoryEmoji(cat)} ${cat}`,
+        description: `${count} saree${count > 1 ? 's' : ''} available`
+    }));
+
+    // Always add a "View All" option
+    rows.push({
+        id: 'ctlg_all',
+        title: '🌟 View All Sarees',
+        description: `${products.length} total sarees`
+    });
+
+    await sendList(to, "📖 SAREE CATALOGUE", "Browse our premium saree collections by type:\n\nSelect a category to view all sarees:", "Browse Types", rows);
+}
+
+export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
+    // typeIdRaw is like 'ctlg_silk_saree' or 'ctlg_all' or 'ctlg_page_silk_saree_50'
+    const typeId = typeIdRaw.replace('ctlg_page_', '').replace('ctlg_', '').replace(/_\d+$/, '');
+
+    let categoryName = 'All Sarees';
+    let searchFilter = null;
+
+    if (typeId !== 'all') {
+        // Convert back from snake_case to find matching category
+        const searchTerm = typeId.replace(/_/g, ' ');
+        categoryName = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
+        searchFilter = searchTerm;
+    }
+
+    if (startOffset === 0) await sendText(to, `📖 Loading *${categoryName}* catalogue...`);
+
+    console.log(`[WA] Catalogue fetch: type=${typeId}, filter=${searchFilter}, offset=${startOffset}`);
+
+    let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
+    if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
+
+    const streamId = startStream(to);
+
+    let { data: prods, count } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_SIZE - 1);
+
+    if (!prods || prods.length === 0) {
+        if (startOffset === 0) {
+            return sendButtons(to, `⚠️ No sarees found in *${categoryName}* right now.`, [
+                { id: "menu_catalogue", title: "📖 Back to Catalogue" },
+                { id: "menu_main", title: "🏠 Main Menu" }
+            ]);
+        }
+        return sendText(to, "⚠️ No more items in this category.");
+    }
+
+    console.log(`[WA] Catalogue: found ${prods.length} products (Total: ${count})`);
+
+    let sentCount = 0;
+    for (const p of prods) {
+        if (!isStreamActive(to, streamId)) {
+            console.log('[WA] Catalogue stream cancelled for', to);
+            return;
+        }
+
+        const stockStatus = p.stock < 1 ? "❌ OUT OF STOCK" : p.stock < 5 ? `⚠️ Only ${p.stock} left!` : "✅ In Stock";
+        const groupTag = p.product_group ? `\n🏷️ ${p.product_group}` : '';
+        const caption = `📖 *${p.name}*\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
+
+        const buttons = p.stock > 0
+            ? [{ id: `addcart_${p.id}`, title: "🛒 Add to Bag" }]
+            : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
+
+        try {
+            await sendImageButtons(to, getPremiumImage(p), caption, buttons);
+            sentCount++;
+        } catch (err) {
+            console.error(`[WA] Catalogue image failed for ${p.id}`, err);
+            await sendText(to, caption + "\n[Image upload failed]");
+        }
+        await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (!isStreamActive(to, streamId)) return;
+
+    const nextOffset = startOffset + sentCount;
+    const hasMore = count > (startOffset + PAGE_SIZE);
+
+    if (hasMore) {
+        await sendButtons(to, `👇 Showing ${sentCount} of ${count} sarees.`, [
+            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Load More" },
+            { id: "menu_catalogue", title: "📖 Back to Types" }
+        ]);
+    } else {
+        await sendButtons(to, `✅ That's all ${count} saree${count > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
+            { id: "menu_catalogue", title: "📖 More Types" },
+            { id: "menu_cart", title: "👜 View Bag" },
+            { id: "menu_main", title: "🏠 Main Menu" }
+        ]);
+    }
 }
 
 const PAGE_SIZE = 50;
@@ -684,6 +821,7 @@ export async function processIncomingMessage(body) {
             }
             if (MENU_TRIGGERS.includes(text)) return await sendMainMenu(from);
             if (['cart', 'bag'].includes(text)) return await handleViewCart(from);
+            if (['catalogue', 'catalog', 'browse'].includes(text)) return await sendCatalogueCategories(from);
             if (text === 'contact') return await handleContact(from);
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
@@ -810,9 +948,20 @@ export async function processIncomingMessage(body) {
                 );
             }
             if (id === 'menu_browse') return await sendCatalog(from);
+            if (id === 'menu_catalogue') return await sendCatalogueCategories(from);
             if (id === 'menu_cart') return await handleViewCart(from);
             if (id === 'menu_track' || id === 'menu_my_orders') return await handleTrackOrder(from);
             if (id === 'menu_contact') return await handleContact(from);
+
+            // ── Catalogue flow: ctlg_ and ctlg_page_ ──
+            if (id.startsWith('ctlg_page_')) {
+                // Paginated catalogue: ctlg_page_silk_saree_50
+                const parts = id.replace('ctlg_page_', '').split('_');
+                const offset = parseInt(parts.pop());
+                const typeId = parts.join('_');
+                return await sendCatalogueByType(from, typeId, offset);
+            }
+            if (id.startsWith('ctlg_')) return await sendCatalogueByType(from, id);
 
             if (id.startsWith('cat_')) return await sendProductsByCategory(from, id);
             if (id.startsWith('page_')) {
