@@ -17,6 +17,12 @@ export default function ProductsPage() {
     const [hasMounted, setHasMounted] = useState(false);
     const [groupFilter, setGroupFilter] = useState('ALL');
 
+    // Facebook Integration States
+    const [postToFacebook, setPostToFacebook] = useState(false);
+    const [fbProcessing, setFbProcessing] = useState(false);
+    const [fbConfig, setFbConfig] = useState({ pageId: '', accessToken: '' });
+    const router = useRouter();
+
     const getShopUrl = (pid) => {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
         return `${baseUrl}/shop?pid=${pid}`;
@@ -47,9 +53,27 @@ export default function ProductsPage() {
         }
     };
 
+    const fetchFbConfig = async () => {
+        try {
+            const { data } = await supabase.from('app_settings')
+                .select('*')
+                .in('key', ['fb_page_id', 'fb_page_access_token']);
+
+            const config = { pageId: '', accessToken: '' };
+            data?.forEach(item => {
+                if (item.key === 'fb_page_id') config.pageId = item.value;
+                if (item.key === 'fb_page_access_token') config.accessToken = item.value;
+            });
+            setFbConfig(config);
+        } catch (error) {
+            console.error('Error fetching FB config:', error);
+        }
+    };
+
     useEffect(() => {
         setHasMounted(true);
         fetchProducts();
+        fetchFbConfig();
     }, []);
 
     if (!hasMounted) return null;
@@ -68,18 +92,47 @@ export default function ProductsPage() {
             is_active: true
         };
         try {
+            let savedProduct = null;
             if (currentProduct?.id) {
-                await supabase.from('products').update(productData).eq('id', currentProduct.id);
+                const { data } = await supabase.from('products').update(productData).eq('id', currentProduct.id).select();
+                savedProduct = data?.[0];
             } else {
-                await supabase.from('products').insert([productData]);
+                const { data } = await supabase.from('products').insert([productData]).select();
+                savedProduct = data?.[0];
             }
+
+            // Handle Facebook Posting
+            if (postToFacebook && savedProduct && fbConfig.pageId && fbConfig.accessToken) {
+                setFbProcessing(true);
+                try {
+                    await fetch('/api/facebook/post', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            imageUrl: productData.image_url,
+                            name: productData.name,
+                            price: productData.price,
+                            description: productData.description,
+                            pageId: fbConfig.pageId,
+                            accessToken: fbConfig.accessToken
+                        })
+                    });
+                } catch (fbErr) {
+                    console.error('Facebook posting failed:', fbErr);
+                } finally {
+                    setFbProcessing(false);
+                }
+            }
+
             fetchProducts();
             setIsEditing(false);
             setCurrentProduct(null);
+            setPostToFacebook(false);
         } catch (error) {
             alert('Failed to save product');
         }
     };
+
 
     const handleDelete = async (id) => {
         if (confirm('Delete this saree?')) {
@@ -432,17 +485,52 @@ export default function ProductsPage() {
                                 <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted) / 0.7)', marginTop: '4px' }}>Group products together for easy filtering & broadcast targeting</div>
                             </div>
                             <div style={{ marginTop: '1.25rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp & Facebook display)</label>
                                 <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
                             </div>
+
+                            {/* Facebook Integration */}
+                            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                            <Share2 size={16} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook Meta Integration</div>
+                                            <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))' }}>Auto-post to your business page</div>
+                                        </div>
+                                    </div>
+                                    <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={postToFacebook} onChange={e => setPostToFacebook(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', transition: '.4s', borderRadius: '20px' }}>
+                                            <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                {postToFacebook && !fbConfig.pageId && (
+                                    <div style={{ marginTop: '10px', fontSize: '0.72rem', color: 'hsl(var(--danger))', background: 'hsl(var(--danger) / 0.1)', padding: '8px', borderRadius: '6px' }}>
+                                        ⚠️ Facebook account not linked. <button type="button" onClick={() => router.push('/admin/facebook')} style={{ background: 'none', border: 'none', color: '#1877F2', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Connect Account</button>
+                                    </div>
+                                )}
+                            </div>
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem' }}>
                                 <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">Cancel</button>
-                                <button type="submit" className="btn btn-primary">💾 Save Saree</button>
+                                <button type="submit" className="btn btn-primary" disabled={fbProcessing}>
+                                    {fbProcessing ? (
+                                        <><Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} /> Posting...</>
+                                    ) : (
+                                        <>💾 Save Saree {postToFacebook ? '& Post' : ''}</>
+                                    )}
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+
 
             <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
