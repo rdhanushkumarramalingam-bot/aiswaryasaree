@@ -19,8 +19,10 @@ export async function GET(request) {
     try {
         const appId = process.env.NEXT_PUBLIC_META_APP_ID;
         const appSecret = process.env.META_APP_SECRET;
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-        const redirectUri = `${baseUrl}/api/auth/facebook/callback`;
+        // IMPORTANT: redirect_uri MUST match exactly what was sent in the OAuth dialog.
+        // The OAuth dialog uses window.location.origin, so we must use the same origin here.
+        const requestOrigin = new URL(request.url).origin;
+        const redirectUri = `${requestOrigin}/api/auth/facebook/callback`;
 
         // 1. Exchange code for Short-lived User Token
         const tokenRes = await fetch(`https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&redirect_uri=${redirectUri}&client_secret=${appSecret}&code=${code}`);

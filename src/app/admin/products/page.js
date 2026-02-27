@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Loader2, X, Image, LayoutGrid, List, Share2, Link as LinkIcon, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
+    const router = useRouter();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -21,7 +23,6 @@ export default function ProductsPage() {
     const [postToFacebook, setPostToFacebook] = useState(false);
     const [fbProcessing, setFbProcessing] = useState(false);
     const [fbConfig, setFbConfig] = useState({ pageId: '', accessToken: '' });
-    const router = useRouter();
 
     const getShopUrl = (pid) => {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
