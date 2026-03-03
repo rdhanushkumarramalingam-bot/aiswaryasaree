@@ -65,8 +65,13 @@ export default function OrdersPage() {
     const [orderItems, setOrderItems] = useState([]);
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [notification, setNotification] = useState(null);
-
     const [hasMounted, setHasMounted] = useState(false);
+    const [showShippingModal, setShowShippingModal] = useState(false);
+    const [shippingForm, setShippingForm] = useState({
+        courier_name: '',
+        tracking_number: '',
+        tracking_url: ''
+    });
 
 
 
@@ -163,7 +168,17 @@ export default function OrdersPage() {
 
             const data = await res.json();
             if (res.ok) {
-                setSelectedOrder(prev => prev ? { ...prev, status: newStatus, ...shippingData } : null);
+                // Map camelCase from shippingData back to snake_case for the UI state
+                const mappedShipping = {};
+                if (shippingData.courierName) mappedShipping.courier_name = shippingData.courierName;
+                if (shippingData.trackingNumber) mappedShipping.tracking_number = shippingData.trackingNumber;
+                if (shippingData.trackingUrl) mappedShipping.tracking_url = shippingData.trackingUrl;
+
+                setSelectedOrder(prev => prev ? {
+                    ...prev,
+                    status: newStatus,
+                    ...mappedShipping
+                } : null);
                 fetchOrders();
                 setNotification({
                     message: `✅ Order updated to ${newStatus}`,
@@ -806,33 +821,19 @@ export default function OrdersPage() {
 
 
 
-                                    {(selectedOrder.status === 'PAID' || selectedOrder.status === 'SHIPPED') && (
+                                    {/* Tracking fields shown when status is SHIPPED (for reference) */}
+                                    {selectedOrder.status === 'SHIPPED' && (
                                         <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                            <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.75rem', color: 'hsl(var(--primary))' }}>Update Shipping Tracking</h4>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Courier Name (e.g. BlueDart)"
-                                                    value={selectedOrder.courier_name || ''}
-                                                    onChange={e => setSelectedOrder({ ...selectedOrder, courier_name: e.target.value })}
-                                                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Tracking Number"
-                                                    value={selectedOrder.tracking_number || ''}
-                                                    onChange={e => setSelectedOrder({ ...selectedOrder, tracking_number: e.target.value })}
-                                                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
-                                                />
+                                            <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.75rem', color: 'hsl(var(--primary))' }}>Shipping Tracking Info</h4>
+                                            <div style={{ fontSize: '0.85rem' }}>
+                                                <div>Carrier: <strong>{selectedOrder.courier_name || 'N/A'}</strong></div>
+                                                <div>Tracking: <strong>{selectedOrder.tracking_number || 'N/A'}</strong></div>
+                                                {selectedOrder.tracking_url && (
+                                                    <div style={{ marginTop: '0.25rem' }}>
+                                                        <a href={selectedOrder.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--info))' }}>Track Order →</a>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <input
-                                                type="text"
-                                                placeholder="Tracking URL (optional)"
-                                                value={selectedOrder.tracking_url || ''}
-                                                onChange={e => setSelectedOrder({ ...selectedOrder, tracking_url: e.target.value })}
-                                                style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
-                                            />
-                                            <p style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>* These details will be sent to the customer via WhatsApp when marked as SHIPPED.</p>
                                         </div>
                                     )}
 
@@ -842,11 +843,19 @@ export default function OrdersPage() {
                                             {STATUS_OPTIONS.map(status => {
                                                 const isActive = selectedOrder.status === status;
                                                 return (
-                                                    <button key={status} onClick={() => updateOrderStatus(selectedOrder.id, status, {
-                                                        courierName: selectedOrder.courier_name,
-                                                        trackingNumber: selectedOrder.tracking_number,
-                                                        trackingUrl: selectedOrder.tracking_url
-                                                    })}
+                                                    <button key={status}
+                                                        onClick={() => {
+                                                            if (status === 'SHIPPED') {
+                                                                setShippingForm({
+                                                                    courier_name: selectedOrder.courier_name || '',
+                                                                    tracking_number: selectedOrder.tracking_number || '',
+                                                                    tracking_url: selectedOrder.tracking_url || ''
+                                                                });
+                                                                setShowShippingModal(true);
+                                                            } else {
+                                                                updateOrderStatus(selectedOrder.id, status);
+                                                            }
+                                                        }}
                                                         className={`badge ${getStatusReference(status)}`}
                                                         style={{
                                                             cursor: 'pointer', opacity: isActive ? 1 : 0.5,
@@ -866,6 +875,92 @@ export default function OrdersPage() {
 
                         </div>
 
+                    )}
+
+                    {/* ────── SHIPPING DETAILS MODAL (ONLY FOR SHIPPED STATUS) ────── */}
+                    {showShippingModal && (
+                        <div style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+                            backdropFilter: 'blur(10px)', zIndex: 1100,
+                            display: 'grid', placeItems: 'center', padding: '1rem'
+                        }} onClick={() => setShowShippingModal(false)}>
+                            <div onClick={(e) => e.stopPropagation()} className="card animate-enter" style={{
+                                width: '100%', maxWidth: '400px', padding: '2rem',
+                                border: '1px solid hsl(var(--primary) / 0.4)',
+                                backgroundColor: 'hsl(var(--bg-card))',
+                                boxShadow: '0 0 40px hsl(var(--primary) / 0.15)'
+                            }}>
+                                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                                    <div style={{
+                                        width: '60px', height: '60px', borderRadius: '50%',
+                                        background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        margin: '0 auto 1rem'
+                                    }}>
+                                        <Truck size={30} />
+                                    </div>
+                                    <h2 style={{ fontSize: '1.25rem' }}>Update Shipping Details</h2>
+                                    <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Enter tracking info for Order #{selectedOrder.id}</p>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '1.25rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Courier Name</label>
+                                        <input
+                                            type="text"
+                                            value={shippingForm.courier_name}
+                                            onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
+                                            placeholder="e.g. Blue Dart, Delhivery"
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', outline: 'none' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Tracking Number</label>
+                                        <input
+                                            type="text"
+                                            value={shippingForm.tracking_number}
+                                            onChange={e => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
+                                            placeholder="e.g. 12345678"
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', outline: 'none' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Tracking URL</label>
+                                        <input
+                                            type="text"
+                                            value={shippingForm.tracking_url}
+                                            onChange={e => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
+                                            placeholder="https://tracker.link/..."
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', outline: 'none' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                        <button onClick={() => setShowShippingModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                updateOrderStatus(selectedOrder.id, 'SHIPPED', {
+                                                    courierName: shippingForm.courier_name,
+                                                    trackingNumber: shippingForm.tracking_number,
+                                                    trackingUrl: shippingForm.tracking_url
+                                                });
+                                                setShowShippingModal(false);
+                                            }}
+                                            disabled={!shippingForm.courier_name || !shippingForm.tracking_number}
+                                            className="btn btn-primary"
+                                            style={{ flex: 2 }}
+                                        >
+                                            Continue & Notify
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                                        Marking as shipped will automatically send tracking details to the customer via WhatsApp.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
 
