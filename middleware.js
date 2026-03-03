@@ -21,11 +21,18 @@ export function middleware(request) {
 
     const adminSession = request.cookies.get('admin_session');
     const userSession = request.cookies.get('user_session');
-    const isAuthenticated = !!(adminSession?.value === 'authenticated' || userSession?.value);
+    const isAdmin = adminSession?.value === 'authenticated';
+    const isUser = !!userSession?.value;
 
-    if (isProtected && !isAuthenticated) {
+    // 1. If trying to access /admin but not an admin:
+    if (pathname.startsWith('/admin') && !isAdmin) {
+        // If they are a regular user, send to shop. If not logged in, send to login.
+        return NextResponse.redirect(new URL(isUser ? '/shop' : '/login', request.url));
+    }
+
+    // 2. If not authenticated at all and trying to access protected:
+    if (isProtected && !isAdmin && !isUser) {
         const loginUrl = new URL('/login', request.url);
-        // Pass the current path as a redirect parameter
         loginUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(loginUrl);
     }

@@ -30,6 +30,7 @@ function ShopContent() {
     const [toast, setToast] = useState(null);
     const [shippingZones, setShippingZones] = useState([]);
     const [zoneMappings, setZoneMappings] = useState([]);
+    const [user, setUser] = useState(null);
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -116,7 +117,34 @@ function ShopContent() {
         fetchProducts();
         fetchBusinessState();
         fetchShippingRates();
+        checkSession();
     }, []);
+
+    async function checkSession() {
+        try {
+            const res = await fetch('/api/auth/session');
+            const data = await res.json();
+            if (data.authenticated && data.role === 'user') {
+                setUser(data.user);
+                setCheckoutForm(prev => ({
+                    ...prev,
+                    name: data.user.name || '',
+                    phone: data.user.phone ? data.user.phone.replace(/^91/, '') : ''
+                }));
+            }
+        } catch (e) {
+            console.error('Session check failed', e);
+        }
+    }
+
+    async function handleLogout() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        setUser(null);
+        setCheckoutForm({
+            name: '', phone: '', address: '', city: '', state: 'Tamil Nadu', country: 'India', pincode: '', paymentMethod: 'COD'
+        });
+        showToast('Logged out successfully');
+    }
 
     async function fetchShippingRates() {
         try {
@@ -228,6 +256,7 @@ function ShopContent() {
 
             const { error: orderError } = await supabase.from('orders').insert({
                 id: orderId,
+                customer_id: user?.id, // Link to the customer record
                 customer_phone: fullPhone,
                 customer_name: checkoutForm.name,
                 delivery_address: fullAddress,
@@ -303,11 +332,24 @@ function ShopContent() {
                         </div>
                     </div>
                     <div className={styles.headerActions}>
+                        {user ? (
+                            <div className={styles.userProfile}>
+                                <div className={styles.userInfo}>
+                                    <span className={styles.userName}>{user.name || 'User'}</span>
+                                    <button onClick={handleLogout} className={styles.logoutBtn}>Logout</button>
+                                </div>
+                                <div className={styles.userAvatar}>{(user.name?.[0] || 'U').toUpperCase()}</div>
+                            </div>
+                        ) : (
+                            <button onClick={() => window.location.href = '/login'} className={styles.loginBtn}>
+                                Login
+                            </button>
+                        )}
                         {view !== 'success' && (
                             <>
                                 {view !== 'shop' && (
                                     <button onClick={() => setView('shop')} className={styles.backBtn}>
-                                        ← Back to Shop
+                                        ← back
                                     </button>
                                 )}
                                 {view === 'shop' && cart.length > 0 && (

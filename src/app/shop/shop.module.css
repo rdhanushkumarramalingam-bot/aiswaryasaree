@@ -1499,3 +1499,73 @@
     color: #25a366;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* ── AUTH UI ─────────────────────────────────────────────────────────────── */
+.loginBtn {
+    padding: 0.5rem 1.25rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.loginBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.userProfile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 4px;
+    padding-left: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 50px;
+}
+
+.userInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.userName {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.logoutBtn {
+    font-size: 0.65rem;
+    color: #ff6b6b;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.logoutBtn:hover {
+    text-decoration: underline;
+}
+
+.userAvatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}

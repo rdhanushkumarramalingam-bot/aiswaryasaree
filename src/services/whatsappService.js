@@ -794,10 +794,20 @@ function isDuplicate(msgId) {
 
 export async function processIncomingMessage(body) {
     try {
-        const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+        const value = body.entry?.[0]?.changes?.[0]?.value;
+        const message = value?.messages?.[0];
         if (!message) return;
         const from = message.from;
         const msgType = message.type;
+
+        // --- 0. CUSTOMER SYNC ---
+        const { data: customer } = await supabase.from('customers').select('*').eq('phone', from).single();
+        if (!customer) {
+            const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
+            await supabase.from('customers').insert({ phone: from, name: profileName, role: 'user' });
+            console.log(`[WA] New customer created: ${from} (${profileName})`);
+        }
+        // -------------------------
         const text = message.text?.body?.toLowerCase().trim();
 
         // 🔁 DEDUPLICATION — drop if we've already processed this message ID
