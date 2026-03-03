@@ -16,15 +16,17 @@ export function middleware(request) {
 
     if (isPublicRoute) return NextResponse.next();
 
-    // Check session cookie
-    const session = request.cookies.get('admin_session');
-    const isAuthenticated = session?.value === 'authenticated';
+    // Protected paths: / , /admin/*, and /track-order
+    const isProtected = pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/track-order');
 
-    // Protected paths: / and /admin/*
-    const isProtected = pathname === '/' || pathname.startsWith('/admin');
+    const adminSession = request.cookies.get('admin_session');
+    const userSession = request.cookies.get('user_session');
+    const isAuthenticated = !!(adminSession?.value === 'authenticated' || userSession?.value);
 
     if (isProtected && !isAuthenticated) {
         const loginUrl = new URL('/login', request.url);
+        // Pass the current path as a redirect parameter
+        loginUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(loginUrl);
     }
 

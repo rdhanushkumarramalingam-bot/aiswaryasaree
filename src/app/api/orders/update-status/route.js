@@ -79,17 +79,21 @@ async function getStatusMessage(orderId, status, order, items = []) {
             ].join('\n');
 
         case 'SHIPPED':
-            return [
+            const shippingInfo = [
                 `🚚 *ORDER SHIPPED!*`,
                 ``,
                 `Order #${orderId} is on its way!`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `Track your delivery & see details:`,
-                `${invoiceUrl}`,
+                `*Shipping Details:*`,
+                `Carrier: ${order.courier_name || 'N/A'}`,
+                `Tracking: ${order.tracking_number || 'N/A'}`,
+                ``,
+                order.tracking_url ? `🔗 *Track Here:* ${order.tracking_url}` : `🔗 *View Details:* ${invoiceUrl}`,
                 ``,
                 `Thank you for shopping with us! 💮`
             ].join('\n');
+            return shippingInfo;
 
         case 'DELIVERED':
             return [
@@ -122,7 +126,13 @@ async function getStatusMessage(orderId, status, order, items = []) {
 
 export async function POST(request) {
     try {
-        const { orderId, status } = await request.json();
+        const {
+            orderId,
+            status,
+            courierName,
+            trackingNumber,
+            trackingUrl
+        } = await request.json();
 
         if (!orderId || !status) {
             return new Response(JSON.stringify({ error: 'Missing orderId or status' }), {
@@ -155,10 +165,15 @@ export async function POST(request) {
             items = itemData || [];
         }
 
-        // 3. Update the order status
+        // 3. Update the order status and shipping info
+        const updatePayload = { status };
+        if (courierName) updatePayload.courier_name = courierName;
+        if (trackingNumber) updatePayload.tracking_number = trackingNumber;
+        if (trackingUrl) updatePayload.tracking_url = trackingUrl;
+
         const { error: updateError } = await supabase
             .from('orders')
-            .update({ status })
+            .update(updatePayload)
             .eq('id', orderId);
 
         if (updateError) {
@@ -168,8 +183,11 @@ export async function POST(request) {
             });
         }
 
+        // Refetch order to get updated shipping info for the message
+        const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();
+
         // 4. Send WhatsApp notification to customer
-        const message = await getStatusMessage(orderId, status, order, items);
+        const message = await getStatusMessage(orderId, status, updatedOrder || order, items);
         await sendWhatsAppText(order.customer_phone, message);
 
         console.log(`✅ Order ${orderId} → ${status} | WhatsApp notification sent to ${order.customer_phone}`);

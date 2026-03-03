@@ -30,6 +30,17 @@ function TrackOrderContent() {
         setOrder(null);
 
         try {
+            // 1. Get current session info from cookies
+            const cookies = document.cookie.split('; ').reduce((prev, current) => {
+                const [name, value] = current.split('=');
+                prev[name] = value;
+                return prev;
+            }, {});
+
+            const isAdmin = cookies['admin_session'] === 'authenticated';
+            const userPhone = cookies['user_session'];
+
+            // 2. Fetch order
             const { data, error: sbError } = await supabase
                 .from('orders')
                 .select(`*, order_items(*)`)
@@ -39,7 +50,12 @@ function TrackOrderContent() {
             if (sbError || !data) {
                 setError('Order not found. Please check your Order ID.');
             } else {
-                setOrder(data);
+                // 3. Security: If not admin, verify phone match
+                if (!isAdmin && data.customer_phone !== userPhone) {
+                    setError('Unauthorized: This order does not belong to your verified phone number.');
+                } else {
+                    setOrder(data);
+                }
             }
         } catch (err) {
             setError('Something went wrong. Please try again.');

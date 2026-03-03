@@ -1,0 +1,86 @@
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabaseClient';
+
+export async function POST(req) {
+    try {
+        const { phone, code } = await req.json();
+
+        if (!phone || !code) {
+            return NextResponse.json({ error: 'Phone and Code are required' }, { status: 400 });
+        }
+
+        const cleanPhone = phone.trim().replace(/\s+/g, '').replace('+', '');
+
+        // 1. Check if Code exists and not expired
+        const { data: otpData, error: dbError } = await supabase
+            .from('otps')
+            .select('*')
+            .eq('phone', cleanPhone)
+            .eq('code', code)
+            .gte('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (dbError || !otpData) {
+            return NextResponse.json({ error: 'Invalid or expired code. Please try again.' }, { status: 401 });
+        }
+
+        // 2. Clear used OTP
+        await supabase.from('otps').delete().eq('phone', cleanPhone);
+
+        // 3. Create/Update user in Customers table (persistent account)
+        const { data: customer, error: custError } = await supabase
+            .from('customers')
+            .upsert({
+                phone: cleanPhone,
+                last_login: new Date().toISOString()
+            }, { onConflict: 'phone' })
+            .select()
+            .single();
+
+        if (custError) {
+            console.error('Customer Creation Error:', custError);
+            // Optionally insert if upsert fails
+            const { error: insertError } = await supabase
+                .from('customers')
+                .insert({
+                    phone: cleanPhone,
+                    last_login: new Date().toISOString()
+                });
+            if (insertError) console.error('Customer insert failed:', insertError);
+        }
+
+        const isAdmin = customer?.role === 'admin';
+
+        // 4. Set Session Cookie
+        const response = NextResponse.json({
+            success: true,
+            message: 'Logged in successfully',
+            user: {
+                phone: cleanPhone,
+                role: isAdmin ? 'admin' : 'user'
+            }
+        });
+
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            path: '/'
+        };
+
+        if (isAdmin) {
+            response.cookies.set('admin_session', 'authenticated', cookieOptions);
+        } else {
+            response.cookies.set('user_session', cleanPhone, cookieOptions);
+        }
+
+        return response;
+
+    } catch (error) {
+        console.error('Verify OTP Error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}

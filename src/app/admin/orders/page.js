@@ -153,52 +153,29 @@ export default function OrdersPage() {
 
 
 
-    const updateOrderStatus = async (orderId, newStatus) => {
-
+    const updateOrderStatus = async (orderId, newStatus, shippingData = {}) => {
         try {
-
             const res = await fetch('/api/orders/update-status', {
-
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
-                body: JSON.stringify({ orderId, status: newStatus })
-
+                body: JSON.stringify({ orderId, status: newStatus, ...shippingData })
             });
 
-
-
             const data = await res.json();
-
             if (res.ok) {
-
-                setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
-
+                setSelectedOrder(prev => prev ? { ...prev, status: newStatus, ...shippingData } : null);
                 fetchOrders();
-
                 setNotification({
-
                     message: `✅ Order updated to ${newStatus}`,
-
                     type: 'success'
-
                 });
-
             } else {
-
                 setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
-
             }
-
         } catch (error) {
-
             setNotification({ message: '❌ Error updating status', type: 'error' });
-
         }
-
         setTimeout(() => setNotification(null), 4000);
-
     };
 
 
@@ -414,11 +391,9 @@ export default function OrdersPage() {
                                     <tr>
 
                                         <th>Order ID</th>
-
                                         <th>Customer</th>
-
+                                        <th style={{ textAlign: 'left' }}>Region</th>
                                         <th style={{ textAlign: 'center' }}>Source</th>
-
                                         <th style={{ textAlign: 'right' }}>Amount</th>
 
                                         <th style={{ textAlign: 'center' }}>Payment</th>
@@ -452,11 +427,12 @@ export default function OrdersPage() {
                                                     <td style={{ fontWeight: 600, color: 'hsl(var(--primary))' }}>#{order.id}</td>
 
                                                     <td>
-
                                                         <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
-
                                                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
-
+                                                    </td>
+                                                    <td style={{ textAlign: 'left' }}>
+                                                        <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || (order.delivery_address?.split(',').pop()?.trim()) || '—'}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Zone: {order.shipping_zone_id ? '✓' : 'Default'}</div>
                                                     </td>
 
                                                     <td style={{ textAlign: 'center' }}>
@@ -603,39 +579,57 @@ export default function OrdersPage() {
                                         </div>
 
                                         <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
-
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.75rem' }}>Payment & Billing</h4>
 
-                                            <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-main))', marginBottom: '0.25rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Subtotal:</span>
+                                                    <span>₹{(selectedOrder.total_amount - (selectedOrder.cgst || 0) - (selectedOrder.sgst || 0) - (selectedOrder.igst || 0) - (selectedOrder.shipping_charge || 0)).toLocaleString()}</span>
+                                                </div>
 
-                                                Method: <span style={{ fontWeight: 600 }}>{selectedOrder.payment_method || 'Pending'}</span>
+                                                {(selectedOrder.cgst > 0 || selectedOrder.sgst > 0) && (
+                                                    <>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                            <span>CGST (9%):</span>
+                                                            <span>₹{(selectedOrder.cgst || 0).toLocaleString()}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                            <span>SGST (9%):</span>
+                                                            <span>₹{(selectedOrder.sgst || 0).toLocaleString()}</span>
+                                                        </div>
+                                                    </>
+                                                )}
 
+                                                {selectedOrder.igst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                        <span>IGST (18%):</span>
+                                                        <span>₹{(selectedOrder.igst || 0).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                    <span>Shipping:</span>
+                                                    <span>₹{(selectedOrder.shipping_charge || 0).toLocaleString()}</span>
+                                                </div>
+
+                                                <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.4rem 0' }}></div>
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
+                                                    <span>Total:</span>
+                                                    <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
+                                                </div>
                                             </div>
 
-                                            <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-main))', marginBottom: '0.5rem' }}>
-
-                                                Source: <span style={{ fontWeight: 600 }}>{selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? '🌐 Website' : '💬 WhatsApp')}</span>
-
-                                            </div>
-
-                                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
-
-                                                ₹{(selectedOrder.total_amount || 0).toLocaleString()}
-
+                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '1rem' }}>
+                                                Method: <strong>{selectedOrder.payment_method || 'Pending'}</strong>
                                             </div>
 
                                             {selectedOrder.invoice_url && (
-
-                                                <a href={selectedOrder.invoice_url} target="_self"
-
+                                                <a href={selectedOrder.invoice_url} target="_blank" rel="noopener noreferrer"
                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: 'hsl(var(--info))', fontWeight: 600, fontSize: '0.85rem' }}>
-
                                                     <Download size={16} /> Download Invoice
-
                                                 </a>
-
                                             )}
-
                                         </div>
 
                                     </div>
@@ -643,19 +637,36 @@ export default function OrdersPage() {
 
 
                                     {selectedOrder.delivery_address && (
-
                                         <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                <div>
+                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <MapPin size={12} /> Delivery Address
+                                                    </h4>
+                                                    <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-main))', lineHeight: 1.5 }}>
+                                                        {selectedOrder.delivery_address}
+                                                        {selectedOrder.shipping_state && <div style={{ fontWeight: 600, marginTop: '0.25rem' }}>State: {selectedOrder.shipping_state}</div>}
+                                                    </div>
+                                                </div>
 
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                                                <MapPin size={12} /> Delivery Address
-
-                                            </h4>
-
-                                            <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-main))', lineHeight: 1.5 }}>{selectedOrder.delivery_address}</div>
-
+                                                {selectedOrder.status === 'SHIPPED' && (
+                                                    <div style={{ borderLeft: '1px solid hsl(var(--border-subtle))', paddingLeft: '1rem' }}>
+                                                        <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <Truck size={12} /> Shipping Info
+                                                        </h4>
+                                                        <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                            <div>Carrier: <strong>{selectedOrder.courier_name || 'N/A'}</strong></div>
+                                                            <div>Tracking: <strong>{selectedOrder.tracking_number || 'N/A'}</strong></div>
+                                                            {selectedOrder.tracking_url && (
+                                                                <a href={selectedOrder.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--info))', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                                                                    Track Order →
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-
                                     )}
 
 
@@ -690,42 +701,58 @@ export default function OrdersPage() {
 
 
 
-                                    <div>
-
-                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem' }}>Update Status</h4>
-
-                                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-
-                                            {STATUS_OPTIONS.map(status => {
-
-                                                const isActive = selectedOrder.status === status;
-
-                                                return (
-
-                                                    <button key={status} onClick={() => updateOrderStatus(selectedOrder.id, status)}
-
-                                                        className={`badge ${getStatusReference(status)}`}
-
-                                                        style={{
-
-                                                            cursor: 'pointer', opacity: isActive ? 1 : 0.5,
-
-                                                            transform: isActive ? 'scale(1.1)' : 'scale(1)',
-
-                                                            transition: 'all 0.2s', border: '1px solid currentColor'
-
-                                                        }}>
-
-                                                        {isActive && '✓ '} {status}
-
-                                                    </button>
-
-                                                );
-
-                                            })}
-
+                                    {(selectedOrder.status === 'PAID' || selectedOrder.status === 'SHIPPED') && (
+                                        <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                            <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.75rem', color: 'hsl(var(--primary))' }}>Update Shipping Tracking</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Courier Name (e.g. BlueDart)"
+                                                    value={selectedOrder.courier_name || ''}
+                                                    onChange={e => setSelectedOrder({ ...selectedOrder, courier_name: e.target.value })}
+                                                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Tracking Number"
+                                                    value={selectedOrder.tracking_number || ''}
+                                                    onChange={e => setSelectedOrder({ ...selectedOrder, tracking_number: e.target.value })}
+                                                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder="Tracking URL (optional)"
+                                                value={selectedOrder.tracking_url || ''}
+                                                onChange={e => setSelectedOrder({ ...selectedOrder, tracking_url: e.target.value })}
+                                                style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', color: 'white', fontSize: '0.85rem' }}
+                                            />
+                                            <p style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>* These details will be sent to the customer via WhatsApp when marked as SHIPPED.</p>
                                         </div>
+                                    )}
 
+                                    <div>
+                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem' }}>Update Status</h4>
+                                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                            {STATUS_OPTIONS.map(status => {
+                                                const isActive = selectedOrder.status === status;
+                                                return (
+                                                    <button key={status} onClick={() => updateOrderStatus(selectedOrder.id, status, {
+                                                        courierName: selectedOrder.courier_name,
+                                                        trackingNumber: selectedOrder.tracking_number,
+                                                        trackingUrl: selectedOrder.tracking_url
+                                                    })}
+                                                        className={`badge ${getStatusReference(status)}`}
+                                                        style={{
+                                                            cursor: 'pointer', opacity: isActive ? 1 : 0.5,
+                                                            transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                                                            transition: 'all 0.2s', border: '1px solid currentColor'
+                                                        }}>
+                                                        {isActive && '✓ '} {status}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
                                 </div>
