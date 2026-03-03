@@ -38,6 +38,17 @@ const PREMIUM_IMAGES = [
     'https://images.unsplash.com/photo-1500917293049-61da1dc08358?w=600&q=85', // Black
 ];
 
+// ─── TAX & SHIPPING RULES ──────────────────────────────────────────────────
+const HOME_STATE = 'Tamil Nadu';
+const GST_RATE = 0.05; // 5% for Sarees
+const FLAT_SHIPPING = 100;
+
+const INDIAN_STATES = [
+    "Tamil Nadu", "Karnataka", "Kerala", "Andhra Pradesh", "Telangana",
+    "Maharashtra", "Gujarat", "Delhi", "West Bengal", "Uttar Pradesh",
+    "Rajasthan", "Madhya Pradesh", "Bihar", "Punjab", "Haryana", "Other"
+];
+
 // ─── STREAM CONTROL ───────────────────────────────────────────────────────────
 const activeStreams = new Map();
 
@@ -154,10 +165,31 @@ async function getCart(phone) {
     return data || [];
 }
 
-async function addToCart(phone, product, quantity = 1) {
-    const { data: existing } = await supabase.from('whatsapp_cart').select('*').eq('phone', phone).eq('product_id', product.id).single();
-    if (existing) await supabase.from('whatsapp_cart').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
-    else await supabase.from('whatsapp_cart').insert({ phone, product_id: product.id, product_name: product.name, price: product.price, quantity, image_url: product.image_url });
+async function addToCart(phone, product, quantity = 1, variant = null) {
+    const productId = product.id;
+    const variantId = variant?.id || null;
+
+    // Check if same product+variant combo exists
+    const query = supabase.from('whatsapp_cart').select('*').eq('phone', phone).eq('product_id', productId);
+    if (variantId) query.eq('variant_id', variantId);
+    else query.is('variant_id', null);
+
+    const { data: existing } = await query.single();
+
+    if (existing) {
+        await supabase.from('whatsapp_cart').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
+    } else {
+        await supabase.from('whatsapp_cart').insert({
+            phone,
+            product_id: productId,
+            product_name: product.name,
+            price: variant ? variant.price : product.price,
+            quantity,
+            image_url: product.image_url,
+            variant_id: variantId,
+            variant_name: variant ? variant.name : null
+        });
+    }
 }
 
 async function clearCart(phone) {
@@ -169,10 +201,26 @@ async function deductStock(orderId) {
     const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
     if (items) {
         for (const item of items) {
-            const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
-            if (product) {
-                const newStock = Math.max(0, product.stock - item.quantity);
-                await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+            if (item.variant_id) {
+                // Deduct from variant
+                const { data: variant } = await supabase.from('product_variants')
+                    .select('stock')
+                    .eq('id', item.variant_id)
+                    .single();
+                if (variant) {
+                    const newStock = Math.max(0, variant.stock - item.quantity);
+                    await supabase.from('product_variants').update({ stock: newStock }).eq('id', item.variant_id);
+                }
+            } else {
+                // Deduct from main product
+                const { data: product } = await supabase.from('products')
+                    .select('stock')
+                    .eq('id', item.product_id)
+                    .single();
+                if (product) {
+                    const newStock = Math.max(0, product.stock - item.quantity);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+                }
             }
         }
     }
@@ -219,7 +267,8 @@ async function generateAndUploadInvoice(order) {
             order.order_items.forEach(item => {
                 const total = item.price_at_time * item.quantity;
                 grandTotal += total;
-                doc.text(item.product_name.substring(0, 35), 15, y);
+                const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
+                doc.text(itemName.substring(0, 35), 15, y);
                 doc.text(String(item.quantity), 140, y, { align: "right" });
                 doc.text(item.price_at_time.toLocaleString(), 170, y, { align: "right" });
                 doc.text(total.toLocaleString(), 195, y, { align: "right" });
@@ -227,12 +276,37 @@ async function generateAndUploadInvoice(order) {
             });
         }
 
-        y += 5;
-        doc.line(10, y, 200, y);
-        y += 10;
+        // Summary
+        doc.setFontSize(10);
+        doc.text(`Subtotal:`, 140, y, { align: "right" });
+        doc.text(`Rs. ${(order.subtotal || grandTotal).toLocaleString()}`, 195, y, { align: "right" });
+        y += 6;
+
+        if (order.shipping_cost > 0) {
+            doc.text(`Shipping:`, 140, y, { align: "right" });
+            doc.text(`Rs. ${order.shipping_cost.toLocaleString()}`, 195, y, { align: "right" });
+            y += 6;
+        }
+
+        if (order.tax_amount > 0) {
+            if (order.cgst > 0) {
+                doc.text(`CGST (2.5%):`, 140, y, { align: "right" });
+                doc.text(`Rs. ${order.cgst.toLocaleString()}`, 195, y, { align: "right" });
+                y += 6;
+                doc.text(`SGST (2.5%):`, 140, y, { align: "right" });
+                doc.text(`Rs. ${order.sgst.toLocaleString()}`, 195, y, { align: "right" });
+                y += 6;
+            } else if (order.igst > 0) {
+                doc.text(`IGST (5%):`, 140, y, { align: "right" });
+                doc.text(`Rs. ${order.igst.toLocaleString()}`, 195, y, { align: "right" });
+                y += 6;
+            }
+        }
+
+        y += 2;
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
-        doc.text(`Grand Total: Rs. ${grandTotal.toLocaleString()}`, 195, y, { align: "right" });
+        doc.text(`Grand Total: Rs. ${(order.total_amount || grandTotal).toLocaleString()}`, 195, y, { align: "right" });
 
         const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
         const fileName = `invoice_${order.id}.pdf`;
@@ -430,15 +504,23 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     const hasMore = count > (startOffset + PAGE_SIZE);
 
     if (hasMore) {
-        await sendButtons(to, `👇 Showing ${sentCount} of ${count} sarees.`, [
-            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Load More" },
-            { id: "menu_catalogue", title: "📖 Back to Types" }
-        ]);
+        const optionButtons = [
+            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Load More" }
+        ];
+
+        // If very large catalog, also suggest website
+        if (count > 100) {
+            optionButtons.push({ id: "menu_shop_web", title: "🛍️ Shop All on Web" });
+        }
+
+        optionButtons.push({ id: "menu_catalogue", title: "📖 Back to Types" });
+
+        await sendButtons(to, `👇 Showing ${sentCount} of ${count} sarees in *${categoryName}*.`, optionButtons);
     } else {
         await sendButtons(to, `✅ That's all ${count} saree${count > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
             { id: "menu_catalogue", title: "📖 More Types" },
             { id: "menu_cart", title: "👜 View Bag" },
-            { id: "menu_main", title: "🏠 Main Menu" }
+            { id: "menu_shop_web", title: "🛍️ Visit Web Store" }
         ]);
     }
 }
@@ -527,13 +609,27 @@ export async function sendProductsByCategory(to, categoryIdRaw, startOffset = 0)
 
 export async function handleAddToCart(to, productIdRaw) {
     const productId = productIdRaw.replace('addcart_', '');
+
+    // Fetch product and its variants
     const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
+    const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', productId);
+
     if (!product || product.stock < 1) return sendText(to, "⚠️ Sorry, this item is out of stock.");
 
-    await addToCart(to, product, 1);
+    if (variants && variants.length > 0) {
+        // Show variant selection list
+        const rows = variants.map(v => ({
+            id: `vsel_${v.id}`,
+            title: v.name,
+            description: `₹${v.price.toLocaleString()} | Stock: ${v.stock}`
+        }));
 
-    // Fetch updated quantity
-    const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).single();
+        return await sendList(to, "🎨 SELECT OPTION", `Please select your preferred option for *${product.name}*:`, "Select Option", rows);
+    }
+
+    // No variants, add directly
+    await addToCart(to, product, 1);
+    const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
     await sendButtons(to, `✅ *Added to Bag*\n${product.name}\nQty in Bag: ${qty}`, [
@@ -543,23 +639,49 @@ export async function handleAddToCart(to, productIdRaw) {
     ]);
 }
 
-export async function handleModifyQuantity(to, action, productId) {
-    const { data: item } = await supabase.from('whatsapp_cart').select('*').eq('phone', to).eq('product_id', productId).single();
+export async function handleVariantSelection(to, variantId) {
+    const { data: variant } = await supabase.from('product_variants').select('*, products(*)').eq('id', variantId).single();
+    if (!variant || variant.stock < 1) return sendText(to, "⚠️ Sorry, this option is out of stock.");
+
+    const product = variant.products;
+    await addToCart(to, product, 1, variant);
+
+    const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
+    const qty = cartItem ? cartItem.quantity : 1;
+
+    await sendButtons(to, `✅ *Added to Bag*\n${product.name} (${variant.name})\nQty in Bag: ${qty}`, [
+        { id: `vqty_inc_${variantId}`, title: "➕ Add Another" },
+        { id: `vqty_dec_${variantId}`, title: "➖ Reduce Qty" },
+        { id: "menu_cart", title: "👜 View Bag" }
+    ]);
+}
+
+export async function handleModifyQuantity(to, action, targetId, isVariant = false) {
+    const query = supabase.from('whatsapp_cart').select('*').eq('phone', to);
+    if (isVariant) query.eq('variant_id', targetId);
+    else query.eq('product_id', targetId).is('variant_id', null);
+
+    const { data: item } = await query.single();
     if (!item) return sendText(to, "Item not found in bag.");
 
     let newQty = item.quantity;
     if (action === 'inc') newQty += 1;
     if (action === 'dec') newQty -= 1;
 
+    const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
+
     if (newQty < 1) {
         await supabase.from('whatsapp_cart').delete().eq('id', item.id);
-        return sendText(to, `🗑️ Removed ${item.product_name} from bag.`);
+        return sendText(to, `🗑️ Removed ${itemName} from bag.`);
     } else {
         await supabase.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
 
-        await sendButtons(to, `✅ *Quantity Updated*\n${item.product_name}\nNew Qty: ${newQty}`, [
-            { id: `qty_inc_${productId}`, title: "➕ Add Another" },
-            { id: `qty_dec_${productId}`, title: "➖ Reduce Qty" },
+        const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
+        const decId = isVariant ? `vqty_dec_${targetId}` : `qty_dec_${targetId}`;
+
+        await sendButtons(to, `✅ *Quantity Updated*\n${itemName}\nNew Qty: ${newQty}`, [
+            { id: incId, title: "➕ Add Another" },
+            { id: decId, title: "➖ Reduce Qty" },
             { id: "menu_cart", title: "👜 View Bag" }
         ]);
     }
@@ -573,14 +695,15 @@ export async function handleViewCart(to) {
     let total = 0;
     cart.forEach((item, i) => {
         total += item.price * item.quantity;
-        msg += `${i + 1}. ${item.product_name} x${item.quantity} = ₹${(item.price * item.quantity).toLocaleString()}\n`;
+        const name = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
+        msg += `${i + 1}. ${name} x${item.quantity} = ₹${(item.price * item.quantity).toLocaleString()}\n`;
     });
     msg += `\n💎 *Total: ₹${total.toLocaleString()}*`;
 
     await sendButtons(to, msg, [
         { id: "start_checkout", title: "✅ Checkout" },
         { id: "menu_browse", title: "🛍️ Add More" },
-        { id: "edit_cart", title: "✏️ Edit Qty / Remove" }
+        { id: "edit_cart", title: "✏️ Edit Bag" }
     ]);
 }
 
@@ -591,22 +714,28 @@ export async function handleEditCart(to) {
     const sections = [{
         title: "Select Item to Edit",
         rows: cart.map(item => ({
-            id: `edit_item_${item.product_id}`,
-            title: item.product_name.substring(0, 23),
+            id: `edit_item_${item.id}`, // item.id is the row ID in whatsapp_cart
+            title: (item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name).substring(0, 23),
             description: `Qty: ${item.quantity} | ₹${item.price * item.quantity}`
         }))
     }];
 
-    await sendList(to, "EDIT BAG", "Select an item to change quantity or remove:", "Select Item", sections);
+    await sendList(to, "✏️ EDIT BAG", "Select an item to change quantity or remove:", "Select Item", sections);
 }
 
-export async function handleCartItemOptions(to, productId) {
-    const { data: item } = await supabase.from('whatsapp_cart').select('*').eq('phone', to).eq('product_id', productId).single();
+export async function handleCartItemOptions(to, cartItemId) {
+    const { data: item } = await supabase.from('whatsapp_cart').select('*').eq('id', cartItemId).single();
     if (!item) return handleViewCart(to);
 
-    await sendButtons(to, `⚙️ *Edit Item*\n${item.product_name}\nQty: ${item.quantity}`, [
-        { id: `qty_inc_${productId}`, title: "➕ Increase" },
-        { id: `qty_dec_${productId}`, title: "➖ Reduce" },
+    const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
+    const isVariant = !!item.variant_id;
+    const targetId = isVariant ? item.variant_id : item.product_id;
+    const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
+    const decId = isVariant ? `vqty_dec_${targetId}` : `qty_dec_${targetId}`;
+
+    await sendButtons(to, `⚙️ *Edit Item*\n${itemName}\nQty: ${item.quantity}`, [
+        { id: incId, title: "➕ Increase" },
+        { id: decId, title: "➖ Reduce" },
         { id: `remove_item_${item.id}`, title: "❌ Remove" }
     ]);
 }
@@ -622,23 +751,27 @@ export async function startCheckout(to) {
     if (!cart.length) return sendText(to, "Bag empty!");
 
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
-    const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+    const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
-    // Initial Draft — store the WhatsApp number in whatsapp_phone so we can always find it
+    // Initial Draft
     await supabase.from('orders').insert({
         id: orderId,
-        customer_phone: to,    // WhatsApp number (always preserved)
-        customer_name: null,
-        delivery_address: null,
+        customer_phone: to,
         status: "DRAFT",
-        total_amount: totalAmount,
+        subtotal: subtotal,
+        total_amount: subtotal, // Placeholder
         created_at: new Date()
     });
 
-    // Add Items
+    // Add Items (Support Variants)
     const orderItems = cart.map(item => ({
-        order_id: orderId, product_id: item.product_id, product_name: item.product_name,
-        quantity: item.quantity, price_at_time: item.price
+        order_id: orderId,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        price_at_time: item.price,
+        variant_id: item.variant_id,
+        variant_name: item.variant_name
     }));
     await supabase.from('order_items').insert(orderItems);
 
@@ -676,8 +809,51 @@ export async function startCheckout(to) {
     }
 }
 
+export async function askState(to, orderId) {
+    const rows = INDIAN_STATES.map(s => ({
+        id: `state_${s.replace(/\s+/g, '_').toLowerCase()}_${orderId}`,
+        title: s
+    }));
+
+    await sendList(to, "📍 SELECT STATE", "Please select your delivery state to calculate taxes & shipping correctly:", "Select State", rows);
+}
+
+export async function handleStateSelection(to, stateNameClean, orderId) {
+    // stateNameClean is like 'tamil_nadu'
+    const stateName = stateNameClean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    if (!order) return;
+
+    const subtotal = order.subtotal || 0;
+    const tax = subtotal * GST_RATE;
+    const shipping = FLAT_SHIPPING;
+    const total = subtotal + tax + shipping;
+
+    // Calculate CGST/SGST vs IGST
+    let taxDetails = {};
+    if (stateName === HOME_STATE) {
+        taxDetails = { cgst: tax / 2, sgst: tax / 2, igst: 0 };
+    } else {
+        taxDetails = { cgst: 0, sgst: 0, igst: tax };
+    }
+
+    await supabase.from('orders').update({
+        customer_state: stateName,
+        tax_amount: tax,
+        shipping_cost: shipping,
+        total_amount: total,
+        ...taxDetails
+    }).eq('id', orderId);
+
+    return await askPaymentMode(to, orderId);
+}
+
 export async function askPaymentMode(to, orderId) {
-    await sendButtons(to, `✅ *Address Confirmed!*\n\nHow would you like to pay?`, [
+    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    const total = order?.total_amount?.toLocaleString() || '0';
+
+    await sendButtons(to, `✅ *Address & Taxes Confirmed!*\n\n💰 *Total Billing: ₹${total}*\n(Inc. GST & Shipping)\n\nHow would you like to pay?`, [
         { id: `pay_upi_${orderId}`, title: "📲 UPI / Online" },
         { id: `pay_cod_${orderId}`, title: "💵 Cash on Delivery" }
     ]);
@@ -937,7 +1113,7 @@ export async function processIncomingMessage(body) {
                     delivery_address: address
                 }).eq('id', draft.id);
 
-                return await askPaymentMode(from, draft.id);
+                return await askState(from, draft.id);
             }
 
             // ─── STEP 3: Default fallback — show main menu ───
@@ -1015,7 +1191,7 @@ export async function processIncomingMessage(body) {
                         delivery_address: lastOrder.delivery_address
                     }).eq('id', orderId);
                 }
-                return await askPaymentMode(from, orderId);
+                return await askState(from, orderId);
             }
 
             if (id.startsWith('new_addr_')) {
@@ -1031,7 +1207,19 @@ export async function processIncomingMessage(body) {
 
             if (id.startsWith('qty_inc_')) return await handleModifyQuantity(from, 'inc', id.replace('qty_inc_', ''));
             if (id.startsWith('qty_dec_')) return await handleModifyQuantity(from, 'dec', id.replace('qty_dec_', ''));
+
+            if (id.startsWith('vqty_inc_')) return await handleModifyQuantity(from, 'inc', id.replace('vqty_inc_', ''), true);
+            if (id.startsWith('vqty_dec_')) return await handleModifyQuantity(from, 'dec', id.replace('vqty_dec_', ''), true);
+            if (id.startsWith('vsel_')) return await handleVariantSelection(from, id.replace('vsel_', ''));
+
             if (id.startsWith('edit_item_')) return await handleCartItemOptions(from, id.replace('edit_item_', ''));
+
+            if (id.startsWith('state_')) {
+                const parts = id.split('_');
+                const orderId = parts.pop();
+                const stateClean = parts.slice(1).join('_');
+                return await handleStateSelection(from, stateClean, orderId);
+            }
 
             if (id.startsWith('pay_')) {
                 const parts = id.split('_');

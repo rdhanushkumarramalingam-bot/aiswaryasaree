@@ -39,10 +39,7 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized role' }, { status: 403 });
         }
 
-        // Set Cookie (Users only)
-        const cookieStore = await cookies();
-        cookieStore.set('user_session', JSON.stringify({ id: customer.id, phone: customer.phone, name: customer.name }), { path: '/', httpOnly: true, secure: true, maxAge: 60 * 60 * 24 * 7 });
-
+        // Return user data - Frontend will handle local storage
         return NextResponse.json({
             success: true,
             customer: { id: customer.id, name: customer.name, role: customer.role },

@@ -22,6 +22,7 @@ export default function AdminTopBar({ onMenuClick }) {
 
     async function handleLogout() {
         await fetch('/api/auth/logout', { method: 'POST' });
+        localStorage.clear();
         router.push('/login');
     }
 

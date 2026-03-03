@@ -32,6 +32,9 @@ export default function UnifiedLoginPage() {
             });
             const data = await res.json();
             if (res.ok) {
+                // Save to LocalStorage (No Cookies)
+                localStorage.setItem('aiswarya_admin', 'true');
+                localStorage.setItem('aiswarya_user', JSON.stringify(data));
                 router.push('/admin');
             } else {
                 setError(data.error || 'Invalid username or password');
@@ -75,6 +78,8 @@ export default function UnifiedLoginPage() {
             });
             const data = await res.json();
             if (res.ok) {
+                // Save to LocalStorage (No Cookies)
+                localStorage.setItem('aiswarya_user', JSON.stringify(data.customer));
                 router.push('/shop');
             } else {
                 setError(data.error || 'Invalid OTP');

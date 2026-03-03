@@ -1262,6 +1262,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: opacity 0.3s ease-in-out;
 }
 
 .modalDetails {
@@ -1568,4 +1569,120 @@
     font-weight: 800;
     color: #fff;
     border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── ADDITIONAL MODAL & VARIANT STYLES ──────────────────────────────────── */
+.variantBadge {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(4px);
+    color: #25a366;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 50px;
+    border: 1px solid rgba(37, 163, 102, 0.3);
+    z-index: 2;
+}
+
+.modalDivider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0.5rem 0;
+}
+
+.sectionHeader {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+}
+
+.descSection {
+    margin-bottom: 1rem;
+}
+
+.variantSection {
+    margin-bottom: 2rem;
+}
+
+.variantChoices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.variantBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.variantBtn:hover {
+    border-color: rgba(37, 163, 102, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.variantBtnActive {
+    background: rgba(37, 163, 102, 0.1) !important;
+    border-color: #25a366 !important;
+    color: #25a366 !important;
+    box-shadow: 0 0 15px rgba(37, 163, 102, 0.1);
+}
+
+.variantIcon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modalActions {
+    margin-top: auto;
+    padding-top: 1.5rem;
+}
+
+.modalAddBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.1rem;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 10px 25px rgba(37, 163, 102, 0.25);
+}
+
+.modalAddBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(37, 163, 102, 0.35);
+    filter: brightness(1.1);
+}
+
+.modalAddBtn:disabled {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.3);
+    cursor: not-allowed;
+    box-shadow: none;
 }

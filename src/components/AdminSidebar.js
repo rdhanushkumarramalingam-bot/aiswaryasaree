@@ -24,6 +24,7 @@ export default function AdminSidebar({ isOpen }) {
 
     async function handleLogout() {
         await fetch('/api/auth/logout', { method: 'POST' });
+        localStorage.clear(); // Clean up everything
         router.push('/login');
     }
 

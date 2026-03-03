@@ -63,7 +63,7 @@ export default function OrdersPage() {
     const [selectedOrder, setSelectedOrder] = useState(null);
 
     const [orderItems, setOrderItems] = useState([]);
-
+    const [isEditingItems, setIsEditingItems] = useState(false);
     const [notification, setNotification] = useState(null);
 
     const [hasMounted, setHasMounted] = useState(false);
@@ -176,6 +176,78 @@ export default function OrdersPage() {
             setNotification({ message: '❌ Error updating status', type: 'error' });
         }
         setTimeout(() => setNotification(null), 4000);
+    };
+
+    const handleUpdateItem = (index, field, value) => {
+        const newItems = [...orderItems];
+        newItems[index][field] = value;
+        setOrderItems(newItems);
+    };
+
+    const handleRemoveItem = (index) => {
+        const newItems = orderItems.filter((_, i) => i !== index);
+        setOrderItems(newItems);
+    };
+
+    const saveOrderEdits = async () => {
+        try {
+            setLoading(true);
+            const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.price_at_time), 0);
+
+            // Calculate taxes based on selectedOrder's state
+            const state = selectedOrder.shipping_state || 'Tamil Nadu';
+            const gstRate = 0.05; // 5%
+            const tax = subtotal * gstRate;
+            const shipping = selectedOrder.shipping_cost || 100;
+            const total = subtotal + tax + shipping;
+
+            let taxDetails = {};
+            if (state === 'Tamil Nadu') {
+                taxDetails = { cgst: tax / 2, sgst: tax / 2, igst: 0 };
+            } else {
+                taxDetails = { cgst: 0, sgst: 0, igst: tax };
+            }
+
+            // 1. Update Order record
+            const { error: orderError } = await supabase.from('orders').update({
+                subtotal,
+                tax_amount: tax,
+                total_amount: total,
+                ...taxDetails
+            }).eq('id', selectedOrder.id);
+
+            if (orderError) throw orderError;
+
+            // 2. Refresh Items (simplest: delete all and re-insert)
+            await supabase.from('order_items').delete().eq('order_id', selectedOrder.id);
+            const { error: itemsError } = await supabase.from('order_items').insert(
+                orderItems.map(item => ({
+                    order_id: selectedOrder.id,
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    price_at_time: item.price_at_time,
+                    variant_id: item.variant_id,
+                    variant_name: item.variant_name
+                }))
+            );
+
+            if (itemsError) throw itemsError;
+
+            setNotification({ message: '✅ Order items updated and totals recalculated', type: 'success' });
+            setIsEditingItems(false);
+            fetchOrders();
+            // Refresh local selectedOrder
+            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
+            setSelectedOrder(updatedOrder);
+
+        } catch (error) {
+            console.error(error);
+            setNotification({ message: '❌ Failed to save edits', type: 'error' });
+        } finally {
+            setLoading(false);
+            setTimeout(() => setNotification(null), 3000);
+        }
     };
 
 
@@ -672,31 +744,64 @@ export default function OrdersPage() {
 
 
                                     <div style={{ marginBottom: '2rem' }}>
-
-                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '0.5rem' }}>Order Items</h4>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-
-                                            {orderItems.map((item, i) => (
-
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)' }}>
-
-                                                    <div>
-
-                                                        <div style={{ fontWeight: 500 }}>{item.product_name}</div>
-
-                                                        <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
-
-                                                    </div>
-
-                                                    <div style={{ fontWeight: 600 }}>₹{((item.price_at_time || 0) * item.quantity).toLocaleString()}</div>
-
-                                                </div>
-
-                                            ))}
-
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '0.5rem' }}>
+                                            <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Order Items</h4>
+                                            <button
+                                                onClick={() => setIsEditingItems(!isEditingItems)}
+                                                className="btn btn-secondary"
+                                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
+                                            >
+                                                {isEditingItems ? 'Cancel' : 'Edit Items'}
+                                            </button>
                                         </div>
 
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {orderItems.map((item, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 500 }}>{item.product_name} {item.variant_name && `(${item.variant_name})`}</div>
+                                                        {isEditingItems ? (
+                                                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>Qty</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={item.quantity}
+                                                                        onChange={e => handleUpdateItem(i, 'quantity', parseInt(e.target.value) || 0)}
+                                                                        style={{ width: '60px', padding: '0.2rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>Price</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={item.price_at_time}
+                                                                        onChange={e => handleUpdateItem(i, 'price_at_time', parseInt(e.target.value) || 0)}
+                                                                        style={{ width: '100px', padding: '0.2rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                                    />
+                                                                </div>
+                                                                <button onClick={() => handleRemoveItem(i)} style={{ color: 'hsl(var(--danger))', padding: '0.5rem', alignSelf: 'flex-end' }}>
+                                                                    <X size={16} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ fontWeight: 600 }}>₹{((item.price_at_time || 0) * item.quantity).toLocaleString()}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {isEditingItems && (
+                                            <button
+                                                onClick={saveOrderEdits}
+                                                className="btn btn-primary"
+                                                style={{ width: '100%', marginTop: '1rem' }}
+                                            >
+                                                Save Changes & Recalculate Totals
+                                            </button>
+                                        )}
                                     </div>
 
 

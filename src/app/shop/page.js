@@ -3,6 +3,10 @@
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import {
+    Search, ShoppingCart, User, LogOut, ChevronLeft,
+    CheckCircle, MessageCircle, Package, Tag, ArrowRight, X
+} from 'lucide-react';
 import styles from './shop.module.css';
 
 const supabase = createClient(
@@ -31,6 +35,8 @@ function ShopContent() {
     const [shippingZones, setShippingZones] = useState([]);
     const [zoneMappings, setZoneMappings] = useState([]);
     const [user, setUser] = useState(null);
+    const [selectedVariant, setSelectedVariant] = useState(null);
+    const [variants, setVariants] = useState([]); // All variants for selected product
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -121,24 +127,25 @@ function ShopContent() {
     }, []);
 
     async function checkSession() {
-        try {
-            const res = await fetch('/api/auth/session');
-            const data = await res.json();
-            if (data.authenticated && data.role === 'user') {
-                setUser(data.user);
+        const storedUser = localStorage.getItem('aiswarya_user');
+        if (storedUser) {
+            try {
+                const userData = JSON.parse(storedUser);
+                setUser(userData);
                 setCheckoutForm(prev => ({
                     ...prev,
-                    name: data.user.name || '',
-                    phone: data.user.phone ? data.user.phone.replace(/^91/, '') : ''
+                    name: userData.name || '',
+                    phone: userData.phone ? userData.phone.replace(/^91/, '') : ''
                 }));
+            } catch (e) {
+                console.error('Failed to parse user session');
+                localStorage.removeItem('aiswarya_user');
             }
-        } catch (e) {
-            console.error('Session check failed', e);
         }
     }
 
     async function handleLogout() {
-        await fetch('/api/auth/logout', { method: 'POST' });
+        localStorage.clear();
         setUser(null);
         setCheckoutForm({
             name: '', phone: '', address: '', city: '', state: 'Tamil Nadu', country: 'India', pincode: '', paymentMethod: 'COD'
@@ -170,14 +177,18 @@ function ShopContent() {
         if (pidInput && products.length > 0) {
             const target = products.find(p => String(p.id) === String(pidInput));
             if (target && target.stock > 0) {
-                setCart([{ ...target, qty: 1 }]);
-                if (actionInput === 'addtocart') {
-                    setView('cart');
-                    showToast(`✨ ${target.name} added to cart!`);
+                if (target.type === 'variant') {
+                    // Open modal for variant selection
+                    setSelectedProduct(target);
                 } else {
-                    setView('checkout');
+                    setCart([{ ...target, qty: 1 }]);
+                    if (actionInput === 'addtocart') {
+                        setView('cart');
+                        showToast(`✨ ${target.name} added to cart!`);
+                    } else {
+                        setView('checkout');
+                    }
                 }
-                setSelectedProduct(null);
             }
         }
     }, [whatsappPhone, pidInput, actionInput, products]);
@@ -205,40 +216,80 @@ function ShopContent() {
         }
     }
 
+    async function openProductModal(product) {
+        setSelectedProduct(product);
+        setSelectedVariant(null);
+        if (product.type === 'variant') {
+            const { data } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
+            setVariants(data || []);
+            if (data?.length > 0) setSelectedVariant(data[0]);
+        }
+    }
+
     function showToast(message, type = 'success') {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
     }
 
-    function addToCart(product) {
-        if (product.stock < 1) {
+    function addToCart(product, variant = null) {
+        if (product.type === 'variant' && !variant) {
+            openProductModal(product);
+            return;
+        }
+
+        const itemStock = variant ? variant.stock : product.stock;
+        if (itemStock < 1) {
             showToast('This item is out of stock', 'error');
             return;
         }
+
         setCart(prev => {
-            const existing = prev.find(i => i.id === product.id);
+            const itemId = variant ? `${product.id}-${variant.id}` : product.id;
+            const existing = prev.find(i => (variant ? i.variantId === variant.id : i.id === product.id));
+
             if (existing) {
-                if (existing.qty >= product.stock) {
-                    showToast(`Only ${product.stock} in stock`, 'error');
+                if (existing.qty >= itemStock) {
+                    showToast(`Only ${itemStock} in stock`, 'error');
                     return prev;
                 }
-                return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: i.qty + 1 } : i);
             }
-            return [...prev, { ...product, qty: 1 }];
+
+            const newEntry = {
+                ...product,
+                price: variant ? variant.price : product.price,
+                image_url: (variant && variant.image_url) ? variant.image_url : product.image_url,
+                qty: 1,
+                variantId: variant?.id,
+                variantName: variant?.name
+            };
+            return [...prev, newEntry];
         });
-        showToast(`✨ ${product.name} added to cart!`);
+
+        showToast(`✨ ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
         setSelectedProduct(null);
     }
 
-    function updateQty(productId, delta) {
+    function updateQty(index, delta) {
         setCart(prev => {
-            const updated = prev.map(i => i.id === productId ? { ...i, qty: Math.max(0, i.qty + delta) } : i);
-            return updated.filter(i => i.qty > 0);
+            const newCart = [...prev];
+            const item = newCart[index];
+            const stockLimit = item.variantId ?
+                (variants.find(v => v.id === item.variantId)?.stock || item.qty + 10) :
+                (products.find(p => p.id === item.id)?.stock || item.qty + 10);
+
+            if (delta > 0 && item.qty >= stockLimit) {
+                showToast(`Max stock reached`, 'error');
+                return prev;
+            }
+
+            item.qty = Math.max(0, item.qty + delta);
+            return item.qty > 0 ? newCart : newCart.filter((_, i) => i !== index);
         });
     }
 
-    function removeFromCart(productId) {
-        setCart(prev => prev.filter(i => i.id !== productId));
+    function removeFromCart(index) {
+        setCart(prev => prev.filter((_, i) => i !== index));
     }
 
     async function placeOrder() {
@@ -280,14 +331,19 @@ function ShopContent() {
                 product_id: item.id,
                 product_name: item.name,
                 quantity: item.qty,
-                price_at_time: item.price
+                price_at_time: item.price,
+                variant_id: item.variantId || null,
+                variant_name: item.variantName || null
             }));
             await supabase.from('order_items').insert(items);
 
             for (const item of cart) {
-                const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
-                if (prod) {
-                    await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.qty) }).eq('id', item.id);
+                if (item.variantId) {
+                    const { data: v } = await supabase.from('product_variants').select('stock').eq('id', item.variantId).single();
+                    if (v) await supabase.from('product_variants').update({ stock: Math.max(0, v.stock - item.qty) }).eq('id', item.variantId);
+                } else {
+                    const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+                    if (prod) await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.qty) }).eq('id', item.id);
                 }
             }
 
@@ -407,20 +463,26 @@ function ShopContent() {
                             <div className={styles.productsGrid}>
                                 {filteredProducts.map(product => (
                                     <div key={product.id} className={styles.productCard}>
-                                        <div className={styles.productImageWrap} onClick={() => setSelectedProduct(product)}>
-                                            <img src={product.image_url} alt={product.name} className={styles.productImage} />
+                                        <div className={styles.productImageWrap} onClick={() => openProductModal(product)}>
+                                            <img
+                                                src={product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'}
+                                                alt={product.name}
+                                                className={styles.productImage}
+                                                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                                            />
                                             {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
+                                            {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
                                         </div>
                                         <div className={styles.productInfo}>
                                             <div className={styles.productCategory}>{product.category}</div>
-                                            <h3 className={styles.productName}>{product.name}</h3>
+                                            <h3 className={styles.productName} onClick={() => openProductModal(product)}>{product.name}</h3>
                                             <div className={styles.productPrice}>₹{product.price.toLocaleString()}</div>
                                             <button
-                                                onClick={() => addToCart(product)}
+                                                onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
                                                 disabled={product.stock === 0}
-                                                className={styles.addToCartBtn}
+                                                className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
                                             >
-                                                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                                                {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
                                             </button>
                                         </div>
                                     </div>
@@ -438,15 +500,15 @@ function ShopContent() {
                         ) : (
                             <div className={styles.cartLayout}>
                                 <div className={styles.cartItems}>
-                                    {cart.map(item => (
-                                        <div key={item.id} className={styles.cartItem}>
+                                    {cart.map((item, idx) => (
+                                        <div key={idx} className={styles.cartItem}>
                                             <img src={item.image_url} className={styles.cartItemImage} />
                                             <div className={styles.cartItemDetails}>
-                                                <div className={styles.cartItemName}>{item.name}</div>
+                                                <div className={styles.cartItemName}>{item.name} {item.variantName && <small>({item.variantName})</small>}</div>
                                                 <div className={styles.qtyControl}>
-                                                    <button onClick={() => updateQty(item.id, -1)} className={styles.qtyBtn}>−</button>
+                                                    <button onClick={() => updateQty(idx, -1)} className={styles.qtyBtn}>−</button>
                                                     <span>{item.qty}</span>
-                                                    <button onClick={() => updateQty(item.id, 1)} className={styles.qtyBtn}>+</button>
+                                                    <button onClick={() => updateQty(idx, 1)} className={styles.qtyBtn}>+</button>
                                                 </div>
                                             </div>
                                             <div className={styles.cartItemTotal}>₹{(item.price * item.qty).toLocaleString()}</div>
@@ -558,14 +620,68 @@ function ShopContent() {
             {selectedProduct && (
                 <div className={styles.modalOverlay} onClick={() => setSelectedProduct(null)}>
                     <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <img src={selectedProduct.image_url} alt={selectedProduct.name} className={styles.modalImage} />
-                        <div className={styles.modalDetails}>
-                            <h3>{selectedProduct.name}</h3>
-                            <p>{selectedProduct.description}</p>
-                            <div className={styles.modalPrice}>₹{selectedProduct.price.toLocaleString()}</div>
-                            <button onClick={() => addToCart(selectedProduct)} disabled={selectedProduct.stock === 0} className={styles.modalAddBtn}>
-                                {selectedProduct.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-                            </button>
+                        <button className={styles.modalClose} onClick={() => setSelectedProduct(null)}><X size={20} /></button>
+
+                        <div className={styles.modalContent}>
+                            <div className={styles.modalImageWrap}>
+                                <img
+                                    key={selectedVariant?.id || 'base'}
+                                    src={(selectedVariant?.image_url && selectedVariant.image_url.trim() !== '') ? selectedVariant.image_url : (selectedProduct.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80')}
+                                    alt={selectedProduct.name}
+                                    className={styles.modalImage}
+                                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80'; }}
+                                />
+                            </div>
+
+                            <div className={styles.modalDetails}>
+                                <div className={styles.modalCategory}>{selectedProduct.category}</div>
+                                <h2 className={styles.modalTitle}>{selectedProduct.name}</h2>
+
+                                <div className={styles.modalPricing}>
+                                    <span className={styles.modalPrice}>₹{(selectedVariant?.price || selectedProduct.price).toLocaleString()}</span>
+                                    {(selectedVariant?.stock <= 5 || selectedProduct.stock <= 5) && (
+                                        <span className={styles.stockLow}>Low Stock!</span>
+                                    )}
+                                </div>
+
+                                <div className={styles.modalDivider} />
+
+                                <div className={styles.descSection}>
+                                    <h4 className={styles.sectionHeader}>Product Description</h4>
+                                    <p className={styles.modalDesc}>{selectedProduct.description || 'No description available for this premium saree.'}</p>
+                                </div>
+
+                                {selectedProduct.type === 'variant' && (
+                                    <div className={styles.variantSection}>
+                                        <h4 className={styles.sectionHeader}>Select Color / Option</h4>
+                                        <div className={styles.variantChoices}>
+                                            {variants.map(v => (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => setSelectedVariant(v)}
+                                                    className={`${styles.variantBtn} ${selectedVariant?.id === v.id ? styles.variantBtnActive : ''}`}
+                                                >
+                                                    {v.image_url && (
+                                                        <img src={v.image_url} className={styles.variantIcon} onError={(e) => e.target.style.display = 'none'} />
+                                                    )}
+                                                    <span>{v.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className={styles.modalActions}>
+                                    <button
+                                        onClick={() => addToCart(selectedProduct, selectedVariant)}
+                                        disabled={(selectedVariant ? selectedVariant.stock : selectedProduct.stock) === 0}
+                                        className={styles.modalAddBtn}
+                                    >
+                                        <ShoppingCart size={18} />
+                                        {(selectedVariant ? selectedVariant.stock : selectedProduct.stock) === 0 ? 'Out of Stock' : 'Add to Cart'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Loader2, X, Image, LayoutGrid, List, Share2, Link as LinkIcon, Check } from 'lucide-react';
+import {
+    Plus, Edit, Trash2, Search, Loader2, X, Image, LayoutGrid, List,
+    Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag
+} from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +23,9 @@ export default function ProductsPage() {
     const [groupFilter, setGroupFilter] = useState('ALL');
 
     // Facebook Integration States
+    // Variant states
+    const [variants, setVariants] = useState([]);
+    const [productType, setProductType] = useState('simple');
     const [postToFacebook, setPostToFacebook] = useState(false);
     const [fbProcessing, setFbProcessing] = useState(false);
     const [fbConfig, setFbConfig] = useState({ pageId: '', accessToken: '' });
@@ -82,24 +88,57 @@ export default function ProductsPage() {
     const handleSave = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+
         const productData = {
             name: formData.get('name'),
             category: formData.get('category'),
             product_group: formData.get('product_group') || null,
-            price: Number(formData.get('price')),
-            stock: Number(formData.get('stock')),
-            image_url: formData.get('image') || '',
             description: formData.get('description'),
+            type: productType,
             is_active: true
         };
+
+        // For simple products, we take price/stock/image from main fields
+        if (productType === 'simple') {
+            productData.price = Number(formData.get('price'));
+            productData.stock = Number(formData.get('stock'));
+            productData.image_url = formData.get('image') || '';
+        } else {
+            // For variants, we take price/stock/image from the first variant as "representative" for the list view
+            if (variants.length > 0) {
+                productData.price = variants[0].price;
+                productData.stock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
+                productData.image_url = variants[0].image_url;
+            }
+        }
+
         try {
             let savedProduct = null;
             if (currentProduct?.id) {
-                const { data } = await supabase.from('products').update(productData).eq('id', currentProduct.id).select();
+                const { data, error } = await supabase.from('products').update(productData).eq('id', currentProduct.id).select();
+                if (error) throw error;
                 savedProduct = data?.[0];
             } else {
-                const { data } = await supabase.from('products').insert([productData]).select();
+                const { data, error } = await supabase.from('products').insert([productData]).select();
+                if (error) throw error;
                 savedProduct = data?.[0];
+            }
+
+            if (productType === 'variant' && savedProduct) {
+                // 1. Delete removed variants (not simple, but easy)
+                await supabase.from('product_variants').delete().eq('product_id', savedProduct.id);
+
+                // 2. Insert/Update variants
+                if (variants.length > 0) {
+                    const variantsToInsert = variants.map(v => ({
+                        product_id: savedProduct.id,
+                        name: v.name,
+                        price: v.price,
+                        stock: v.stock,
+                        image_url: v.image_url
+                    }));
+                    await supabase.from('product_variants').insert(variantsToInsert);
+                }
             }
 
             // Handle Facebook Posting
@@ -128,10 +167,38 @@ export default function ProductsPage() {
             fetchProducts();
             setIsEditing(false);
             setCurrentProduct(null);
+            setVariants([]);
             setPostToFacebook(false);
         } catch (error) {
-            alert('Failed to save product');
+            console.error(error);
+            alert('Failed to save product: ' + error.message);
         }
+    };
+
+    const openEditModal = async (product) => {
+        setCurrentProduct(product);
+        setProductType(product?.type || 'simple');
+        if (product?.id) {
+            const { data } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
+            setVariants(data || []);
+        } else {
+            setVariants([]);
+        }
+        setIsEditing(true);
+    };
+
+    const addVariant = () => {
+        setVariants([...variants, { name: '', price: currentProduct?.price || 0, stock: 10, image_url: currentProduct?.image_url || '' }]);
+    };
+
+    const updateVariant = (index, field, value) => {
+        const newVariants = [...variants];
+        newVariants[index][field] = value;
+        setVariants(newVariants);
+    };
+
+    const removeVariant = (index) => {
+        setVariants(variants.filter((_, i) => i !== index));
     };
 
 
@@ -165,7 +232,8 @@ export default function ProductsPage() {
     const inputStyle = {
         width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
         background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
-        color: 'hsl(var(--text-main))', fontFamily: 'inherit', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
+        color: 'hsl(var(--text-main))', fontFamily: 'inherit', fontSize: '0.925rem', outline: 'none', boxSizing: 'border-box',
+        transition: 'border-color 0.2s, box-shadow 0.2s'
     };
 
     return (
@@ -176,7 +244,7 @@ export default function ProductsPage() {
                     <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
                     <p>Manage your premium saree collection • {products.length} items</p>
                 </div>
-                <button onClick={() => { setCurrentProduct(null); setIsEditing(true); }} className="btn btn-primary">
+                <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
                     <Plus size={18} /> Add Saree
                 </button>
             </div>
@@ -348,7 +416,7 @@ export default function ProductsPage() {
                                                 <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: '#25D366' }}>
                                                     <Share2 size={15} />
                                                 </button>
-                                                <button onClick={() => { setCurrentProduct(product); setIsEditing(true); }} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
+                                                <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
                                                 <button onClick={() => handleDelete(product.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
                                             </div>
                                         </td>
@@ -406,7 +474,7 @@ export default function ProductsPage() {
                                         <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button onClick={() => { setCurrentProduct(product); setIsEditing(true); }}
+                                            <button onClick={() => openEditModal(product)}
                                                 className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                 <Edit size={13} /> Edit
                                             </button>
@@ -435,46 +503,128 @@ export default function ProductsPage() {
             {isEditing && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
                     onClick={() => setIsEditing(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '600px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
                         <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
                             <h2 style={{ fontSize: '1.2rem', margin: 0 }}>{currentProduct ? '✏️ Edit Saree' : '➕ Add New Saree'}</h2>
                             <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}><X size={22} /></button>
                         </div>
                         <form onSubmit={handleSave} style={{ padding: '1.75rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                                {[
-                                    { label: 'Saree Name *', name: 'name', type: 'text', placeholder: 'e.g. Royal Kanjivaram Silk', defaultValue: currentProduct?.name, required: true },
-                                    null, // category select
-                                ].filter(Boolean).map(f => (
-                                    <div key={f.name}>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>{f.label}</label>
-                                        <input name={f.name} type={f.type} defaultValue={f.defaultValue} required={f.required}
-                                            placeholder={f.placeholder} style={inputStyle} />
+                            {/* Product Type Toggle */}
+                            <div style={{ marginBottom: '1.75rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saree Type</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', background: 'hsl(var(--bg-app))', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <button type="button" onClick={() => setProductType('simple')} style={{
+                                        flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                                        background: productType === 'simple' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: productType === 'simple' ? 'white' : 'hsl(var(--text-muted))',
+                                        fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                                    }}>
+                                        <PackageIcon size={16} /> Simple Saree
+                                    </button>
+                                    <button type="button" onClick={() => setProductType('variant')} style={{
+                                        flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                                        background: productType === 'variant' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: productType === 'variant' ? 'white' : 'hsl(var(--text-muted))',
+                                        fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                                    }}>
+                                        <LayoutGrid size={16} /> Variant Saree
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</div>
+                                    Basic Information
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Name *</label>
+                                        <input name="name" type="text" defaultValue={currentProduct?.name} required placeholder="e.g. Royal Kanjivaram Silk" style={inputStyle} />
                                     </div>
-                                ))}
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Category *</label>
-                                    <select name="category" defaultValue={currentProduct?.category || 'Silk Saree'} style={{ ...inputStyle, cursor: 'pointer' }}>
-                                        <option>Silk Saree</option>
-                                        <option>Cotton Saree</option>
-                                        <option>Designer</option>
-                                        <option>Georgette</option>
-                                        <option>Banarasi</option>
-                                        <option>Chiffon</option>
-                                        <option>Linen</option>
-                                    </select>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Category *</label>
+                                        <select name="category" defaultValue={currentProduct?.category || 'Silk Saree'} style={{ ...inputStyle, cursor: 'pointer' }}>
+                                            <option>Silk Saree</option>
+                                            <option>Cotton Saree</option>
+                                            <option>Designer</option>
+                                            <option>Georgette</option>
+                                            <option>Banarasi</option>
+                                            <option>Chiffon</option>
+                                            <option>Linen</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginTop: '1.25rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
-                                    <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" style={inputStyle} />
+
+                            {productType === 'simple' ? (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
+                                        Saree Details (Single Item)
+                                    </h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
+                                            <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
+                                            <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" style={inputStyle} />
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '1.25rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>
+                                        <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                    <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" style={inputStyle} />
+                            ) : (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '8px' }}>
+                                        <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
+                                        Manage Variants (Multiple Colors/Options)
+                                    </h3>
+                                    <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Create different versions of this saree:</span>
+                                            <button type="button" onClick={addVariant} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary) / 0.2)' }}>
+                                                <Plus size={14} /> Add Variant
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {variants.length > 0 && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', marginBottom: '-0.25rem', padding: '0 2px' }}>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Color/Option</div>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price (₹)</div>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stock</div>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL</div>
+                                                    <div style={{ width: '20px' }}></div>
+                                                </div>
+                                            )}
+                                            {variants.map((v, i) => (
+                                                <div key={i} className="animate-in fade-in" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
+                                                    <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <input placeholder="Link..." value={v.image_url} onChange={e => updateVariant(i, 'image_url', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.2)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.1)'}>
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {variants.length === 0 && (
+                                                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem', border: '1px dashed hsl(var(--border-subtle))', borderRadius: '12px' }}>
+                                                    No variants added yet. Click <strong>"Add Variant"</strong> to start.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
                                 <textarea name="description" defaultValue={currentProduct?.description} rows={3}
@@ -483,11 +633,6 @@ export default function ProductsPage() {
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>🏷️ Product Group / Tag</label>
                                 <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" style={inputStyle} />
-                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted) / 0.7)', marginTop: '4px' }}>Group products together for easy filtering & broadcast targeting</div>
-                            </div>
-                            <div style={{ marginTop: '1.25rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp & Facebook display)</label>
-                                <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
                             </div>
 
                             {/* Facebook Integration */}

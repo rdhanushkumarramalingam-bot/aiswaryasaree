@@ -2,16 +2,27 @@
 import { useState, useEffect } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import AdminTopBar from '@/components/AdminTopBar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function AdminLayout({ children }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const pathname = usePathname();
+    const router = useRouter();
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
-    // Auto-close sidebar on route change (mobile)
     useEffect(() => {
+        setMounted(true);
+        const isAdmin = localStorage.getItem('aiswarya_admin');
+        if (!isAdmin) {
+            router.push('/login');
+        } else {
+            setIsAuthorized(true);
+        }
         setSidebarOpen(false);
-    }, [pathname]);
+    }, [pathname, router]);
+
+    if (!mounted || !isAuthorized) return null;
 
     return (
         <div className="admin-layout">
