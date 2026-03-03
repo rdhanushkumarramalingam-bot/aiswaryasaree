@@ -42,7 +42,7 @@ export async function POST(req) {
         // Return user data - Frontend will handle local storage
         return NextResponse.json({
             success: true,
-            customer: { id: customer.id, name: customer.name, role: customer.role },
+            customer: customer,
             redirect: '/shop'
         });
 
