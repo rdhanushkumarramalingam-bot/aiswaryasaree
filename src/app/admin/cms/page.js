@@ -11,10 +11,17 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 const TABS = [
-    { id: 'content', label: 'Content', icon: FileText },
-    { id: 'seo', label: 'SEO Suite', icon: BarChart },
-    { id: 'appearance', label: 'Appearance', icon: ImageIcon },
-    { id: 'advanced', label: 'Advanced', icon: Code },
+    { id: 'content', label: 'Page Builder', icon: FileText },
+    { id: 'seo', label: 'Google Search Info', icon: BarChart },
+    { id: 'appearance', label: 'Design & Layout', icon: ImageIcon },
+    { id: 'advanced', label: 'Technical Settings', icon: Code },
+];
+
+const CONTENT_BLOCKS = [
+    { name: '✨ Hero Banner', content: '<section style="padding: 60px 20px; text-align: center; background: #fdf2f8; border-radius: 20px; margin: 20px 0;">\n  <h1 style="font-size: 3rem; color: #db2777; margin-bottom: 20px;">Welcome to Our Story</h1>\n  <p style="font-size: 1.2rem; color: #4b5563; max-width: 600px; margin: 0 auto;">Discover the finest handwoven sarees crafted with love and tradition.</p>\n</section>' },
+    { name: '🖼️ Image with Text', content: '<div style="display: flex; gap: 30px; align-items: center; margin: 40px 0; flex-wrap: wrap;">\n  <div style="flex: 1; min-width: 300px;">\n    <img src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800" style="width: 100%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" />\n  </div>\n  <div style="flex: 1; min-width: 300px;">\n    <h2 style="font-size: 2rem; color: #111827;">Our Heritage</h2>\n    <p style="font-size: 1.1rem; color: #4b5563; line-height: 1.8;">Each weave tells a story of centuries-old craftsmanship passed down through generations...</p>\n  </div>\n</div>' },
+    { name: '📋 FAQ Section', content: '<div style="margin: 40px 0;">\n  <h2 style="text-align: center; margin-bottom: 30px;">Common Questions</h2>\n  <details style="padding: 15px; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px;">\n    <summary style="font-weight: 700; cursor: pointer;">How long does shipping take?</summary>\n    <p style="margin-top: 10px; color: #6b7280;">We usually ship within 2-3 business days.</p>\n  </details>\n</div>' },
+    { name: '🛍️ Special Feature', content: '<div style="background: #111827; color: white; padding: 40px; border-radius: 20px; text-align: center;">\n  <h3>Exclusive Collection</h3>\n  <p>Available for a limited time only. Don\'t miss out!</p>\n  <button style="background: #ec4899; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-weight: 700; margin-top: 20px; cursor: pointer;">Shop Now</button>\n</div>' }
 ];
 
 export default function CMSPage() {
@@ -27,6 +34,7 @@ export default function CMSPage() {
     const [notification, setNotification] = useState(null);
     const [activeTab, setActiveTab] = useState('content');
     const [saving, setSaving] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
 
     const fetchPages = async () => {
         setLoading(true);
@@ -137,6 +145,41 @@ export default function CMSPage() {
         display: 'flex', alignItems: 'center', gap: '0.5rem',
         marginBottom: '0.6rem', fontSize: '0.82rem', fontWeight: 700,
         color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em'
+    };
+
+    const insertBlock = (content) => {
+        const textarea = document.querySelector('textarea[name="content"]');
+        if (!textarea) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const before = text.substring(0, start);
+        const after = text.substring(end, text.length);
+        textarea.value = before + content + after;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const formatText = (tag) => {
+        const textarea = document.querySelector('textarea[name="content"]');
+        if (!textarea) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selected = textarea.value.substring(start, end);
+        let replacement = '';
+
+        switch (tag) {
+            case 'bold': replacement = `<strong>${selected || 'bold text'}</strong>`; break;
+            case 'italic': replacement = `<em>${selected || 'italic text'}</em>`; break;
+            case 'h2': replacement = `<h2>${selected || 'Heading'}</h2>`; break;
+            case 'link': replacement = `<a href="#">${selected || 'link text'}</a>`; break;
+            case 'center': replacement = `<div style="text-align: center;">${selected || 'centered content'}</div>`; break;
+            default: replacement = selected;
+        }
+
+        const before = textarea.value.substring(0, start);
+        const after = textarea.value.substring(end);
+        textarea.value = before + replacement + after;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
     };
 
     return (
@@ -313,6 +356,9 @@ export default function CMSPage() {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button type="button" onClick={() => setShowPreview(true)} className="btn btn-secondary" style={{ padding: '0.75rem 1.5rem', borderRadius: '14px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <Eye size={18} /> Preview Page
+                                </button>
                                 <button type="button" onClick={handleSave} disabled={saving} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '14px' }}>
                                     {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {currentPage ? 'Apply Changes' : 'Initialize Page'}
                                 </button>
@@ -352,36 +398,51 @@ export default function CMSPage() {
                                     <div className="animate-fade">
                                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '3rem' }}>
                                             <div>
-                                                <label style={labelStyle}>Primary Title</label>
-                                                <input name="title" required placeholder="Enter compelling title..." defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
+                                                <label style={labelStyle}>Page Heading (Big Title)</label>
+                                                <input name="title" required placeholder="What is this page about?" defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
 
-                                                <label style={labelStyle}>Body Content (Engine Workspace)</label>
-                                                <textarea name="content" required rows={18} placeholder="Draft your content with HTML or raw text..." defaultValue={currentPage?.content} style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: 1.6, minHeight: '400px', padding: '1.25rem' }} />
+                                                <label style={labelStyle}>Page Designer (What people see)</label>
+                                                <div style={{ background: 'hsl(var(--bg-panel)/0.6)', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
+                                                    <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>B</button>
+                                                    <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
+                                                    <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>H2</button>
+                                                    <button type="button" onClick={() => formatText('link')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Link</button>
+                                                    <button type="button" onClick={() => formatText('center')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Center Text</button>
+                                                </div>
+                                                <textarea name="content" required rows={15} placeholder="Draft your page here using the tools above..." defaultValue={currentPage?.content} style={{ ...inputStyle, borderRadius: '0 0 12px 12px', fontSize: '0.95rem', lineHeight: 1.6, minHeight: '350px', padding: '1.25rem' }} />
                                             </div>
 
                                             <div>
                                                 <div className="card" style={{ padding: '1.5rem', background: 'hsl(var(--bg-panel)/0.4)', borderRadius: '20px' }}>
-                                                    <label style={labelStyle}><Globe size={14} /> URL Segment (Slug)</label>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>/page/</span>
-                                                        <input name="slug" required defaultValue={currentPage?.slug} style={{ ...inputStyle, marginBottom: 0, padding: '0.5rem' }} />
+                                                    <label style={labelStyle}>✨ Quick Add Blocks</label>
+                                                    <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
+                                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                                        {CONTENT_BLOCKS.map(block => (
+                                                            <button
+                                                                key={block.name}
+                                                                type="button"
+                                                                onClick={() => insertBlock(block.content)}
+                                                                style={{ padding: '0.75rem', textAlign: 'left', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                                                            >
+                                                                {block.name}
+                                                            </button>
+                                                        ))}
                                                     </div>
 
-                                                    <label style={labelStyle}><Lock size={14} /> Page Status</label>
-                                                    <select name="status" defaultValue={currentPage?.status || 'draft'} style={inputStyle}>
-                                                        <option value="draft">Draft - Private</option>
-                                                        <option value="published">Published - Live</option>
-                                                        <option value="scheduled">Scheduled - Future</option>
-                                                    </select>
+                                                    <div style={{ marginTop: '2rem' }}>
+                                                        <label style={labelStyle}><Globe size={14} /> Link Address</label>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                                                            <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>/page/</span>
+                                                            <input name="slug" required defaultValue={currentPage?.slug} style={{ ...inputStyle, marginBottom: 0, padding: '0.5rem' }} />
+                                                        </div>
 
-                                                    <label style={labelStyle}><Eye size={14} /> Visibility</label>
-                                                    <select name="visibility" defaultValue={currentPage?.visibility || 'public'} style={inputStyle}>
-                                                        <option value="public">🌍 Public (SEO Ready)</option>
-                                                        <option value="private">🔒 Private (Admin Only)</option>
-                                                    </select>
-
-                                                    <label style={labelStyle}><Calendar size={14} /> Publish Date</label>
-                                                    <input type="datetime-local" name="publish_date" defaultValue={currentPage?.publish_date ? new Date(currentPage.publish_date).toISOString().slice(0, 16) : ''} style={inputStyle} />
+                                                        <label style={labelStyle}><Lock size={14} /> Visibility Control</label>
+                                                        <select name="status" defaultValue={currentPage?.status || 'draft'} style={inputStyle}>
+                                                            <option value="draft">📁 Saved Draft (Hidden)</option>
+                                                            <option value="published">🚀 Live on Website</option>
+                                                            <option value="scheduled">⏰ Schedule for Later</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -392,13 +453,13 @@ export default function CMSPage() {
                                     <div className="animate-fade">
                                         <div style={{ background: 'hsl(var(--bg-panel)/0.3)', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                🔍 SEO & Discoverability Suite
+                                                🔍 Appearance in Google Search
                                             </h3>
 
-                                            <label style={labelStyle}>Browser Meta Title (Optimal: 60 chars)</label>
+                                            <label style={labelStyle}>Search Title (Keep it short)</label>
                                             <input name="seo_title" placeholder="Leave empty to use page title" defaultValue={currentPage?.seo_title} style={inputStyle} />
 
-                                            <label style={labelStyle}>Search Engine Description (Optimal: 155 chars)</label>
+                                            <label style={labelStyle}>Short Description (Shows in Google)</label>
                                             <textarea name="meta_description" rows={4} placeholder="Summarize your page for Google search results..." defaultValue={currentPage?.meta_description} style={{ ...inputStyle, minHeight: '100px' }} />
 
                                             <label style={labelStyle}>Social Sharing Image (OpenGraph URL)</label>
@@ -468,6 +529,22 @@ export default function CMSPage() {
                                 )}
 
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ────── LIVE PREVIEW MODAL ────── */}
+            {showPreview && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '1000px', height: '80vh', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 800, color: '#1e293b' }}>🖥️ Desktop Preview: {document.querySelector('input[name="title"]')?.value}</div>
+                            <button onClick={() => setShowPreview(false)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Close Preview</button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '3rem', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
+                            <h1 style={{ fontSize: '2.5rem', marginBottom: '2rem', color: '#0f172a' }}>{document.querySelector('input[name="title"]')?.value}</h1>
+                            <div dangerouslySetInnerHTML={{ __html: document.querySelector('textarea[name="content"]')?.value }} />
                         </div>
                     </div>
                 </div>

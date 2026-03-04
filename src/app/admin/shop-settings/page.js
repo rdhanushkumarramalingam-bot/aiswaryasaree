@@ -168,37 +168,6 @@ export default function ShopSettingsPage() {
                     </div>
                 </section>
 
-                {/* Invoice Customization */}
-                <section className="settings-card card shadow-premium full-width">
-                    <div className="card-header">
-                        <FileText size={20} />
-                        <h3>Invoice Customization (In-Bill details)</h3>
-                    </div>
-                    <div className="grid-2-col">
-                        <div className="field-group">
-                            <label>Terms & Conditions</label>
-                            <p className="hint">Shown at the bottom of the invoice. Use new lines for separate points.</p>
-                            <textarea
-                                rows={6}
-                                value={settings.bill_terms || ''}
-                                onChange={(e) => handleUpdate('bill_terms', e.target.value)}
-                                placeholder="1. Return Policy...
-2. Warranty details..."
-                            />
-                        </div>
-                        <div className="field-group">
-                            <label>Bill Footer Note</label>
-                            <p className="hint">A warm greeting or seasonal message for your customers.</p>
-                            <textarea
-                                rows={6}
-                                value={settings.bill_footer || ''}
-                                onChange={(e) => handleUpdate('bill_footer', e.target.value)}
-                                placeholder="Thank you for shopping with us! Have a great day."
-                            />
-                        </div>
-                    </div>
-                </section>
-
                 {/* WhatsApp Funnel Settings */}
                 <section className="settings-card card shadow-premium">
                     <div className="card-header">

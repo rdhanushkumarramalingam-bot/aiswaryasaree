@@ -1,16 +1,41 @@
-
 import { jsPDF } from "jspdf";
+import { supabase } from "./supabaseClient";
 
 export async function generateInvoicePDF(order) {
     const doc = new jsPDF();
 
+    // Fetch branding from settings
+    let branding = {
+        shop_name: "Cast Prince",
+        shop_address: "Premium Handwoven Textiles",
+        shop_gstin: "",
+        bill_footer: "Thank you for your business!"
+    };
+
+    try {
+        const { data } = await supabase.from('app_settings').select('*');
+        if (data) {
+            data.forEach(item => {
+                if (branding.hasOwnProperty(item.key)) {
+                    branding[item.key] = item.value;
+                }
+            });
+        }
+    } catch (e) {
+        console.error("PDF Branding Error:", e);
+    }
+
     // Header
     doc.setFontSize(22);
-    doc.text("Cast Prince", 105, 20, { align: "center" });
+    doc.text(branding.shop_name, 105, 20, { align: "center" });
 
-    doc.setFontSize(12);
-    doc.text("Premium Silk & Designer Weaves", 105, 28, { align: "center" });
-    doc.text("GSTIN: 29AABCU9603R1Z2", 105, 34, { align: "center" }); // Mock GST
+    doc.setFontSize(10);
+    const addressLinesHeader = doc.splitTextToSize(branding.shop_address, 150);
+    doc.text(addressLinesHeader, 105, 28, { align: "center" });
+
+    if (branding.shop_gstin) {
+        doc.text(`GSTIN: ${branding.shop_gstin}`, 105, 36, { align: "center" });
+    }
 
     doc.setDrawColor(0);
     doc.line(10, 40, 200, 40);
@@ -69,8 +94,9 @@ export async function generateInvoicePDF(order) {
     // Footer
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
-    doc.text("Thank you for your business!", 105, 280, { align: "center" });
-    doc.text("Authorized Signatory", 190, 270, { align: "right" });
+    const footerText = branding.bill_footer || "Thank you for your business!";
+    doc.text(footerText, 105, 280, { align: "center" });
+    doc.text("Authorized Signatory", 190, 275, { align: "right" });
 
     // Return base64 for sending via API
     return doc.output('arraybuffer'); // Or blob, depending on upload need
