@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingBag, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy } from 'lucide-react';
 
 const menuItems = [
-    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { name: 'Dashboard', href: '/admin', icon: TrendingUp },
+    { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Products', href: '/admin/products', icon: ShoppingBag },
     { name: 'Orders', href: '/admin/orders', icon: Package },
     { name: 'Customers', href: '/admin/customers', icon: Users },
@@ -15,7 +16,7 @@ const menuItems = [
     { name: 'Meta Connect', href: '/admin/facebook', icon: Facebook },
     { name: 'Schedule Post', href: '/admin/schedule', icon: Clock },
     { name: 'Shipping', href: '/admin/shipping', icon: Truck },
-    { name: 'Settings', href: '/admin/settings', icon: Settings },
+    { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
 ];
 
 export default function AdminSidebar({ isOpen }) {
@@ -40,20 +41,22 @@ export default function AdminSidebar({ isOpen }) {
                     width: '42px', height: '42px', borderRadius: '12px',
                     background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.5rem', color: 'hsl(var(--bg-app))',
-                    boxShadow: '0 0 15px hsl(var(--primary) / 0.4)'
+                    fontSize: '1.5rem', color: 'white',
+                    boxShadow: '0 8px 16px hsl(var(--primary) / 0.3)',
+                    border: '1px solid hsl(var(--primary-light) / 0.2)'
                 }}>
-                    💮
+                    A
                 </div>
                 <div>
                     <h1 style={{
-                        fontSize: '1.25rem', fontWeight: 700, margin: 0,
-                        fontFamily: 'var(--font-heading)', letterSpacing: '0'
-                    }}>Cast Prince</h1>
+                        fontSize: '1.1rem', fontWeight: 800, margin: 0,
+                        fontFamily: 'var(--font-heading)', letterSpacing: '0.02em',
+                        color: 'white'
+                    }}>Aiswarya Saree</h1>
                     <p style={{
-                        fontSize: '0.65rem', color: 'hsl(var(--primary))', margin: 0,
-                        textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600
-                    }}>Premium Portal</p>
+                        fontSize: '0.6rem', color: 'hsl(var(--primary))', margin: 0,
+                        textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800
+                    }}>Executive Dashboard</p>
                 </div>
             </div>
 

@@ -191,9 +191,9 @@ function TrackOrderContent() {
                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.product_name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Qty: {item.quantity} × ₹{item.price_at_time.toLocaleString()}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Qty: {item.quantity} × ₹{(item.price_at_time || 0).toLocaleString()}</div>
                                             </div>
-                                            <div style={{ fontWeight: 700 }}>₹{(item.quantity * item.price_at_time).toLocaleString()}</div>
+                                            <div style={{ fontWeight: 700 }}>₹{((item.quantity * item.price_at_time) || 0).toLocaleString()}</div>
                                         </div>
                                     ))}
                                     <div style={{
@@ -201,7 +201,7 @@ function TrackOrderContent() {
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}>
                                         <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Total Amount</div>
-                                        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'hsl(var(--primary))' }}>₹{order.total_amount.toLocaleString()}</div>
+                                        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'hsl(var(--primary))' }}>₹{(order.total_amount || 0).toLocaleString()}</div>
                                     </div>
                                 </div>
                             </div>

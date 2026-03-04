@@ -212,11 +212,11 @@ function InvoiceContent() {
 
                                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.product_name}</div>
 
-                                        <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.quantity} x ₹{item.price_at_time.toLocaleString()}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
 
                                     </div>
 
-                                    <div style={{ fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</div>
+                                    <div style={{ fontWeight: 700 }}>₹{((item.price_at_time * item.quantity) || 0).toLocaleString()}</div>
 
                                 </div>
 
@@ -252,7 +252,7 @@ function InvoiceContent() {
 
                             <span style={{ fontWeight: 600, color: '#aaa' }}>Total Amount Paid</span>
 
-                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>₹{order.total_amount.toLocaleString()}</span>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>₹{(order.total_amount || 0).toLocaleString()}</span>
 
                         </div>
 

@@ -48,6 +48,7 @@ function ShopContent() {
     const [trackedOrder, setTrackedOrder] = useState(null);
     const [trackingLoading, setTrackingLoading] = useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [hasMounted, setHasMounted] = useState(false);
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -149,6 +150,7 @@ function ShopContent() {
 
     // ── EFFECTS ──
     useEffect(() => {
+        setHasMounted(true);
         fetchProducts();
         fetchBusinessState();
         fetchShippingRates();
@@ -478,14 +480,42 @@ function ShopContent() {
             }));
             await supabase.from('order_items').insert(items);
 
+            // ────── DEDUCT STOCK & LOG HISTORY ──────
             for (const item of cart) {
                 if (item.variantId) {
                     const { data: v } = await supabase.from('product_variants').select('stock').eq('id', item.variantId).single();
-                    if (v) await supabase.from('product_variants').update({ stock: Math.max(0, v.stock - item.qty) }).eq('id', item.variantId);
+                    if (v) {
+                        const newStock = Math.max(0, v.stock - item.qty);
+                        await supabase.from('product_variants').update({ stock: newStock }).eq('id', item.variantId);
+
+                        // Log Variant History
+                        await supabase.from('product_history').insert({
+                            product_id: item.id,
+                            variant_id: item.variantId,
+                            change_type: 'SALE',
+                            quantity_change: -item.qty,
+                            new_stock: newStock,
+                            reason: `Website Order #${orderId}`
+                        });
+                    }
                 } else {
                     const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
-                    if (prod) await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.qty) }).eq('id', item.id);
+                    if (prod) {
+                        const newStock = Math.max(0, prod.stock - item.qty);
+                        await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+
+                        // Log Product History
+                        await supabase.from('product_history').insert({
+                            product_id: item.id,
+                            change_type: 'SALE',
+                            quantity_change: -item.qty,
+                            new_stock: newStock,
+                            reason: `Website Order #${orderId}`
+                        });
+                    }
                 }
+                // Increment aggregate sales counter
+                await supabase.rpc('increment_total_sold', { prod_id: item.id, qty: item.qty });
             }
 
             setOrderData({
@@ -510,6 +540,8 @@ function ShopContent() {
         const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732';
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_self');
     }
+
+    if (!hasMounted) return null;
 
     return (
         <div className={styles.shopApp}>
@@ -703,7 +735,7 @@ function ShopContent() {
                                         <div className={styles.productInfo}>
                                             <div className={styles.productCategory}>{product.category}</div>
                                             <h3 className={styles.productName} onClick={() => openProductModal(product)}>{product.name}</h3>
-                                            <div className={styles.productPrice}>₹{product.price.toLocaleString()}</div>
+                                            <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
                                             <button
                                                 onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
                                                 disabled={product.stock === 0}
@@ -738,14 +770,14 @@ function ShopContent() {
                                                     <button onClick={() => updateQty(idx, 1)} className={styles.qtyBtn}>+</button>
                                                 </div>
                                             </div>
-                                            <div className={styles.cartItemTotal}>₹{(item.price * item.qty).toLocaleString()}</div>
+                                            <div className={styles.cartItemTotal}>₹{((item.price * item.qty) || 0).toLocaleString()}</div>
                                         </div>
                                     ))}
                                 </div>
                                 <div className={styles.cartSummary}>
                                     <div className={styles.summaryCard}>
                                         <h3>Summary</h3>
-                                        <div className={styles.summaryLine}><span>Subtotal</span><span>₹{cartTotal.toLocaleString()}</span></div>
+                                        <div className={styles.summaryLine}><span>Subtotal</span><span>₹{(cartTotal || 0).toLocaleString()}</span></div>
                                         <button onClick={() => setView('checkout')} className={styles.checkoutBtn}>Proceed to Checkout</button>
                                     </div>
                                 </div>
@@ -1002,7 +1034,7 @@ function ShopContent() {
                                     <h3 style={{ marginBottom: '1.5rem', fontFamily: 'var(--font-heading)' }}>Order Summary</h3>
                                     <div className={styles.summaryLine}>
                                         <span>Items Subtotal</span>
-                                        <span>₹{cartTotal.toLocaleString()}</span>
+                                        <span>₹{(cartTotal || 0).toLocaleString()}</span>
                                     </div>
 
                                     {/* Domestic Tax Breakdown */}
@@ -1011,19 +1043,19 @@ function ShopContent() {
                                             {taxDetails.cgst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
                                                     <span>CGST (9%)</span>
-                                                    <span>₹{taxDetails.cgst.toLocaleString()}</span>
+                                                    <span>₹{(taxDetails.cgst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {taxDetails.sgst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
                                                     <span>SGST (9%)</span>
-                                                    <span>₹{taxDetails.sgst.toLocaleString()}</span>
+                                                    <span>₹{(taxDetails.sgst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {taxDetails.igst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
                                                     <span>IGST (18%)</span>
-                                                    <span>₹{taxDetails.igst.toLocaleString()}</span>
+                                                    <span>₹{(taxDetails.igst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -1044,7 +1076,7 @@ function ShopContent() {
                                             )}
                                         </div>
                                         <span style={{ fontWeight: 600 }}>
-                                            {taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString()}`}
+                                            {taxDetails.shipping === 0 ? 'FREE' : `₹${(taxDetails.shipping || 0).toLocaleString()}`}
                                         </span>
                                     </div>
 
@@ -1052,7 +1084,7 @@ function ShopContent() {
                                     <div className={styles.summaryTotalLine}>
                                         <span>Grand Total</span>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '1.5rem' }}>₹{taxDetails.totalOrder.toLocaleString()}</div>
+                                            <div style={{ fontSize: '1.5rem' }}>₹{(taxDetails.totalOrder || 0).toLocaleString()}</div>
                                             <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>Inclusive of all taxes</div>
                                         </div>
                                     </div>

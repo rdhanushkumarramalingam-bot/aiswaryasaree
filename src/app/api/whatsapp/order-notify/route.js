@@ -74,7 +74,7 @@ export async function POST(request) {
         }
 
         // ── Build the order confirmation message ──────────────────────────────
-        const itemsText = items.map(i => `  • ${i.name} x${i.qty} = ₹${(i.price * i.qty).toLocaleString()}`).join('\n');
+        const itemsText = items.map(i => `  • ${i.name} x${i.qty} = ₹${((i.price * i.qty) || 0).toLocaleString()}`).join('\n');
         const paymentText = paymentMethod === 'COD' ? '💵 Cash on Delivery' : '📲 UPI / Online';
 
         const message =
@@ -86,11 +86,11 @@ export async function POST(request) {
             `📍 *Delivery Address:*\n${address}\n\n` +
             `🛍️ *Items Ordered:*\n${itemsText}\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `💰 *Total Amount:* ₹${total.toLocaleString()}\n` +
+            `💰 *Total Amount:* ₹${(total || 0).toLocaleString()}\n` +
             `💳 *Payment:* ${paymentText}\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
             (paymentMethod === 'UPI'
-                ? `📲 *UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${total.toLocaleString()}*\n\nPlease complete the payment and reply *PAID ✓* to confirm.\n\n`
+                ? `📲 *UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${(total || 0).toLocaleString()}*\n\nPlease complete the payment and reply *PAID ✓* to confirm.\n\n`
                 : `Our team will contact you to confirm your delivery date.\n\n`) +
             `💗 Thank you for shopping with *Cast Prince*!\n` +
             `Tap the buttons below to manage your orders.`;

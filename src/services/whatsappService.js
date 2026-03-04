@@ -210,16 +210,52 @@ async function deductStock(orderId) {
                 if (variant) {
                     const newStock = Math.max(0, variant.stock - item.quantity);
                     await supabase.from('product_variants').update({ stock: newStock }).eq('id', item.variant_id);
+
+                    // LOG HISTORY
+                    await supabase.from('product_history').insert({
+                        product_id: item.product_id,
+                        variant_id: item.variant_id,
+                        change_type: 'SALE',
+                        quantity_change: -item.quantity,
+                        new_stock: newStock,
+                        reason: `Sold in Order #${orderId}`
+                    });
+
+                    await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+
+                    // Check low stock alert
+                    const { data: fullVariant } = await supabase.from('product_variants').select('*, products(name, alert_threshold)').eq('id', item.variant_id).single();
+                    if (fullVariant && fullVariant.stock <= (fullVariant.products?.alert_threshold || 0)) {
+                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '917558189732';
+                        await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${fullVariant.products.name}*\nVariant: *${fullVariant.name}*\nCurrent Stock: *${fullVariant.stock}*\nThreshold: *${fullVariant.products.alert_threshold}*`);
+                    }
                 }
             } else {
                 // Deduct from main product
                 const { data: product } = await supabase.from('products')
-                    .select('stock')
+                    .select('name, stock, alert_threshold')
                     .eq('id', item.product_id)
                     .single();
                 if (product) {
                     const newStock = Math.max(0, product.stock - item.quantity);
                     await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+
+                    // LOG HISTORY
+                    await supabase.from('product_history').insert({
+                        product_id: item.product_id,
+                        change_type: 'SALE',
+                        quantity_change: -item.quantity,
+                        new_stock: newStock,
+                        reason: `Sold in Order #${orderId}`
+                    });
+
+                    await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+
+                    // Check low stock alert
+                    if (newStock <= (product.alert_threshold || 0)) {
+                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '917558189732';
+                        await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${product.name}*\nCurrent Stock: *${newStock}*\nThreshold: *${product.alert_threshold}*`);
+                    }
                 }
             }
         }
@@ -398,11 +434,13 @@ function getCategoryEmoji(category) {
 }
 
 export async function sendCatalogueCategories(to) {
+    // ─── AUTO-ACTIVATE HIDDEN PRODUCTS ───
+    await supabase.from('products').update({ is_active: true }).eq('is_active', false);
+
     // Dynamically fetch all distinct categories from the products table
     const { data: allProducts } = await supabase
         .from('products')
-        .select('*')
-        .eq('is_active', true);
+        .select('*');
 
     // Count products per category
     const catMap = {};
@@ -450,7 +488,14 @@ export async function sendCatalogueCategories(to) {
 export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     // typeIdRaw is like 'ctlg_silk_saree' or 'ctlg_all' or 'ctlg_page_silk_saree_50'
     const cleanId = typeIdRaw.replace('ctlg_page_', '').replace('ctlg_', '');
-    const typeId = cleanId.split('_').filter(s => !/^\d+$/.test(s)).join('_') || 'all';
+
+    // Improved logic to correctly detect "all" types
+    let typeId = 'all';
+    if (cleanId.startsWith('all')) {
+        typeId = 'all';
+    } else {
+        typeId = cleanId.split('_').filter(s => !/^\d+$/.test(s)).join('_') || 'all';
+    }
 
     let categoryName = 'All Sarees';
     let searchFilter = null;
@@ -464,13 +509,25 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
     if (startOffset === 0) await sendText(to, `📖 Loading *${categoryName}* catalogue...`);
 
-    let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
+    // ─── LOG REQUEST FOR ADMIN ───
+    if (typeId === 'all' && startOffset === 0) {
+        console.log(`\n========== CUSTOMER VIEW ALL PRODUCTS REQUEST ==========`);
+    }
+
+    let query = supabase.from('products').select('*', { count: 'exact' });
     if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
 
     const streamId = startStream(to);
-    const PAGE_LIMIT = 8; // Small batches to avoid timeout and bursting
+    const PAGE_LIMIT = 60; // Set high to capture everything in one flow
 
-    let { data: prods, count } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_LIMIT - 1);
+    let { data: prods, count: totalCount, error: queryError } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_LIMIT - 1);
+
+    if (queryError) {
+        console.error(`[WA] Database Query Error:`, queryError);
+        return sendText(to, "⚠️ Sorry, I encountered an error while fetching the catalogue.");
+    }
+
+    console.log(`[WA] Found ${prods?.length || 0} items for "${categoryName}" (Total in DB: ${totalCount})`);
 
     if (!prods || prods.length === 0) {
         if (startOffset === 0) {
@@ -482,12 +539,14 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         return sendText(to, "⚠️ No more items in this category.");
     }
 
-    console.log(`[WA] Sending catalogue chunk: ${prods.length} of ${count} (Start: ${startOffset})`);
+    for (const [idx, p] of prods.entries()) {
+        if (!isStreamActive(to, streamId)) {
+            console.log(`[WA] Stream for ${to} was cancelled or superseded.`);
+            return;
+        }
 
-    for (const p of prods) {
-        if (!isStreamActive(to, streamId)) return;
-
-        const stockStatus = p.stock < 1 ? "❌ OUT OF STOCK" : p.stock < 5 ? `⚠️ Only ${p.stock} left!` : "✅ In Stock";
+        const effectiveStock = p.stock - (p.alert_threshold || 0);
+        const stockStatus = effectiveStock <= 0 ? "❌ OUT OF STOCK" : effectiveStock <= 5 ? `⚠️ Only ${effectiveStock} left!` : "✅ In Stock";
         const groupTag = p.product_group ? `\n🏷️ ${p.product_group}` : '';
         const caption = `📖 *${p.name}*\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
 
@@ -497,26 +556,39 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
             ? [{ id: `addcart_${p.id}`, title: isVariable ? "🎨 Select Option" : "🛒 Add to Bag" }]
             : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
 
+        const imgUrl = getPremiumImage(p);
+
         try {
-            await sendImageButtons(to, getPremiumImage(p), caption, buttons);
+            console.log(`[WA] Sending item ${idx + 1}/${prods.length}: ${p.name} (Img: ${imgUrl.substring(0, 30)}...)`);
+            const sendResult = await sendImageButtons(to, imgUrl, caption, buttons);
+
+            if (sendResult && sendResult.error) {
+                console.error(`   ❌ WA API Error for [${p.name}]:`, sendResult.error.message || sendResult.error);
+                await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
+            }
         } catch (err) {
+            console.error(`   ❌ Exception sending [${p.name}]:`, err.message);
             await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
         }
-        await new Promise(r => setTimeout(r, 450)); // Optimal delay to stay under Vercel limits
+
+        // Slightly faster delay to stay within webhook response windows
+        await new Promise(r => setTimeout(r, 250));
     }
+
+    console.log(`[WA] Successfully finished sending ${prods.length} items to ${to}`);
 
     if (!isStreamActive(to, streamId)) return;
 
     const nextOffset = startOffset + prods.length;
-    const hasMore = count > nextOffset;
+    const hasMore = totalCount > nextOffset;
 
     if (hasMore) {
-        await sendButtons(to, `👇 Showing ${nextOffset} of ${count} sarees in *${categoryName}*.`, [
+        await sendButtons(to, `👇 Showing ${nextOffset} of ${totalCount} sarees in *${categoryName}*.`, [
             { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Show More" },
             { id: "menu_catalogue", title: "📖 Back to Types" }
         ]);
     } else {
-        await sendButtons(to, `✅ That's all ${count} saree${count > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
+        await sendButtons(to, `✅ That's all ${totalCount} saree${totalCount > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
             { id: "menu_catalogue", title: "📖 More Types" },
             { id: "menu_cart", title: "👜 View Bag" },
             { id: "menu_shop_web", title: "🛍️ Visit Web Store" }
@@ -538,7 +610,8 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
     const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', productId);
 
-    if (!product || product.stock < 1) return sendText(to, "⚠️ Sorry, this item is out of stock.");
+    const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
+    if (!product || effectiveStock <= 0) return sendText(to, "⚠️ Sorry, this item is out of stock.");
 
     if (variants && variants.length > 0) {
         // Show variant selection list
@@ -931,7 +1004,7 @@ export async function processIncomingMessage(body) {
             }
             if (MENU_TRIGGERS.includes(text)) return await sendMainMenu(from);
             if (['cart', 'bag'].includes(text)) return await handleViewCart(from);
-            if (['catalogue', 'catalog', 'browse'].includes(text)) return await sendCatalogueCategories(from);
+            if (['catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees'].includes(text)) return await sendCatalogueCategories(from);
             if (text === 'contact') return await handleContact(from);
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 

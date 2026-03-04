@@ -3,13 +3,17 @@
 import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image, LayoutGrid, List,
-    Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag
+    Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag,
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import styles from './page.module.css';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function ProductsPage() {
     const router = useRouter();
+    const [hasMounted, setHasMounted] = useState(false);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -19,7 +23,10 @@ export default function ProductsPage() {
     const [sortBy, setSortBy] = useState('newest');
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
     const [copiedId, setCopiedId] = useState(null);
-    const [hasMounted, setHasMounted] = useState(false);
+    const [historyData, setHistoryData] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
     const [groupFilter, setGroupFilter] = useState('ALL');
 
     // Facebook Integration States
@@ -28,7 +35,31 @@ export default function ProductsPage() {
     const [productType, setProductType] = useState('simple');
     const [postToFacebook, setPostToFacebook] = useState(false);
     const [fbProcessing, setFbProcessing] = useState(false);
-    const [fbConfig, setFbConfig] = useState({ pageId: '', accessToken: '' });
+    const [fbConfig, setFbConfig] = useState(null);
+    const [importModal, setImportModal] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [syncWithMeta, setSyncWithMeta] = useState(false);
+    const [notification, setNotification] = useState(null);
+
+    const fetchHistory = async (product) => {
+        setSelectedProductForHistory(product);
+        setShowHistory(true);
+        setHistoryLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('product_history')
+                .select('*')
+                .eq('product_id', product.id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            setHistoryData(data || []);
+        } catch (err) {
+            console.error('History Fetch Error:', err.message || err);
+            alert('Could not fetch history: ' + (err.message || 'Unknown error'));
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     const getShopUrl = (pid) => {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -85,6 +116,137 @@ export default function ProductsPage() {
 
     if (!hasMounted) return null;
 
+    const canPostToFacebook = () => {
+        if (fbConfig?.pageId && fbConfig?.accessToken) return true;
+        return false;
+    }
+
+    async function handleExcelImport(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImporting(true);
+        try {
+            const dataBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(dataBuffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+            if (!jsonData || jsonData.length === 0) {
+                setNotification({ message: '⚠️ Excel sheet appears to be empty!', type: 'error' });
+                setImporting(false);
+                return;
+            }
+
+            const normalizeKey = (k) => String(k || '').toLowerCase().replace(/[\s_]/g, '');
+
+            let successCount = 0;
+            let fbSuccessCount = 0;
+
+            for (const rawRow of jsonData) {
+                try {
+                    const row = {};
+                    for (const k of Object.keys(rawRow)) {
+                        row[normalizeKey(k)] = rawRow[k];
+                    }
+
+                    const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Saree';
+                    const priceVal = parseFloat(row.price || row.sellingprice || row.mrp || row.rate || row.amount);
+                    const price = isNaN(priceVal) ? 0 : priceVal;
+
+                    const stockVal = parseInt(row.stock || row.quantity || row.qty || row.inventory || row.available);
+                    const stock = isNaN(stockVal) ? 0 : stockVal;
+
+                    const description = String(row.description || row.desc || row.details || row.about || row.info || '');
+                    const category = String(row.category || row.collection || row.type || row.group || 'General');
+                    const image_url = String(row.imageurl || row.image || row.picture || row.imagrurl || row.imglink || row.photo || '');
+
+                    const productData = {
+                        name,
+                        description,
+                        price,
+                        category,
+                        stock,
+                        image_url,
+                        type: 'simple',
+                        total_added: stock,
+                        is_active: true
+                    };
+
+                    const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
+
+                    if (insertError) {
+                        console.error('Database Error for row:', name, JSON.stringify(insertError));
+                        if (successCount === 0) {
+                            setNotification({ message: `❌ DB Error: ${insertError.message || 'Check required fields'}`, type: 'error' });
+                        }
+                        continue;
+                    }
+
+                    const newProd = data?.[0];
+                    if (!newProd) continue;
+
+                    successCount++;
+
+                    // Log history
+                    if (stock > 0) {
+                        await supabase.from('product_history').insert({
+                            product_id: newProd.id,
+                            change_type: 'ADD',
+                            quantity_change: stock,
+                            new_stock: stock,
+                            reason: 'Bulk Excel Import'
+                        });
+                    }
+
+                    // WhatsApp/Meta Catalogue Sync
+                    if (syncWithMeta && canPostToFacebook() && image_url && image_url.startsWith('http')) {
+                        try {
+                            const fbRes = await fetch('/api/facebook/post', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    imageUrl: image_url,
+                                    name,
+                                    price,
+                                    description,
+                                    pageId: fbConfig.pageId,
+                                    accessToken: fbConfig.accessToken
+                                })
+                            });
+                            if (fbRes.ok) fbSuccessCount++;
+                        } catch (metaErr) {
+                            console.error('Meta sync failed for item:', name, metaErr);
+                        }
+                    }
+                } catch (rowErr) {
+                    console.error('Error processing a single row:', rowErr);
+                }
+            }
+
+            if (successCount > 0) {
+                const msg = syncWithMeta
+                    ? `✅ Imported ${successCount} products & synced ${fbSuccessCount} with WhatsApp!`
+                    : `✅ Successfully imported ${successCount} products!`;
+                setNotification({ message: msg, type: 'success' });
+            } else if (!notification) {
+                setNotification({ message: '⚠️ Import failed. Please check column headers.', type: 'error' });
+            }
+
+            fetchProducts();
+            setImportModal(false);
+            setSyncWithMeta(false);
+
+            e.target.value = '';
+        } catch (err) {
+            console.error('Major Excel Import Error:', err);
+            setNotification({ message: '❌ Invalid file or processing failed', type: 'error' });
+        } finally {
+            setImporting(false);
+        }
+    }
+
     const handleSave = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -102,26 +264,62 @@ export default function ProductsPage() {
         if (productType === 'simple') {
             productData.price = Number(formData.get('price'));
             productData.stock = Number(formData.get('stock'));
+            productData.alert_threshold = Number(formData.get('alert_threshold') || 0);
             productData.image_url = formData.get('image') || '';
         } else {
             // For variants, we take price/stock/image from the first variant as "representative" for the list view
             if (variants.length > 0) {
                 productData.price = variants[0].price;
                 productData.stock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
+                productData.alert_threshold = Number(formData.get('alert_threshold') || 0);
                 productData.image_url = variants[0].image_url;
             }
         }
 
         try {
             let savedProduct = null;
-            if (currentProduct?.id) {
+            const isNew = !currentProduct?.id;
+
+            if (!isNew) {
+                // UPDATE
                 const { data, error } = await supabase.from('products').update(productData).eq('id', currentProduct.id).select();
                 if (error) throw error;
                 savedProduct = data?.[0];
+
+                // Check for stock change
+                const oldStock = currentProduct.stock || 0;
+                const newStock = productData.stock || 0;
+                if (newStock !== oldStock) {
+                    const diff = newStock - oldStock;
+                    await supabase.from('product_history').insert({
+                        product_id: savedProduct.id,
+                        change_type: diff > 0 ? 'ADD' : 'ADJUSTMENT',
+                        quantity_change: diff,
+                        new_stock: newStock,
+                        reason: diff > 0 ? 'Manual Stock Addition' : 'Manual Stock Adjustment'
+                    });
+                    if (diff > 0) {
+                        await supabase.rpc('increment_total_added', { prod_id: savedProduct.id, qty: diff });
+                    }
+                }
             } else {
-                const { data, error } = await supabase.from('products').insert([productData]).select();
+                // INSERT
+                // Initialize total_added with the initial stock
+                const insertData = { ...productData, total_added: productData.stock || 0 };
+                const { data, error } = await supabase.from('products').insert([insertData]).select();
                 if (error) throw error;
                 savedProduct = data?.[0];
+
+                // Initial stock entry in history
+                if (savedProduct && savedProduct.stock > 0) {
+                    await supabase.from('product_history').insert({
+                        product_id: savedProduct.id,
+                        change_type: 'ADD',
+                        quantity_change: savedProduct.stock,
+                        new_stock: savedProduct.stock,
+                        reason: 'Initial Stock Entry'
+                    });
+                }
             }
 
             if (productType === 'variant' && savedProduct) {
@@ -142,7 +340,7 @@ export default function ProductsPage() {
             }
 
             // Handle Facebook Posting
-            if (postToFacebook && savedProduct && fbConfig.pageId && fbConfig.accessToken) {
+            if (postToFacebook && savedProduct && canPostToFacebook()) {
                 setFbProcessing(true);
                 try {
                     await fetch('/api/facebook/post', {
@@ -245,9 +443,14 @@ export default function ProductsPage() {
                     <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
                     <p>Manage your premium saree collection • {products.length} items</p>
                 </div>
-                <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
-                    <Plus size={18} /> Add Saree
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={() => setImportModal(true)} className="btn btn-secondary">
+                        <FileDown size={18} /> Import Excel
+                    </button>
+                    <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
+                        <Plus size={18} /> Add Product
+                    </button>
+                </div>
             </div>
 
             {/* Stats */}
@@ -418,6 +621,9 @@ export default function ProductsPage() {
                                                     <Share2 size={15} />
                                                 </button>
                                                 <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
+                                                <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
+                                                    <PackageIcon size={15} />
+                                                </button>
                                                 <button onClick={() => handleDelete(product.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
                                             </div>
                                         </td>
@@ -478,6 +684,9 @@ export default function ProductsPage() {
                                             <button onClick={() => openEditModal(product)}
                                                 className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                 <Edit size={13} /> Edit
+                                            </button>
+                                            <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Details">
+                                                <PackageIcon size={13} />
                                             </button>
                                             <button onClick={() => copyLink(product)}
                                                 className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
@@ -574,9 +783,15 @@ export default function ProductsPage() {
                                             <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" style={inputStyle} />
                                         </div>
                                     </div>
-                                    <div style={{ marginTop: '1.25rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>
-                                        <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
+                                    <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>
+                                            <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold</label>
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" style={inputStyle} />
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
@@ -621,6 +836,10 @@ export default function ProductsPage() {
                                                     No variants added yet. Click <strong>"Add Variant"</strong> to start.
                                                 </div>
                                             )}
+                                        </div>
+                                        <div style={{ marginTop: '1rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold (Overall)</label>
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" style={inputStyle} />
                                         </div>
                                     </div>
                                 </div>
@@ -679,7 +898,136 @@ export default function ProductsPage() {
             )}
 
 
-            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            {/* ─── STOCK HISTORY MODAL ─── */}
+            {showHistory && selectedProductForHistory && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }} onClick={() => setShowHistory(false)}>
+                    <div onClick={e => e.stopPropagation()} className="card shadow-premium" style={{ width: '600px', maxHeight: '80vh', overflow: 'hidden', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
+                            <div>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>📊 Stock History</h2>
+                                <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0' }}>{selectedProductForHistory.name}</p>
+                            </div>
+                            <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px' }}>&times;</button>
+                        </div>
+
+                        <div style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                                <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>{selectedProductForHistory.total_added || selectedProductForHistory.stock}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Processed</div>
+                                </div>
+                                <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--success))' }}>{selectedProductForHistory.total_sold || 0}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Sold</div>
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.25rem' }}>Recent Activity Log</h3>
+
+                            {historyLoading ? (
+                                <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 className="animate-spin" size={24} /></div>
+                            ) : historyData.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--text-muted))', background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px dashed hsl(var(--border-subtle))' }}>
+                                    No history records found for this product.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {historyData.map((h, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{
+                                                    width: '36px', height: '36px', borderRadius: '10px',
+                                                    background: h.change_type === 'SALE' ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--primary) / 0.1)',
+                                                    color: h.change_type === 'SALE' ? 'hsl(var(--success))' : 'hsl(var(--primary))',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.7rem'
+                                                }}>
+                                                    {h.quantity_change > 0 ? '+' : ''}{h.quantity_change}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{h.reason || (h.change_type === 'SALE' ? 'Customer Purchase' : 'Inventory Update')}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{new Date(h.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 700 }}>NEW STOCK</div>
+                                                <div style={{ fontWeight: 800 }}>{h.new_stock}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {importModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '450px', padding: '2rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <div style={{ width: '60px', height: '60px', borderRadius: '20px', background: 'hsl(var(--primary) / 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', color: 'hsl(var(--primary))' }}>
+                                <Upload size={30} />
+                            </div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Bulk Import Catalog</h2>
+                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Upload your inventory spreadsheet to add sarees in bulk.</p>
+                        </div>
+
+                        <div style={{ background: 'hsl(var(--bg-app))', borderRadius: '15px', padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'left' }}>
+                            <h4 style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }}>Optional Settings</h4>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Sync with Meta Catalogue</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Auto-post items to Facebook/WhatsApp shop</div>
+                                </div>
+                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={syncWithMeta} onChange={e => setSyncWithMeta(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: syncWithMeta ? 'hsl(var(--primary))' : '#333', transition: '.4s', borderRadius: '20px' }}>
+                                        <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: syncWithMeta ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <input
+                                key={`file-import-${Date.now()}`}
+                                type="file"
+                                accept=".xlsx, .xls, .csv"
+                                id="bulk-import-input"
+                                style={{ display: 'none' }}
+                                onChange={handleExcelImport}
+                            />
+                            <label htmlFor="bulk-import-input" style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+                                padding: '1rem', background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
+                                borderRadius: '12px', color: 'white', fontWeight: 800, cursor: 'pointer', transition: '0.2s'
+                            }}>
+                                {importing ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><FileDown size={18} /> Select Excel File</>}
+                            </label>
+                            <button onClick={() => setImportModal(false)} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-muted))', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notification && (
+                <div style={{
+                    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 3000,
+                    padding: '1.25rem 2rem', borderRadius: '16px',
+                    background: notification.type === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--success))',
+                    color: 'white', fontWeight: 800, boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    {notification.type === 'error' ? '❌' : '✅'} {notification.message}
+                    <button onClick={() => setNotification(null)} style={{ marginLeft: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}>&times;</button>
+                </div>
+            )}
+
+            <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}</style>
         </div>
     );
 }
+

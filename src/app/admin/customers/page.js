@@ -31,87 +31,92 @@ export default function CustomersPage() {
         setHasMounted(true);
 
         const fetchCustomers = async () => {
-
             setLoading(true);
-
             try {
-
-                const { data: orders } = await supabase
-
-                    .from('orders')
-
+                // 1. Fetch all customers
+                const { data: allCustomers, error: custError } = await supabase
+                    .from('customers')
                     .select('*')
-
-                    .neq('status', 'DRAFT')
-
                     .order('created_at', { ascending: false });
 
+                if (custError) throw custError;
 
+                // 2. Fetch all orders (except drafts) to aggregate stats
+                const { data: allOrders, error: orderError } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .neq('status', 'DRAFT')
+                    .order('created_at', { ascending: false });
 
-                // Group by phone number
+                if (orderError) throw orderError;
 
+                // 3. Map orders to customers
                 const customerMap = {};
 
-                (orders || []).forEach(order => {
+                const normalizePhone = (p) => {
+                    if (!p) return '';
+                    const clean = p.replace(/\D/g, '');
+                    return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
+                };
 
-                    const phone = order.customer_phone;
-
-                    if (!customerMap[phone]) {
-
-                        customerMap[phone] = {
-
-                            phone,
-
-                            name: order.customer_name || 'WhatsApp Customer',
-
+                (allCustomers || []).forEach(cust => {
+                    const normPhone = normalizePhone(cust.phone);
+                    if (normPhone) {
+                        customerMap[normPhone] = {
+                            phone: normPhone,
+                            name: cust.name || 'WhatsApp Customer',
                             totalOrders: 0,
-
                             totalSpent: 0,
-
-                            lastOrder: order.created_at,
-
-                            lastAddress: order.delivery_address,
-
+                            lastOrder: cust.created_at,
+                            lastAddress: cust.address || '',
                             orders: []
-
                         };
-
                     }
-
-                    customerMap[phone].totalOrders++;
-
-                    customerMap[phone].totalSpent += order.total_amount || 0;
-
-                    customerMap[phone].orders.push(order);
-
-                    if (order.customer_name && order.customer_name !== 'WhatsApp Customer') {
-
-                        customerMap[phone].name = order.customer_name;
-
-                    }
-
-                    if (order.delivery_address && !customerMap[phone].lastAddress) {
-
-                        customerMap[phone].lastAddress = order.delivery_address;
-
-                    }
-
                 });
 
+                (allOrders || []).forEach(order => {
+                    const normPhone = normalizePhone(order.customer_phone);
 
+                    if (normPhone) {
+                        if (!customerMap[normPhone]) {
+                            customerMap[normPhone] = {
+                                phone: normPhone,
+                                name: order.customer_name || 'Website User',
+                                totalOrders: 0,
+                                totalSpent: 0,
+                                lastOrder: order.created_at,
+                                lastAddress: order.delivery_address || '',
+                                orders: []
+                            };
+                        }
 
-                setCustomers(Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent));
+                        customerMap[normPhone].totalOrders++;
+                        customerMap[normPhone].totalSpent += order.total_amount || 0;
+                        customerMap[normPhone].orders.push(order);
 
+                        // Use most recent order date for 'lastOrder' in terms of activity
+                        if (new Date(order.created_at) > new Date(customerMap[normPhone].lastOrder)) {
+                            customerMap[normPhone].lastOrder = order.created_at;
+                        }
+
+                        if (order.customer_name && order.customer_name !== 'WhatsApp Customer' && order.customer_name !== 'Website User') {
+                            customerMap[normPhone].name = order.customer_name;
+                        }
+                        if (order.delivery_address && !customerMap[normPhone].lastAddress) {
+                            customerMap[normPhone].lastAddress = order.delivery_address;
+                        }
+                    }
+                });
+
+                setCustomers(Object.values(customerMap).sort((a, b) => {
+                    if (b.totalSpent !== a.totalSpent) return b.totalSpent - a.totalSpent;
+                    return new Date(b.lastOrder) - new Date(a.lastOrder);
+                }));
             } catch (error) {
-
                 console.error('Error fetching customers:', error);
-
             } finally {
-
                 setLoading(false);
-
             }
-
         };
 
 
@@ -202,7 +207,7 @@ export default function CustomersPage() {
 
                             <h1 style={{ marginBottom: '0.5rem' }}>Customers</h1>
 
-                            <p>All WhatsApp customers who placed orders • {customers.length} total</p>
+                            <p>All registered customers from Website & WhatsApp • {customers.length} total</p>
 
                         </div>
 
