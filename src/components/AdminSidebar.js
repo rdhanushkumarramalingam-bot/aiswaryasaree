@@ -16,6 +16,7 @@ const menuItems = [
     { name: 'Meta Connect', href: '/admin/facebook', icon: Facebook },
     { name: 'Schedule Post', href: '/admin/schedule', icon: Clock },
     { name: 'Shipping', href: '/admin/shipping', icon: Truck },
+    { name: 'CMS', href: '/admin/cms', icon: FileText },
     { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
 ];
 
