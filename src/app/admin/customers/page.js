@@ -6,7 +6,11 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, ShoppingBag, DollarSign, MapPin, Calendar } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, ShoppingBag, DollarSign, MapPin, Calendar, TrendingUp, Users, Award } from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
+} from 'recharts';
 
 
 
@@ -21,7 +25,13 @@ export default function CustomersPage() {
     const [selectedCustomer, setSelectedCustomer] = useState(null);
 
     const [customerOrders, setCustomerOrders] = useState([]);
-
+    const [viewMode, setViewMode] = useState('list'); // 'list' or 'analytics'
+    const [timeRange, setTimeRange] = useState('ALL'); // DAILY, MONTHLY, QUARTERLY, ALL
+    const [analyticsData, setAnalyticsData] = useState({
+        tierData: [],
+        growthData: [],
+        repeatData: []
+    });
     const [hasMounted, setHasMounted] = useState(false);
 
 
@@ -42,11 +52,19 @@ export default function CustomersPage() {
                 if (custError) throw custError;
 
                 // 2. Fetch all orders (except drafts) to aggregate stats
-                const { data: allOrders, error: orderError } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .neq('status', 'DRAFT')
-                    .order('created_at', { ascending: false });
+                let orderQuery = supabase.from('orders').select('*').neq('status', 'DRAFT');
+
+                const now = new Date();
+                if (timeRange === 'DAILY') {
+                    orderQuery = orderQuery.gte('created_at', new Date(now.setHours(0, 0, 0, 0)).toISOString());
+                } else if (timeRange === 'MONTHLY') {
+                    orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), now.getMonth(), 1).toISOString());
+                } else if (timeRange === 'QUARTERLY') {
+                    const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+                    orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), qStartMonth, 1).toISOString());
+                }
+
+                const { data: allOrders, error: orderError } = await orderQuery.order('created_at', { ascending: false });
 
                 if (orderError) throw orderError;
 
@@ -81,7 +99,7 @@ export default function CustomersPage() {
                         if (!customerMap[normPhone]) {
                             customerMap[normPhone] = {
                                 phone: normPhone,
-                                name: order.customer_name || 'Website User',
+                                name: order.customer_name || 'User',
                                 totalOrders: 0,
                                 totalSpent: 0,
                                 lastOrder: order.created_at,
@@ -108,12 +126,46 @@ export default function CustomersPage() {
                     }
                 });
 
-                setCustomers(Object.values(customerMap).sort((a, b) => {
-                    if (b.totalSpent !== a.totalSpent) return b.totalSpent - a.totalSpent;
-                    return new Date(b.lastOrder) - new Date(a.lastOrder);
-                }));
-            } catch (error) {
-                console.error('Error fetching customers:', error);
+                const customerList = Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
+
+                setCustomers(customerList);
+
+                // --- Analytics Logic ---
+                // 1. Tier Data
+                const tiers = { VIP: 0, Gold: 0, Silver: 0, Regular: 0 };
+                customerList.forEach(c => {
+                    if (c.totalSpent >= 15000) tiers.VIP++;
+                    else if (c.totalSpent >= 7000) tiers.Gold++;
+                    else if (c.totalSpent >= 2000) tiers.Silver++;
+                    else if (c.totalSpent > 0) tiers.Regular++;
+                });
+                const tierData = [
+                    { name: 'VIP', value: tiers.VIP, color: '#f59e0b' },
+                    { name: 'Gold', value: tiers.Gold, color: '#fbbf24' },
+                    { name: 'Silver', value: tiers.Silver, color: '#94a3b8' },
+                    { name: 'Regular', value: tiers.Regular, color: '#cbd5e1' }
+                ].filter(t => t.value > 0);
+
+                // 2. Repeat Data
+                const repeatCount = customerList.filter(c => c.totalOrders > 1).length;
+                const activeCount = customerList.filter(c => c.totalOrders > 0).length;
+                const repeatData = [
+                    { name: 'Repeat', value: repeatCount, color: 'hsl(var(--primary))' },
+                    { name: 'Single', value: activeCount - repeatCount, color: 'hsl(var(--accent))' }
+                ];
+
+                // 3. Growth Data (Simplified by last order date)
+                // const growth = {};
+                // customerList.forEach(c => {
+                //     const date = new Date(c.orders[0]?.created_at || c.lastOrder);
+                //     const month = date.toLocaleDateString('en-IN', { month: 'short' });
+                //     growth[month] = (growth[month] || 0) + 1;
+                // });
+                // const growthData = Object.entries(growth).map(([name, value]) => ({ name, value }));
+
+                setAnalyticsData({ tierData, repeatData, growthData: [] });
+            } catch (err) {
+                console.error('Customer Load Error:', err);
             } finally {
                 setLoading(false);
             }
@@ -123,7 +175,7 @@ export default function CustomersPage() {
 
         fetchCustomers();
 
-    }, []);
+    }, [timeRange]); // Re-fetch on time range change
 
 
 
@@ -204,228 +256,336 @@ export default function CustomersPage() {
                     <div className="admin-header-row">
 
                         <div>
-
                             <h1 style={{ marginBottom: '0.5rem' }}>Customers</h1>
-
                             <p>All registered customers from Website & WhatsApp • {customers.length} total</p>
-
                         </div>
 
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius)', padding: '4px' }}>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    style={{
+                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
+                                        background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))'
+                                    }}>List View</button>
+                                <button
+                                    onClick={() => setViewMode('analytics')}
+                                    style={{
+                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
+                                        background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))'
+                                    }}><TrendingUp size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Analysis</button>
+                            </div>
+                        </div>
                     </div>
 
+                    {/* ─── ANALYTICS VIEW ─── */}
+                    {viewMode === 'analytics' && (
+                        <div className="animate-enter">
+                            {/* Time Filters */}
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                                {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                                    <button key={r} onClick={() => setTimeRange(r)} style={{
+                                        padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                                        background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                    }}>{r}</button>
+                                ))}
+                            </div>
+
+                            <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
+                                {/* Tier Distribution */}
+                                <div className="card shadow-premium" style={{ padding: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Award size={20} color="#f59e0b" /> Loyalty Segmentation
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={analyticsData.tierData}
+                                                    innerRadius={70}
+                                                    outerRadius={100}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {analyticsData.tierData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Repeat vs New */}
+                                <div className="card shadow-premium" style={{ padding: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <TrendingUp size={20} color="hsl(var(--primary))" /> Repeat Purchase Rate
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={analyticsData.repeatData}
+                                                    innerRadius={70}
+                                                    outerRadius={100}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {analyticsData.repeatData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Growth Chart */}
+                            <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <TrendingUp size={18} color="hsl(var(--success))" /> New Customer Acquisition
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={analyticsData.growthData}>
+                                            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
+                                            <Tooltip
+                                                contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}
+                                            />
+                                            <Bar dataKey="value" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} barSize={50} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'list' && (
+                        <>
 
 
-                    {/* Stats */}
 
-                    <div className="admin-grid-3">
+                            {/* Stats */}
 
-                        {[
+                            <div className="admin-grid-3">
 
-                            { label: 'Total Customers', value: customers.length, icon: '👥', color: 'hsl(var(--primary))' },
+                                {[
 
-                            { label: 'Average Spend', value: `₹${customers.length ? Math.round(customers.reduce((s, c) => s + c.totalSpent, 0) / customers.length).toLocaleString() : 0}`, icon: '💰', color: 'hsl(var(--success))' },
+                                    { label: 'Total Customers', value: customers.length, icon: '👥', color: 'hsl(var(--primary))' },
 
-                            { label: 'Repeat Customers', value: customers.filter(c => c.totalOrders > 1).length, icon: '🔄', color: 'hsl(var(--warning))' },
+                                    { label: 'Average Spend', value: `₹${customers.length ? Math.round(customers.reduce((s, c) => s + c.totalSpent, 0) / customers.length).toLocaleString() : 0}`, icon: '💰', color: 'hsl(var(--success))' },
 
-                        ].map((stat, i) => (
+                                    { label: 'Repeat Customers', value: customers.filter(c => c.totalOrders > 1).length, icon: '🔄', color: 'hsl(var(--warning))' },
 
-                            <div key={i} className="card" style={{
+                                ].map((stat, i) => (
 
-                                padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                    <div key={i} className="card" style={{
 
-                            }}>
+                                        padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
 
-                                <div>
+                                    }}>
 
-                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
+                                        <div>
 
-                                    <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)' }}>{stat.value}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
+
+                                            <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)' }}>{stat.value}</div>
+
+                                        </div>
+
+                                        <div style={{
+
+                                            fontSize: '1.5rem', width: '48px', height: '48px', borderRadius: '50%',
+
+                                            background: `hsl(from ${stat.color} h s l / 0.1)`, color: stat.color,
+
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+
+                                        }}>{stat.icon}</div>
+
+                                    </div>
+
+                                ))}
+
+                            </div>
+
+
+
+                            {/* Customer List */}
+
+                            <div className="card" style={{ padding: 0 }}>
+
+                                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+
+                                    <div style={{ position: 'relative', maxWidth: '400px' }}>
+
+                                        <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+
+                                        <input
+
+                                            type="text" placeholder="Search by name or phone..."
+
+                                            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+
+                                            style={{
+
+                                                width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
+
+                                                background: 'hsl(var(--bg-app))',
+
+                                                border: '1px solid hsl(var(--border-subtle))',
+
+                                                borderRadius: 'var(--radius-sm)',
+
+                                                fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
+
+                                                color: 'hsl(var(--text-main))', fontFamily: 'inherit'
+
+                                            }}
+
+                                        />
+
+                                    </div>
 
                                 </div>
 
-                                <div style={{
 
-                                    fontSize: '1.5rem', width: '48px', height: '48px', borderRadius: '50%',
 
-                                    background: `hsl(from ${stat.color} h s l / 0.1)`, color: stat.color,
+                                <table style={{ margin: 0 }}>
 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    <thead style={{ background: 'hsl(var(--bg-panel))' }}>
 
-                                }}>{stat.icon}</div>
+                                        <tr>
+
+                                            <th>Customer</th>
+
+                                            <th>Phone</th>
+
+                                            <th style={{ textAlign: 'center' }}>Orders</th>
+
+                                            <th style={{ textAlign: 'right' }}>Total Spent</th>
+
+                                            <th style={{ textAlign: 'center' }}>Tier</th>
+
+                                            <th style={{ textAlign: 'left' }}>Last Order</th>
+
+                                            <th style={{ textAlign: 'right' }}>Actions</th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody>
+
+                                        {filteredCustomers.length === 0 ? (
+
+                                            <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No customers found.</td></tr>
+
+                                        ) : (
+
+                                            filteredCustomers.map((customer, i) => {
+
+                                                const tier = getTierBadge(customer.totalSpent);
+
+                                                return (
+
+                                                    <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>
+
+                                                        <td style={{ padding: '1rem 1.5rem' }}>
+
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+
+                                                                <div style={{
+
+                                                                    width: '40px', height: '40px', borderRadius: '50%',
+
+                                                                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
+
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+
+                                                                    fontWeight: 700, fontSize: '0.9rem', color: 'white',
+
+                                                                    boxShadow: '0 2px 8px hsl(var(--primary) / 0.3)'
+
+                                                                }}>
+
+                                                                    {customer.name.charAt(0).toUpperCase()}
+
+                                                                </div>
+
+                                                                <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
+
+                                                            </div>
+
+                                                        </td>
+
+                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>{customer.phone}</td>
+
+                                                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{customer.totalOrders}</td>
+
+                                                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{customer.totalSpent.toLocaleString()}</td>
+
+                                                        <td style={{ textAlign: 'center' }}>
+
+                                                            <span className={tier.className} style={tier.style}>{tier.label}</span>
+
+                                                        </td>
+
+                                                        <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+
+                                                            {new Date(customer.lastOrder).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+
+                                                        </td>
+
+                                                        <td style={{ textAlign: 'right' }}>
+
+                                                            <a href={`https://wa.me/${customer.phone}`} target="_self"
+
+                                                                onClick={(e) => e.stopPropagation()}
+
+                                                                className="btn"
+
+                                                                style={{
+
+                                                                    padding: '0.4rem 0.8rem', fontSize: '0.75rem',
+
+                                                                    background: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))',
+
+                                                                    border: '1px solid hsl(var(--success) / 0.2)',
+
+                                                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+
+                                                                }}>
+
+                                                                <MessageCircle size={14} /> Chat
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                );
+
+                                            })
+
+                                        )}
+
+                                    </tbody>
+
+                                </table>
 
                             </div>
-
-                        ))}
-
-                    </div>
-
-
-
-                    {/* Customer List */}
-
-                    <div className="card" style={{ padding: 0 }}>
-
-                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
-
-                            <div style={{ position: 'relative', maxWidth: '400px' }}>
-
-                                <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-
-                                <input
-
-                                    type="text" placeholder="Search by name or phone..."
-
-                                    value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-
-                                    style={{
-
-                                        width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
-
-                                        background: 'hsl(var(--bg-app))',
-
-                                        border: '1px solid hsl(var(--border-subtle))',
-
-                                        borderRadius: 'var(--radius-sm)',
-
-                                        fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
-
-                                        color: 'hsl(var(--text-main))', fontFamily: 'inherit'
-
-                                    }}
-
-                                />
-
-                            </div>
-
-                        </div>
-
-
-
-                        <table style={{ margin: 0 }}>
-
-                            <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-
-                                <tr>
-
-                                    <th>Customer</th>
-
-                                    <th>Phone</th>
-
-                                    <th style={{ textAlign: 'center' }}>Orders</th>
-
-                                    <th style={{ textAlign: 'right' }}>Total Spent</th>
-
-                                    <th style={{ textAlign: 'center' }}>Tier</th>
-
-                                    <th style={{ textAlign: 'left' }}>Last Order</th>
-
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody>
-
-                                {filteredCustomers.length === 0 ? (
-
-                                    <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No customers found.</td></tr>
-
-                                ) : (
-
-                                    filteredCustomers.map((customer, i) => {
-
-                                        const tier = getTierBadge(customer.totalSpent);
-
-                                        return (
-
-                                            <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>
-
-                                                <td style={{ padding: '1rem 1.5rem' }}>
-
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-
-                                                        <div style={{
-
-                                                            width: '40px', height: '40px', borderRadius: '50%',
-
-                                                            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-
-                                                            fontWeight: 700, fontSize: '0.9rem', color: 'white',
-
-                                                            boxShadow: '0 2px 8px hsl(var(--primary) / 0.3)'
-
-                                                        }}>
-
-                                                            {customer.name.charAt(0).toUpperCase()}
-
-                                                        </div>
-
-                                                        <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
-
-                                                    </div>
-
-                                                </td>
-
-                                                <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>{customer.phone}</td>
-
-                                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{customer.totalOrders}</td>
-
-                                                <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{customer.totalSpent.toLocaleString()}</td>
-
-                                                <td style={{ textAlign: 'center' }}>
-
-                                                    <span className={tier.className} style={tier.style}>{tier.label}</span>
-
-                                                </td>
-
-                                                <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-
-                                                    {new Date(customer.lastOrder).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-
-                                                </td>
-
-                                                <td style={{ textAlign: 'right' }}>
-
-                                                    <a href={`https://wa.me/${customer.phone}`} target="_self"
-
-                                                        onClick={(e) => e.stopPropagation()}
-
-                                                        className="btn"
-
-                                                        style={{
-
-                                                            padding: '0.4rem 0.8rem', fontSize: '0.75rem',
-
-                                                            background: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))',
-
-                                                            border: '1px solid hsl(var(--success) / 0.2)',
-
-                                                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-
-                                                        }}>
-
-                                                        <MessageCircle size={14} /> Chat
-
-                                                    </a>
-
-                                                </td>
-
-                                            </tr>
-
-                                        );
-
-                                    })
-
-                                )}
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
+                        </>
+                    )}
 
 
 

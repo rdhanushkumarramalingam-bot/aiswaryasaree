@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, EyeOff
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
+} from 'recharts';
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -21,13 +25,14 @@ export default function ProductsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [sortBy, setSortBy] = useState('newest');
-    const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
-    const [copiedId, setCopiedId] = useState(null);
-    const [historyData, setHistoryData] = useState([]);
-    const [showHistory, setShowHistory] = useState(false);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
     const [groupFilter, setGroupFilter] = useState('ALL');
+    const [viewMode, setViewMode] = useState('table'); // 'table', 'card', or 'analytics'
+    const [analyticsData, setAnalyticsData] = useState({
+        topSellers: [],
+        inventoryStatus: [],
+        categoryValue: []
+    });
+    const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
 
     // Facebook Integration States
     // Variant states
@@ -40,6 +45,13 @@ export default function ProductsPage() {
     const [importing, setImporting] = useState(false);
     const [syncWithMeta, setSyncWithMeta] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [copiedId, setCopiedId] = useState(null);
+
+    // Stock History States
+    const [showHistory, setShowHistory] = useState(false);
+    const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
+    const [historyData, setHistoryData] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const fetchHistory = async (product) => {
         setSelectedProductForHistory(product);
@@ -79,11 +91,64 @@ export default function ProductsPage() {
         window.open(`https://wa.me/?text=${text}`, '_self');
     };
 
+    const fetchAnalytics = async (currentProducts) => {
+        try {
+            const now = new Date();
+            let timeFilter = {};
+
+            if (timeRange === 'DAILY') {
+                timeFilter = { start: new Date(now.setHours(0, 0, 0, 0)).toISOString() };
+            } else if (timeRange === 'MONTHLY') {
+                timeFilter = { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString() };
+            } else if (timeRange === 'QUARTERLY') {
+                const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+                timeFilter = { start: new Date(now.getFullYear(), qStartMonth, 1).toISOString() };
+            }
+
+            // 1. Top Sellers (Filter based on range)
+            let itemsQuery = supabase.from('order_items').select('product_name, quantity, created_at');
+            if (timeFilter.start) {
+                itemsQuery = itemsQuery.gte('created_at', timeFilter.start);
+            }
+
+            const { data: orderItems } = await itemsQuery;
+            const salesMap = {};
+            orderItems?.forEach(item => {
+                salesMap[item.product_name] = (salesMap[item.product_name] || 0) + item.quantity;
+            });
+            const topSellers = Object.entries(salesMap)
+                .map(([name, sales]) => ({ name, sales }))
+                .sort((a, b) => b.sales - a.sales)
+                .slice(0, 10);
+
+            // 2. Inventory Health (Always current)
+            const lowStock = currentProducts.filter(p => (p.stock || 0) <= (p.alert_threshold || 5)).length;
+            const inStock = currentProducts.length - lowStock;
+
+            // 3. Category Distribution
+            const catMap = {};
+            currentProducts.forEach(p => { catMap[p.category] = (catMap[p.category] || 0) + 1; });
+            const categoryValue = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+
+            setAnalyticsData({
+                topSellers,
+                inventoryStatus: [
+                    { name: 'Low Stock', value: lowStock, color: 'hsl(var(--danger))' },
+                    { name: 'Healthy', value: inStock, color: 'hsl(var(--success))' }
+                ],
+                categoryValue
+            });
+        } catch (err) {
+            console.error('Analytics Error:', err);
+        }
+    };
+
     const fetchProducts = async () => {
         setLoading(true);
         try {
             const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
             setProducts(data || []);
+            fetchAnalytics(data || []);
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -112,7 +177,7 @@ export default function ProductsPage() {
         setHasMounted(true);
         fetchProducts();
         fetchFbConfig();
-    }, []);
+    }, [timeRange]); // Refresh when time range changes
 
     if (!hasMounted) return null;
 
@@ -402,9 +467,41 @@ export default function ProductsPage() {
 
 
     const handleDelete = async (id) => {
-        if (confirm('Delete this saree?')) {
-            await supabase.from('products').delete().eq('id', id);
+        if (!confirm('🚨 Are you sure you want to delete this saree? This will also remove its stock history and variants.')) return;
+
+        setLoading(true);
+        try {
+            // 1. Delete dependent records first to avoid Foreign Key Constraint errors
+            // Note: We don't delete order_items as they are historical records, 
+            // but usually those should have SET NULL or CASCADE at DB level.
+            await supabase.from('product_variants').delete().eq('product_id', id);
+            await supabase.from('product_history').delete().eq('product_id', id);
+            await supabase.from('whatsapp_cart').delete().eq('product_id', id);
+
+            // 2. Delete the main product
+            const { error } = await supabase.from('products').delete().eq('id', id);
+
+            if (error) {
+                if (error.code === '23503') {
+                    setNotification({
+                        message: '⚠️ Cannot delete: This saree has past orders. I have hidden it from the shop instead.',
+                        type: 'error'
+                    });
+                    // Deletion failed due to history, so let's just deactivate it
+                    await supabase.from('products').update({ is_active: false }).eq('id', id);
+                    fetchProducts();
+                    return;
+                }
+                throw error;
+            }
+
+            setNotification({ message: '✅ Product deleted successfully', type: 'success' });
             fetchProducts();
+        } catch (err) {
+            console.error('Delete Error:', err);
+            setNotification({ message: `❌ Delete failed: ${err.message || 'Check database permissions'}`, type: 'error' });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -534,17 +631,98 @@ export default function ProductsPage() {
                         onClick={() => setViewMode('card')}
                         title="Card View"
                         style={{
-                            padding: '0.45rem 0.8rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
+                            padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
                             background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
                             color: viewMode === 'card' ? 'white' : 'hsl(var(--text-muted))',
                             transition: 'all 0.2s'
                         }}>
-                        <LayoutGrid size={15} /> Cards
+                        <LayoutGrid size={14} /> Cards
+                    </button>
+                    <button
+                        onClick={() => setViewMode('analytics')}
+                        title="Analytics View"
+                        style={{
+                            padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
+                            background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                            color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
+                            transition: 'all 0.2s'
+                        }}>
+                        <TrendingUp size={14} /> Analysis
                     </button>
                 </div>
                 <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{filtered.length} items</span>
             </div>
+
+            {/* ─── ANALYTICS VIEW ─── */}
+            {viewMode === 'analytics' && (
+                <div className="animate-enter">
+                    {/* Time Filters */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                        {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                            <button key={r} onClick={() => setTimeRange(r)} style={{
+                                padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                                background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                            }}>{r}</button>
+                        ))}
+                    </div>
+
+                    <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
+                        <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Trophy size={18} color="#f59e0b" /> Best Sellers ({timeRange})
+                            </h3>
+                            <div style={{ height: '300px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analyticsData.topSellers}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                        <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                        <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={34} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <PackageIcon size={18} color="hsl(var(--success))" /> Stock Health Monitor
+                            </h3>
+                            <div style={{ height: '300px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={analyticsData.inventoryStatus} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                            {analyticsData.inventoryStatus.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Collection Distribution</h3>
+                        <div style={{ height: '300px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={analyticsData.categoryValue}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                    <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                    <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} barSize={24} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── TABLE VIEW ─── */}
             {viewMode === 'table' && (
@@ -561,6 +739,7 @@ export default function ProductsPage() {
                                     <th>Product</th>
                                     <th>Category</th>
                                     <th>Group</th>
+                                    <th>Status</th>
                                     <th style={{ textAlign: 'right' }}>Price</th>
                                     <th style={{ textAlign: 'center' }}>Stock</th>
                                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -606,6 +785,16 @@ export default function ProductsPage() {
                                                 <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
                                             )}
                                         </td>
+                                        <td>
+                                            <span style={{
+                                                padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600,
+                                                background: product.is_active ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--danger) / 0.1)',
+                                                color: product.is_active ? 'hsl(var(--success))' : 'hsl(var(--danger))',
+                                                border: `1px solid ${product.is_active ? 'hsl(var(--success) / 0.3)' : 'hsl(var(--danger) / 0.3)'}`
+                                            }}>
+                                                {product.is_active ? 'Active' : 'Hidden'}
+                                            </span>
+                                        </td>
                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                         <td style={{ textAlign: 'center' }}>
                                             <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
@@ -614,6 +803,12 @@ export default function ProductsPage() {
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                                <button onClick={async () => {
+                                                    await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
+                                                    fetchProducts();
+                                                }} title={product.is_active ? "Hide from Shop" : "Show on Shop"} className="btn btn-secondary" style={{ padding: '0.4rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }}>
+                                                    {product.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
+                                                </button>
                                                 <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                     {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
                                                 </button>
@@ -681,6 +876,12 @@ export default function ProductsPage() {
                                         <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={async () => {
+                                                await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
+                                                fetchProducts();
+                                            }} className="btn btn-secondary" style={{ padding: '0.5rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }} title={product.is_active ? "Hide from Shop" : "Show on Shop"}>
+                                                {product.is_active ? <Eye size={13} /> : <EyeOff size={13} />}
+                                            </button>
                                             <button onClick={() => openEditModal(product)}
                                                 className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                 <Edit size={13} /> Edit

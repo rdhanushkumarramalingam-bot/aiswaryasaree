@@ -434,13 +434,11 @@ function getCategoryEmoji(category) {
 }
 
 export async function sendCatalogueCategories(to) {
-    // ─── AUTO-ACTIVATE HIDDEN PRODUCTS ───
-    await supabase.from('products').update({ is_active: true }).eq('is_active', false);
-
     // Dynamically fetch all distinct categories from the products table
     const { data: allProducts } = await supabase
         .from('products')
-        .select('*');
+        .select('*')
+        .eq('is_active', true);
 
     // Count products per category
     const catMap = {};
@@ -514,7 +512,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         console.log(`\n========== CUSTOMER VIEW ALL PRODUCTS REQUEST ==========`);
     }
 
-    let query = supabase.from('products').select('*', { count: 'exact' });
+    let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
     if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
 
     const streamId = startStream(to);
@@ -557,6 +555,10 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
             : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
 
         const imgUrl = getPremiumImage(p);
+
+        if (typeId === 'all') {
+            console.log(`[TERMINAL LOG] Product #${idx + 1}: Name: ${p.name}, Price: ${p.price}, Stock: ${p.stock}, Category: ${p.category}`);
+        }
 
         try {
             console.log(`[WA] Sending item ${idx + 1}/${prods.length}: ${p.name} (Img: ${imgUrl.substring(0, 30)}...)`);
@@ -611,7 +613,7 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', productId);
 
     const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
-    if (!product || effectiveStock <= 0) return sendText(to, "⚠️ Sorry, this item is out of stock.");
+    if (!product || !product.is_active || effectiveStock <= 0) return sendText(to, "⚠️ Sorry, this item is out of stock or no longer available.");
 
     if (variants && variants.length > 0) {
         // Show variant selection list

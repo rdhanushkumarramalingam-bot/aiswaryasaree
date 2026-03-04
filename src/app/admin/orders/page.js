@@ -11,11 +11,14 @@ import {
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
+} from 'recharts';
+import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 
-
-
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 const STATUS_OPTIONS = ['PLACED', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
 
@@ -80,8 +83,98 @@ export default function OrdersPage() {
     });
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
+    const [viewMode, setViewMode] = useState('list'); // 'list' or 'analytics'
+    const [analyticsData, setAnalyticsData] = useState({
+        revenueTrend: [],
+        channelData: [],
+        statusData: [],
+        courierData: [],
+        topProducts: []
+    });
+    const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
 
 
+
+    const fetchAnalytics = async (allOrders) => {
+        try {
+            const now = new Date();
+            let filteredOrders = allOrders;
+
+            // 1. Time Filtering Logic
+            if (timeRange === 'DAILY') {
+                filteredOrders = allOrders.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
+            } else if (timeRange === 'MONTHLY') {
+                filteredOrders = allOrders.filter(o => {
+                    const d = new Date(o.created_at);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                });
+            } else if (timeRange === 'QUARTERLY') {
+                const currentQuarter = Math.floor(now.getMonth() / 3);
+                filteredOrders = allOrders.filter(o => {
+                    const d = new Date(o.created_at);
+                    return Math.floor(d.getMonth() / 3) === currentQuarter && d.getFullYear() === now.getFullYear();
+                });
+            }
+
+            // 2. Revenue Trend (Last 7 intervals)
+            const trendMap = {};
+            if (timeRange === 'DAILY') {
+                for (let i = 0; i < 24; i++) trendMap[`${i}:00`] = 0;
+                filteredOrders.forEach(o => {
+                    if (o.status !== 'CANCELLED') trendMap[`${new Date(o.created_at).getHours()}:00`] += (o.total_amount || 0);
+                });
+            } else {
+                // Group by day for other views
+                const daysToFetch = timeRange === 'MONTHLY' ? 30 : timeRange === 'QUARTERLY' ? 90 : 365;
+                for (let i = daysToFetch; i >= 0; i--) {
+                    const d = new Date(now);
+                    d.setDate(now.getDate() - i);
+                    trendMap[d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })] = 0;
+                }
+                allOrders.forEach(o => {
+                    if (o.status === 'CANCELLED') return;
+                    const ds = new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                    if (trendMap[ds] !== undefined) trendMap[ds] += (o.total_amount || 0);
+                });
+            }
+            const revenueTrend = Object.entries(trendMap).map(([date, amount]) => ({ date, amount }));
+
+            // 3. Channel Data (from filtered set)
+            const channels = { WEBSITE: 0, WHATSAPP: 0 };
+            filteredOrders.forEach(o => {
+                const src = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                channels[src] = (channels[src] || 0) + 1;
+            });
+            const channelData = [
+                { name: 'Website', value: channels.WEBSITE, color: 'hsl(195 85% 45%)' },
+                { name: 'WhatsApp', value: channels.WHATSAPP, color: '#25D366' }
+            ];
+
+            // 4. Status Data (from filtered set)
+            const stats = {};
+            filteredOrders.forEach(o => { stats[o.status] = (stats[o.status] || 0) + 1; });
+            const statusData = Object.entries(stats).map(([name, value]) => ({ name, value }));
+
+            // 5. Courier Analysis
+            const couriers = {};
+            filteredOrders.forEach(o => {
+                if (o.courier_name) couriers[o.courier_name] = (couriers[o.courier_name] || 0) + 1;
+            });
+            const courierData = Object.entries(couriers).map(([name, value]) => ({ name, value }));
+
+            // 6. Top Products (Fetch order items for filtered orders)
+            const orderIds = filteredOrders.map(o => o.id);
+            const { data: items } = await supabase.from('order_items').select('product_name, quantity').in('order_id', orderIds);
+            const prodMap = {};
+            items?.forEach(i => { prodMap[i.product_name] = (prodMap[i.product_name] || 0) + i.quantity; });
+            const topProducts = Object.entries(prodMap).map(([name, value]) => ({ name, value }))
+                .sort((a, b) => b.value - a.value).slice(0, 5);
+
+            setAnalyticsData({ revenueTrend, channelData, statusData, courierData, topProducts });
+        } catch (err) {
+            console.error('Orders Analytics Error:', err);
+        }
+    };
 
     const fetchOrders = async () => {
 
@@ -104,6 +197,7 @@ export default function OrdersPage() {
             const { data } = await query;
 
             setOrders(data || []);
+            fetchAnalytics(data || []);
 
         } catch (error) {
 
@@ -120,17 +214,11 @@ export default function OrdersPage() {
 
 
     useEffect(() => {
-
         setHasMounted(true);
-
-        fetchOrders();
-
+        fetchOrders(); // Re-fetch analytics when time range changes
         const channel = supabase
-
             .channel('orders_page')
-
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
-
             .subscribe();
 
         return () => supabase.removeChannel(channel);
@@ -229,6 +317,74 @@ export default function OrdersPage() {
     const handleRemoveItem = (index) => {
         const newItems = orderItems.filter((_, i) => i !== index);
         setOrderItems(newItems);
+    };
+
+    const handleDeleteAllOrders = async () => {
+        const confirm1 = window.confirm('🚨 WARNING: You are about to delete ALL orders from the database. This action is IRREVERSIBLE. Are you absolutely certain?');
+        if (!confirm1) return;
+
+        const confirm2 = window.prompt('To confirm, please type DELETE ALL ORDERS below:');
+        if (confirm2 !== 'DELETE ALL ORDERS') {
+            alert('Verification failed. Orders were NOT deleted.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Delete all order items first
+            const { error: itemsError } = await supabase.from('order_items').delete().neq('order_id', '0'); // Hack to delete all
+            if (itemsError) throw itemsError;
+
+            // 2. Delete all orders
+            const { error: ordersError } = await supabase.from('orders').delete().neq('status', 'DRAFT');
+            if (ordersError) throw ordersError;
+
+            setNotification({ message: '✅ All orders have been wiped.', type: 'success' });
+            fetchOrders();
+        } catch (err) {
+            console.error('Bulk Delete Error:', err);
+            setNotification({ message: '❌ Critical failure during deletion', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm('Are you sure you want to PERMANENTLY delete this order? This cannot be undone.')) return;
+
+        setLoading(true);
+        try {
+            // 1. Delete order items first (cascading delete should ideally be in DB, but being safe)
+            const { error: itemsError } = await supabase
+                .from('order_items')
+                .delete()
+                .eq('order_id', orderId);
+
+            if (itemsError) throw itemsError;
+
+            // 2. Delete the order
+            const { error: orderError } = await supabase
+                .from('orders')
+                .delete()
+                .eq('id', orderId);
+
+            if (orderError) throw orderError;
+
+            setNotification({
+                message: '✅ Order deleted successfully',
+                type: 'success'
+            });
+            setSelectedOrder(null);
+            fetchOrders();
+        } catch (err) {
+            console.error('Delete Error:', err);
+            setNotification({
+                message: '❌ Failed to delete order',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const saveOrderEdits = async () => {
@@ -363,235 +519,379 @@ export default function OrdersPage() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius)', padding: '4px' }}>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    style={{
+                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
+                                        background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))'
+                                    }}>List View</button>
+                                <button
+                                    onClick={() => setViewMode('analytics')}
+                                    style={{
+                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
+                                        background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                        color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))'
+                                    }}><TrendingUp size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Analysis</button>
+                            </div>
                             <button onClick={() => setIsAddingOrder(true)} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none' }}>
                                 <Plus size={16} /> Add Manual Order
                             </button>
                             <button onClick={fetchOrders} className="btn btn-secondary">
                                 <RefreshCw size={16} /> Refresh
                             </button>
+                            <button
+                                onClick={handleDeleteAllOrders}
+                                className="btn"
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    color: '#f87171',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                    fontWeight: 600,
+                                    fontSize: '0.8rem',
+                                    padding: '0.45rem 1rem'
+                                }}
+                            >
+                                <Trash2 size={16} /> Wipe All Orders
+                            </button>
                         </div>
                     </div>
 
-
-
-                    {/* Status Tabs */}
-
-                    <div className="admin-filter-row">
-
-                        {Object.entries(orderCounts).map(([status, count]) => (
-
-                            <button key={status} onClick={() => setStatusFilter(status)} style={{
-
-                                padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
-
-                                fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-
-                                background: statusFilter === status ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-
-                                color: statusFilter === status ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-
-                                border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-
-                                boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
-
-                            }}>
-
-                                {status === 'ALL' ? 'All Orders' : status} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
-
-                            </button>
-
-                        ))}
-
-                    </div>
-
-
-
-                    {/* Source Filter */}
-
-                    <div className="admin-filter-row" style={{ marginTop: '0.5rem' }}>
-
-                        <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Channel:</span>
-
-                        {SOURCE_FILTERS.map(src => (
-
-                            <button key={src} onClick={() => setSourceFilter(src)} style={{
-
-                                padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
-
-                                fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-
-                                background: sourceFilter === src
-
-                                    ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? '#25D366' : 'hsl(var(--bg-panel))'
-
-                                    : 'hsl(var(--bg-card))',
-
-                                color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
-
-                                border: '1px solid hsl(var(--border-subtle))'
-
-                            }}>
-
-                                {src === 'ALL' ? '🌐 All' : src === 'WEBSITE' ? '🌐 Website' : '💬 WhatsApp'}
-
-                            </button>
-
-                        ))}
-
-                    </div>
-
-
-
-                    {/* Search + Table Card */}
-
-                    <div className="card" style={{ padding: 0 }}>
-
-                        {/* Search Bar */}
-
-                        <div className="admin-search-container">
-
-                            <div className="admin-search-input-wrapper">
-
-                                <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-
-                                <input
-
-                                    type="text"
-
-                                    placeholder="Search by Order ID, Name or Phone..."
-
-                                    value={searchTerm}
-
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-
-                                    style={{
-
-                                        width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
-
-                                        background: 'hsl(var(--bg-app))',
-
-                                        border: '1px solid hsl(var(--border-subtle))',
-
-                                        borderRadius: 'var(--radius-sm)',
-
-                                        fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
-
-                                        color: 'hsl(var(--text-main))', fontFamily: 'inherit'
-
-                                    }}
-
-                                />
-
+                    {/* ─── ANALYTICS VIEW ─── */}
+                    {viewMode === 'analytics' && (
+                        <div className="animate-enter">
+                            {/* Time Filters */}
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                                {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                                    <button key={r} onClick={() => setTimeRange(r)} style={{
+                                        padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                                        background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                    }}>{r}</button>
+                                ))}
                             </div>
 
+                            <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
+                                {/* Revenue Title updated dynamically */}
+                                <div className="card" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <IndianRupee size={18} color="hsl(var(--success))" /> {timeRange} Revenue Trend
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={analyticsData.revenueTrend}>
+                                                <defs>
+                                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
+                                                <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                <Area type="monotone" dataKey="amount" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                <div className="card" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Trophy size={18} color="#f59e0b" /> Best Selling Products ({timeRange})
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart layout="vertical" data={analyticsData.topProducts}>
+                                                <XAxis type="number" hide />
+                                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} axisLine={false} tickLine={false} />
+                                                <Tooltip />
+                                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="admin-grid-3">
+                                {/* Courier Distribution */}
+                                <div className="card" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Truck size={18} color="#10b981" /> Courier Partners
+                                    </h3>
+                                    <div style={{ height: '250px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={analyticsData.courierData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} paddingAngle={5}>
+                                                    {analyticsData.courierData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Channel Distribution */}
+                                <div className="card" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <ShoppingCart size={18} color="hsl(var(--primary))" /> Order Sources
+                                    </h3>
+                                    <div style={{ height: '250px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={analyticsData.channelData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                                                    {analyticsData.channelData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Status Distribution */}
+                                <div className="card" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Package size={18} color="hsl(var(--accent))" /> Status Breakdown
+                                    </h3>
+                                    <div style={{ height: '250px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={analyticsData.statusData}>
+                                                <XAxis dataKey="name" hide />
+                                                <YAxis hide />
+                                                <Tooltip />
+                                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    )}
 
+                    {viewMode === 'list' && (
+                        <>
 
+                            <div className="admin-filter-row">
 
-                        {/* Table */}
+                                {Object.entries(orderCounts).map(([status, count]) => (
 
-                        {loading ? (
+                                    <button key={status} onClick={() => setStatusFilter(status)} style={{
 
-                            <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                                        padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
 
-                                <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+                                        fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+
+                                        background: statusFilter === status ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
+
+                                        color: statusFilter === status ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+
+                                        border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
+
+                                        boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
+
+                                    }}>
+
+                                        {status === 'ALL' ? 'All Orders' : status} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
+
+                                    </button>
+
+                                ))}
 
                             </div>
 
-                        ) : (
-
-                            <table style={{ margin: 0 }}>
-
-                                <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-
-                                    <tr>
-
-                                        <th>Order ID</th>
-                                        <th>Customer</th>
-                                        <th style={{ textAlign: 'left' }}>Region</th>
-                                        <th style={{ textAlign: 'center' }}>Source</th>
-                                        <th style={{ textAlign: 'right' }}>Amount</th>
-
-                                        <th style={{ textAlign: 'center' }}>Payment</th>
-
-                                        <th style={{ textAlign: 'center' }}>Status</th>
-
-                                        <th style={{ textAlign: 'left' }}>Date</th>
-
-                                        <th style={{ textAlign: 'right' }}>Actions</th>
-
-                                    </tr>
-
-                                </thead>
-
-                                <tbody>
-
-                                    {filteredOrders.length === 0 ? (
-                                        <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
-                                    ) : (
-                                        filteredOrders.map(order => {
-                                            const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
-                                            const isExpanded = selectedOrder?.id === order.id;
-
-                                            return (
-                                                <React.Fragment key={order.id}>
-                                                    <tr
-                                                        onClick={() => openOrderDetail(order)}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' : 'transparent',
-                                                            transition: 'background 0.2s'
-                                                        }}
-                                                    >
-                                                        <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
-                                                        <td>
-                                                            <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
-                                                        </td>
-                                                        <td style={{ textAlign: 'left' }}>
-                                                            <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
-                                                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
-                                                        </td>
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                                                                padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                                                                background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
-                                                                color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : '#25D366',
-                                                                border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
-                                                            }}>
-                                                                {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
-                                                        <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
-                                                        </td>
-                                                        <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                        </td>
-                                                        <td style={{ textAlign: 'right' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                                                <Eye size={18} />
-                                                                <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>View</button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </React.Fragment>
-                                            );
-                                        })
-                                    )}
-
-                                </tbody>
-
-                            </table>
-
-                        )}
-
-                    </div>
 
 
+                            {/* Source Filter */}
+
+                            <div className="admin-filter-row" style={{ marginTop: '0.5rem' }}>
+
+                                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Channel:</span>
+
+                                {SOURCE_FILTERS.map(src => (
+
+                                    <button key={src} onClick={() => setSourceFilter(src)} style={{
+
+                                        padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
+
+                                        fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+
+                                        background: sourceFilter === src
+
+                                            ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? '#25D366' : 'hsl(var(--bg-panel))'
+
+                                            : 'hsl(var(--bg-card))',
+
+                                        color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
+
+                                        border: '1px solid hsl(var(--border-subtle))'
+
+                                    }}>
+
+                                        {src === 'ALL' ? '🌐 All' : src === 'WEBSITE' ? '🌐 Website' : '💬 WhatsApp'}
+
+                                    </button>
+
+                                ))}
+
+                            </div>
+
+
+
+                            {/* Search + Table Card */}
+
+                            <div className="card" style={{ padding: 0 }}>
+
+                                {/* Search Bar */}
+
+                                <div className="admin-search-container">
+
+                                    <div className="admin-search-input-wrapper">
+
+                                        <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+
+                                        <input
+
+                                            type="text"
+
+                                            placeholder="Search by Order ID, Name or Phone..."
+
+                                            value={searchTerm}
+
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+
+                                            style={{
+
+                                                width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
+
+                                                background: 'hsl(var(--bg-app))',
+
+                                                border: '1px solid hsl(var(--border-subtle))',
+
+                                                borderRadius: 'var(--radius-sm)',
+
+                                                fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
+
+                                                color: 'hsl(var(--text-main))', fontFamily: 'inherit'
+
+                                            }}
+
+                                        />
+
+                                    </div>
+
+                                </div>
+
+
+
+                                {/* Table */}
+
+                                {loading ? (
+
+                                    <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+
+                                        <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+
+                                    </div>
+
+                                ) : (
+
+                                    <table style={{ margin: 0 }}>
+
+                                        <thead style={{ background: 'hsl(var(--bg-panel))' }}>
+
+                                            <tr>
+
+                                                <th>Order ID</th>
+                                                <th>Customer</th>
+                                                <th style={{ textAlign: 'left' }}>Region</th>
+                                                <th style={{ textAlign: 'center' }}>Source</th>
+                                                <th style={{ textAlign: 'right' }}>Amount</th>
+
+                                                <th style={{ textAlign: 'center' }}>Payment</th>
+
+                                                <th style={{ textAlign: 'center' }}>Status</th>
+
+                                                <th style={{ textAlign: 'left' }}>Date</th>
+
+                                                <th style={{ textAlign: 'right' }}>Actions</th>
+
+                                            </tr>
+
+                                        </thead>
+
+                                        <tbody>
+
+                                            {filteredOrders.length === 0 ? (
+                                                <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
+                                            ) : (
+                                                filteredOrders.map(order => {
+                                                    const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                                                    const isExpanded = selectedOrder?.id === order.id;
+
+                                                    return (
+                                                        <React.Fragment key={order.id}>
+                                                            <tr
+                                                                onClick={() => openOrderDetail(order)}
+                                                                style={{
+                                                                    cursor: 'pointer',
+                                                                    background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                            >
+                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                <td>
+                                                                    <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
+                                                                </td>
+                                                                <td style={{ textAlign: 'left' }}>
+                                                                    <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
+                                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
+                                                                </td>
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                                                        padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                                                                        background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
+                                                                        color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : '#25D366',
+                                                                        border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
+                                                                    }}>
+                                                                        {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
+                                                                <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
+                                                                </td>
+                                                                <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                                    {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                                                        <Eye size={18} />
+                                                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>View</button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        </React.Fragment>
+                                                    );
+                                                })
+                                            )}
+
+                                        </tbody>
+
+                                    </table>
+
+                                )}
+
+                            </div>
+                        </>
+                    )}
 
                     {/* ORDER DETAIL MODAL */}
                     {selectedOrder && (
@@ -742,6 +1042,24 @@ export default function OrdersPage() {
                                                 <a href={`https://wa.me/${selectedOrder.customer_phone}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center', justifyContent: 'center' }}>
                                                     <MessageCircle size={14} /> Contact via WhatsApp
                                                 </a>
+                                                <button
+                                                    onClick={() => handleDeleteOrder(selectedOrder.id)}
+                                                    className="btn"
+                                                    style={{
+                                                        width: '100%',
+                                                        marginTop: '0.5rem',
+                                                        background: 'rgba(239, 68, 68, 0.1)',
+                                                        color: '#f87171',
+                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '0.5rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} /> Delete Order
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -1043,14 +1361,7 @@ export default function OrdersPage() {
                     )}
 
 
-
-                </>
-
-            )}
-
-
-
-            <style jsx>{`
+                    <style jsx>{`
                 @keyframes expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
                 .animate-expand { animation: expand 0.4s ease-out; overflow: hidden; }
                 .card-sub { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
@@ -1080,6 +1391,8 @@ export default function OrdersPage() {
                     table { min-width: 800px; }
                 }
             `}</style>
+                </>
+            )}
         </div>
     );
 }

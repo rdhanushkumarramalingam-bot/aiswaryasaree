@@ -6,10 +6,10 @@ import { LayoutDashboard, ShoppingBag, Package, Users, FileText, Settings, Messa
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
-    { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Products', href: '/admin/products', icon: ShoppingBag },
     { name: 'Orders', href: '/admin/orders', icon: Package },
     { name: 'Customers', href: '/admin/customers', icon: Users },
+    { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Broadcast', href: '/admin/broadcast', icon: Megaphone },
     { name: 'WhatsApp Funnel', href: '/admin/whatsapp', icon: MessageSquare },
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
