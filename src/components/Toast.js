@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, AlertCircle } from "lucide-react";
+import { Check, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function Toast({ message, type = "success", onClose }) {
@@ -65,7 +65,7 @@ export default function Toast({ message, type = "success", onClose }) {
                     display: 'flex'
                 }}
             >
-                <X size={16} />
+                <span style={{ fontSize: '18px', lineHeight: 1 }}>&times;</span>
             </button>
         </motion.div>
     );

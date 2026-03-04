@@ -464,3 +464,14 @@ tr:hover td {
 .sidebar:hover::-webkit-scrollbar-thumb {
   background: hsl(var(--primary) / 0.4);
 }
+
+@media (max-width: 768px) {
+  .admin-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-header-row {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+}

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, ShoppingBag, DollarSign, MapPin, Calendar, X } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, ShoppingBag, DollarSign, MapPin, Calendar } from 'lucide-react';
 
 
 
@@ -470,10 +470,8 @@ export default function CustomersPage() {
 
                                     </div>
 
-                                    <button onClick={() => setSelectedCustomer(null)} style={{ color: 'hsl(var(--text-muted))' }}>
-
-                                        <X size={24} />
-
+                                    <button onClick={() => setSelectedCustomer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>
+                                        &times;
                                     </button>
 
                                 </div>

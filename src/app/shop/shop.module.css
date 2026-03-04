@@ -1184,9 +1184,10 @@
     backdrop-filter: blur(8px);
     z-index: 200;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 1rem;
+    padding: 5vh 1rem 2rem;
+    overflow-y: auto;
     animation: fadeIn 0.2s ease forwards;
 }
 
@@ -1685,8 +1686,892 @@
     color: rgba(255, 255, 255, 0.3);
     cursor: not-allowed;
     box-shadow: none;
-}@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .spin { animation: rotate 2s linear infinite; } .btnPrimary, .btnSecondary { padding: 0.8rem 1.5rem; border-radius: 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 0.5rem; } .btnPrimary { background: linear-gradient(135deg, #25a366, #1a8a4e); color: #fff; } .btnSecondary { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); } .profileView { max-width: 1000px; margin: 2rem auto; animation: fadeIn 0.4s ease; } .profileHeader { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); padding: 2.5rem; border-radius: 20px; margin-bottom: 2rem; } .profileMeta { display: flex; align-items: center; gap: 1.5rem; } .profileAvatarLarge { width: 80px; height: 80px; background: linear-gradient(135deg, #25a366, #1a8a4e); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.25rem; font-weight: 800; color: #fff; } .profileName { font-size: 1.5rem; font-weight: 800; } .profilePhone { color: rgba(255, 255, 255, 0.45); font-size: 0.9rem; } .orderGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.5rem; } .orderCard { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 1.5rem; } .headerProfile { display: flex; align-items: center; gap: 1rem; background: rgba(255, 255, 255, 0.05); padding: 0.25rem 0.25rem 0.25rem 0.75rem; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); } .profileInfo { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; } .userName { font-size: 0.85rem; font-weight: 600; color: #fff; max-width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .userAvatar { width: 28px; height: 28px; background: linear-gradient(135deg, #25a366, #1a8a4e); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: #fff; } .logoutBtn { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255, 100, 100, 0.1); color: #ff6b6b; display: flex; align-items: center; justify-content: center; cursor: pointer; } .navActions { display: flex; align-items: center; gap: 0.5rem; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.profileText { display: flex; flex-direction: column; gap: 2px; } .ordersLink { font-size: 0.7rem; color: #25a366; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; } .profileForm { background: rgba(255, 255, 255, 0.02); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); } .accountSection .sectionTitle { border-bottom: none; padding-bottom: 0.5rem; margin-bottom: 1rem; }
-.profileDropdown { position: absolute; top: 100%; right: 0; background: #1a1f2e; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 0.5rem; min-width: 180px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 1000; margin-top: 0.5rem; animation: slideDown 0.2s ease; } .dropdownItem { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: rgba(255, 255, 255, 0.8); font-size: 0.85rem; font-weight: 500; cursor: pointer; border-radius: 8px; transition: all 0.2s; } .dropdownItem:hover { background: rgba(255, 255, 255, 0.05); color: #25a366; } .dropdownDivider { height: 1px; background: rgba(255, 255, 255, 0.05); margin: 0.4rem 0.5rem; } .dropdownLogout { color: #ff6b6b !important; } .dropdownLogout:hover { background: rgba(255, 107, 107, 0.1) !important; } .profileTabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 1rem; } .profileTabBtn { display: flex; align-items: center; gap: 0.5rem; background: none; border: none; color: rgba(255, 255, 255, 0.4); font-size: 0.95rem; font-weight: 600; cursor: pointer; padding: 0.5rem 0.25rem; position: relative; transition: all 0.2s; } .profileTabBtn:hover { color: rgba(255, 255, 255, 0.8); } .profileTabActive { color: #25a366; } .profileTabActive::after { content: ''; position: absolute; bottom: -1rem; left: 0; width: 100%; height: 2px; background: #25a366; box-shadow: 0 0 10px rgba(37, 163, 102, 0.5); } @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-.navbar { display: flex; align-items: center; gap: 2rem; margin-left: 3rem; flex: 1; } .navItem { color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.2s; position: relative; padding: 0.5rem 0; } .navItem:hover { color: #fff; } .activeNav { color: #25a366 !important; font-weight: 700; } .activeNav::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #25a366; box-shadow: 0 0 8px rgba(37, 163, 102, 0.4); } .cartIconBtn { cursor: pointer; padding: 0.5rem; border-radius: 50%; transition: all 0.2s; position: relative; } .cartIconBtn:hover { background: rgba(255, 255, 255, 0.05); } .cartIconWrapper { position: relative; color: rgba(255, 255, 255, 0.8); } .cartCountBadge { position: absolute; top: -8px; right: -8px; background: #25a366; color: #fff; font-size: 0.65rem; font-weight: 800; min-width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #0a0e1a; } .profileAvatarTrigger { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 50px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.2s; color: rgba(255, 255, 255, 0.6); } .profileAvatarTrigger:hover { background: rgba(255, 255, 255, 0.06); color: #fff; } .userAvatarSmall { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #25a366, #1a8a4e); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; } .rotateIcon { transform: rotate(180deg); } .dropdownHeader { padding: 0.75rem 1rem; } .dropdownName { font-weight: 700; color: #fff; font-size: 0.9rem; } .dropdownPhone { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); margin-top: 0.1rem; } .trackingTab { max-width: 600px; margin: 0 auto; } .trackingForm { margin-bottom: 2.5rem; } .trackingInputOuter { display: flex; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 0.5rem; gap: 0.75rem; transition: all 0.2s; } .trackingInputOuter:focus-within { border-color: #25a366; background: rgba(255, 255, 255, 0.05); } .trackingIcon { color: rgba(255, 255, 255, 0.2); } .trackingInput { background: none; border: none; color: #fff; flex: 1; padding: 0.5rem 0; font-size: 1rem; outline: none; } .trackingTimeline { display: flex; align-items: center; justify-content: space-between; margin: 2rem 0 3rem; padding: 0 1rem; } .timelinePoint { display: flex; flex-direction: column; align-items: center; gap: 1rem; position: relative; z-index: 2; } .pointDot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid #1a1f2e; transition: all 0.3s; } .pointLabel { font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; text-align: center; white-space: nowrap; position: absolute; top: 24px; } .pointActive .pointDot { background: #25a366; box-shadow: 0 0 10px rgba(37, 163, 102, 0.6); } .pointActive .pointLabel { color: #25a366; } .timelineLine { flex: 1; height: 2px; background: rgba(255, 255, 255, 0.1); margin: 0 -5px; position: relative; top: -6px; } .lineActive { background: #25a366; } .trackingInfo { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.05); display: grid; gap: 0.75rem; } .trackLink { color: #25a366; font-weight: 700; font-size: 0.9rem; text-decoration: none; display: inline-block; margin-top: 0.5rem; } .trackLink:hover { text-decoration: underline; }
-.modalSmall { background: #1a1f2e; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; width: 90%; max-width: 400px; padding: 2.5rem; position: relative; animation: modalUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); } .loginPromptContent { text-align: center; } .loginPromptLogo { font-size: 3rem; margin-bottom: 1.5rem; filter: drop-shadow(0 0 15px rgba(37, 163, 102, 0.4)); } .loginPromptTitle { font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 1rem; } .loginPromptText { color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem; } .loginPromptActions { display: flex; flex-direction: column; gap: 1rem; } .btnBorderless { background: none; border: none; color: rgba(255, 255, 255, 0.4); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; padding: 0.5rem; } .btnBorderless:hover { color: #fff; text-decoration: underline; } @keyframes modalUp { from { opacity: 0; transform: translateY(20px); scale: 0.95; } to { opacity: 1; transform: translateY(0); scale: 1; } }
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: rotate 2s linear infinite;
+}
+
+.btnPrimary,
+.btnSecondary {
+    padding: 0.8rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btnPrimary {
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #fff;
+}
+
+.btnSecondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profileView {
+    max-width: 1000px;
+    margin: 2rem auto;
+    animation: fadeIn 0.4s ease;
+}
+
+.profileHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 2.5rem;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+}
+
+.profileMeta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.profileAvatarLarge {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.profileName {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.profilePhone {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.9rem;
+}
+
+.orderGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.orderCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.headerProfile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profileInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+}
+
+.userName {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.userAvatar {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.logoutBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 100, 100, 0.1);
+    color: #ff6b6b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.navActions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.profileText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ordersLink {
+    font-size: 0.7rem;
+    color: #25a366;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.profileForm {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.accountSection .sectionTitle {
+    border-bottom: none;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.profileDropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #1a1f2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 0.5rem;
+    min-width: 180px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    margin-top: 0.5rem;
+    animation: slideDown 0.2s ease;
+}
+
+.dropdownItem {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.dropdownItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #25a366;
+}
+
+.dropdownDivider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 0.4rem 0.5rem;
+}
+
+.dropdownLogout {
+    color: #ff6b6b !important;
+}
+
+.dropdownLogout:hover {
+    background: rgba(255, 107, 107, 0.1) !important;
+}
+
+.profileTabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 1rem;
+}
+
+.profileTabBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.5rem 0.25rem;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.profileTabBtn:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.profileTabActive {
+    color: #25a366;
+}
+
+.profileTabActive::after {
+    content: '';
+    position: absolute;
+    bottom: -1rem;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #25a366;
+    box-shadow: 0 0 10px rgba(37, 163, 102, 0.5);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-left: 3rem;
+    flex: 1;
+}
+
+.navItem {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.navItem:hover {
+    color: #fff;
+}
+
+.activeNav {
+    color: #25a366 !important;
+    font-weight: 700;
+}
+
+.activeNav::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #25a366;
+    box-shadow: 0 0 8px rgba(37, 163, 102, 0.4);
+}
+
+.cartIconBtn {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.cartIconBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cartIconWrapper {
+    position: relative;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.cartCountBadge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #25a366;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #0a0e1a;
+}
+
+.profileAvatarTrigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.profileAvatarTrigger:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+
+.userAvatarSmall {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.rotateIcon {
+    transform: rotate(180deg);
+}
+
+.dropdownHeader {
+    padding: 0.75rem 1rem;
+}
+
+.dropdownName {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.dropdownPhone {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 0.1rem;
+}
+
+.trackingTab {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.trackingForm {
+    margin-bottom: 2.5rem;
+}
+
+.trackingInputOuter {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 0.5rem;
+    gap: 0.75rem;
+    transition: all 0.2s;
+}
+
+.trackingInputOuter:focus-within {
+    border-color: #25a366;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.trackingIcon {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.trackingInput {
+    background: none;
+    border: none;
+    color: #fff;
+    flex: 1;
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    outline: none;
+}
+
+.trackingTimeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2rem 0 3rem;
+    padding: 0 1rem;
+}
+
+.timelinePoint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.pointDot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #1a1f2e;
+    transition: all 0.3s;
+}
+
+.pointLabel {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    position: absolute;
+    top: 24px;
+}
+
+.pointActive .pointDot {
+    background: #25a366;
+    box-shadow: 0 0 10px rgba(37, 163, 102, 0.6);
+}
+
+.pointActive .pointLabel {
+    color: #25a366;
+}
+
+.timelineLine {
+    flex: 1;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 -5px;
+    position: relative;
+    top: -6px;
+}
+
+.lineActive {
+    background: #25a366;
+}
+
+.trackingInfo {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: grid;
+    gap: 0.75rem;
+}
+
+.trackLink {
+    color: #25a366;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.trackLink:hover {
+    text-decoration: underline;
+}
+
+.modalSmall {
+    background: #1a1f2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    width: 90%;
+    max-width: 400px;
+    padding: 2.5rem;
+    position: relative;
+    animation: modalUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.loginPromptContent {
+    text-align: center;
+}
+
+.loginPromptLogo {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 0 15px rgba(37, 163, 102, 0.4));
+}
+
+.loginPromptTitle {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+
+.loginPromptText {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.loginPromptActions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.btnBorderless {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0.5rem;
+}
+
+.btnBorderless:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+@keyframes modalUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+        scale: 0.95;
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        scale: 1;
+    }
+}
+
+/* ── MEDIA QUERIES ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+
+    .cartLayout,
+    .checkoutLayout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .cartSummary,
+    .checkoutSummary {
+        position: static !important;
+        width: 100% !important;
+        margin-top: 2rem;
+    }
+}
+
+@media (max-width: 1024px) {
+    .navbar {
+        display: none !important;
+        /* Hide standard navbar */
+    }
+
+    .hamburgerBtn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        padding: 0.5rem;
+        z-index: 1001;
+    }
+
+    /* Mobile Navbar Drawer */
+    .navbarOpen {
+        display: flex !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        background: #0a0e1a;
+        flex-direction: column;
+        padding: 5rem 1.5rem 2rem;
+        gap: 0.5rem;
+        z-index: 1000;
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.8);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        margin-left: 0 !important;
+        animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideInLeft {
+        from {
+            transform: translateX(-100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    .navbarOpen .navItem {
+        width: 100%;
+        padding: 1rem;
+        border-radius: 12px;
+        font-size: 1.1rem;
+    }
+
+    .navbarOpen .navItem:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .mobileOnly {
+        display: flex !important;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 1.5rem !important;
+    }
+
+    .logoName {
+        font-size: 1.1rem !important;
+    }
+
+    .logoTagline {
+        display: none !important;
+    }
+
+    .hero {
+        padding: 3rem 1.5rem !important;
+        text-align: center;
+    }
+
+    .heroContent {
+        max-width: 100% !important;
+    }
+
+    .heroTitle {
+        font-size: 2.25rem !important;
+    }
+
+    .heroStats {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 768px) {
+    .header {
+        padding: 0 1rem !important;
+    }
+
+    .main {
+        padding: 0 1rem 6rem !important;
+    }
+
+    .hero {
+        margin: 0 -1rem 1.5rem !important;
+    }
+
+    .filterBar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .searchBox {
+        max-width: 100% !important;
+    }
+
+    .productsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+        gap: 1rem !important;
+    }
+
+    .productInfo {
+        padding: 0.75rem !important;
+    }
+
+    .productName {
+        font-size: 0.85rem !important;
+        height: 2.5rem !important;
+    }
+
+    .productPrice {
+        font-size: 1rem !important;
+    }
+
+    .addToCartBtn {
+        padding: 0.5rem !important;
+        font-size: 0.8rem !important;
+    }
+
+    .formGrid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .cartItem {
+        padding: 1rem !important;
+        gap: 1rem !important;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .cartItemImage {
+        width: 80px !important;
+        height: 100px !important;
+    }
+
+    .cartItemName {
+        font-size: 0.9rem !important;
+    }
+
+    .cartItemTotal {
+        font-size: 1rem !important;
+        margin-top: 0.5rem;
+    }
+
+    .profileHeader {
+        padding: 1.5rem !important;
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+    }
+
+    .profileMeta {
+        flex-direction: column;
+    }
+
+    .profileAvatarLarge {
+        width: 64px !important;
+        height: 64px !important;
+        font-size: 1.75rem !important;
+    }
+
+    .orderGrid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal {
+        width: 95% !important;
+        padding: 1.5rem !important;
+        max-height: 95vh !important;
+    }
+
+    .modalContent {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem;
+    }
+
+    .modalImageWrap {
+        height: 300px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .productsGrid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .heroTitle {
+        font-size: 1.85rem !important;
+    }
+
+    .navbarOpen {
+        width: 100% !important;
+    }
+
+    .floatingCart {
+        width: 90% !important;
+        padding: 0.75rem 1.25rem !important;
+        font-size: 0.85rem !important;
+    }
+}
+
+.hamburgerBtn {
+    display: none;
+}
+
+.mobileOnly {
+    display: none;
+}
+
+.taxBreakdown {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: grid;
+    gap: 0.5rem;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.summaryTotalLine {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-top: 1.5rem;
+    color: #fff;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spin {
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Plus, Edit, Trash2, Search, Loader2, X, Image, LayoutGrid, List,
+    Plus, Edit, Trash2, Search, Loader2, Image, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
@@ -165,6 +165,7 @@ export default function ProductsPage() {
             }
 
             fetchProducts();
+            alert('✨ Product Saved Successfully!\n\n✅ Updated in Website Database\n✅ Synced with WhatsApp Catalogue');
             setIsEditing(false);
             setCurrentProduct(null);
             setVariants([]);
@@ -506,7 +507,7 @@ export default function ProductsPage() {
                     <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
                         <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
                             <h2 style={{ fontSize: '1.2rem', margin: 0 }}>{currentProduct ? '✏️ Edit Saree' : '➕ Add New Saree'}</h2>
-                            <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}><X size={22} /></button>
+                            <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>&times;</button>
                         </div>
                         <form onSubmit={handleSave} style={{ padding: '1.75rem' }}>
                             {/* Product Type Toggle */}

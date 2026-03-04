@@ -373,11 +373,10 @@ export async function sendCatalog(to) {
     const header = await getConfig('wa_catalog_header', "PREMIUM COLLECTIONS");
     const body = await getConfig('wa_catalog_body', "Curated just for you:");
 
-    await sendList(to, header, body, "View Categories", [
-        { id: "cat_silk", title: "✨ Royal Silk", description: "Kanjivaram, Banarasi" },
-        { id: "cat_cotton", title: "🌿 Elegant Cotton", description: "Handloom Comfort" },
-        { id: "cat_designer", title: "💎 Designer Studio", description: "Party & Bridal" },
-        { id: "cat_all", title: "🌟 View All", description: "Full Inventory" }
+    await sendList(to, header, body, "View Collections", [
+        { id: "menu_catalogue", title: "📂 Browse Categories", description: "By Saree Type" },
+        { id: "ctlg_all", title: "🌟 New Arrivals", description: "Latest Collections" },
+        { id: "ctlg_all_full", title: "📖 Full Catalogue", description: "Browse Inventory" }
     ]);
 }
 
@@ -400,14 +399,14 @@ function getCategoryEmoji(category) {
 
 export async function sendCatalogueCategories(to) {
     // Dynamically fetch all distinct categories from the products table
-    const { data: products } = await supabase
+    const { data: allProducts } = await supabase
         .from('products')
-        .select('category')
+        .select('*')
         .eq('is_active', true);
 
     // Count products per category
     const catMap = {};
-    (products || []).forEach(p => {
+    (allProducts || []).forEach(p => {
         if (p.category) {
             catMap[p.category] = (catMap[p.category] || 0) + 1;
         }
@@ -420,25 +419,38 @@ export async function sendCatalogueCategories(to) {
     }
 
     // Build list rows — max 10 rows in a WhatsApp list
-    const rows = categories.slice(0, 9).map(([cat, count]) => ({
-        id: `ctlg_${cat.replace(/\s+/g, '_').toLowerCase()}`,
-        title: `${getCategoryEmoji(cat)} ${cat}`,
-        description: `${count} saree${count > 1 ? 's' : ''} available`
-    }));
+    const rows = [];
 
-    // Always add a "View All" option
+    // 1. Always add New Arrivals first
     rows.push({
-        id: 'ctlg_all',
-        title: '🌟 View All Sarees',
-        description: `${products.length} total sarees`
+        id: 'ctlg_all_new', // This will show all, starting with newest (due to sorting in sendCatalogueByType)
+        title: '🆕 New Arrivals',
+        description: 'Latest premium sarees added'
     });
 
-    await sendList(to, "📖 SAREE CATALOGUE", "Browse our premium saree collections by type:\n\nSelect a category to view all sarees:", "Browse Types", rows);
+    // 2. Add categories from DB
+    categories.slice(0, 8).map(([cat, count]) => {
+        rows.push({
+            id: `ctlg_${cat.replace(/\s+/g, '_').toLowerCase()}`,
+            title: `${getCategoryEmoji(cat)} ${cat}`,
+            description: `${count} saree${count > 1 ? 's' : ''} available`
+        });
+    });
+
+    // 3. View All at the end
+    rows.push({
+        id: 'ctlg_all_full',
+        title: '🌟 View Full Collection',
+        description: `Browse all ${allProducts.length} items`
+    });
+
+    await sendList(to, "📖 SAREE CATALOGUE", `Explore our premium saree collection.\n\nWe have ${allProducts.length} beautiful items ready for you! ✨\n\nSelect a category or browse all:`, "Browse Collection", rows);
 }
 
 export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     // typeIdRaw is like 'ctlg_silk_saree' or 'ctlg_all' or 'ctlg_page_silk_saree_50'
-    const typeId = typeIdRaw.replace('ctlg_page_', '').replace('ctlg_', '').replace(/_\d+$/, '');
+    const cleanId = typeIdRaw.replace('ctlg_page_', '').replace('ctlg_', '');
+    const typeId = cleanId.split('_').filter(s => !/^\d+$/.test(s)).join('_') || 'all';
 
     let categoryName = 'All Sarees';
     let searchFilter = null;
@@ -452,14 +464,13 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
     if (startOffset === 0) await sendText(to, `📖 Loading *${categoryName}* catalogue...`);
 
-    console.log(`[WA] Catalogue fetch: type=${typeId}, filter=${searchFilter}, offset=${startOffset}`);
-
     let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
     if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
 
     const streamId = startStream(to);
+    const PAGE_LIMIT = 8; // Small batches to avoid timeout and bursting
 
-    let { data: prods, count } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_SIZE - 1);
+    let { data: prods, count } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_LIMIT - 1);
 
     if (!prods || prods.length === 0) {
         if (startOffset === 0) {
@@ -471,51 +482,39 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         return sendText(to, "⚠️ No more items in this category.");
     }
 
-    console.log(`[WA] Catalogue: found ${prods.length} products (Total: ${count})`);
+    console.log(`[WA] Sending catalogue chunk: ${prods.length} of ${count} (Start: ${startOffset})`);
 
-    let sentCount = 0;
     for (const p of prods) {
-        if (!isStreamActive(to, streamId)) {
-            console.log('[WA] Catalogue stream cancelled for', to);
-            return;
-        }
+        if (!isStreamActive(to, streamId)) return;
 
         const stockStatus = p.stock < 1 ? "❌ OUT OF STOCK" : p.stock < 5 ? `⚠️ Only ${p.stock} left!` : "✅ In Stock";
         const groupTag = p.product_group ? `\n🏷️ ${p.product_group}` : '';
         const caption = `📖 *${p.name}*\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
 
+        // Variable Product Logic: Change button label
+        const isVariable = p.type === 'variant';
         const buttons = p.stock > 0
-            ? [{ id: `addcart_${p.id}`, title: "🛒 Add to Bag" }]
+            ? [{ id: `addcart_${p.id}`, title: isVariable ? "🎨 Select Option" : "🛒 Add to Bag" }]
             : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
 
         try {
             await sendImageButtons(to, getPremiumImage(p), caption, buttons);
-            sentCount++;
         } catch (err) {
-            console.error(`[WA] Catalogue image failed for ${p.id}`, err);
-            await sendText(to, caption + "\n[Image upload failed]");
+            await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
         }
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 450)); // Optimal delay to stay under Vercel limits
     }
 
     if (!isStreamActive(to, streamId)) return;
 
-    const nextOffset = startOffset + sentCount;
-    const hasMore = count > (startOffset + PAGE_SIZE);
+    const nextOffset = startOffset + prods.length;
+    const hasMore = count > nextOffset;
 
     if (hasMore) {
-        const optionButtons = [
-            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Load More" }
-        ];
-
-        // If very large catalog, also suggest website
-        if (count > 100) {
-            optionButtons.push({ id: "menu_shop_web", title: "🛍️ Shop All on Web" });
-        }
-
-        optionButtons.push({ id: "menu_catalogue", title: "📖 Back to Types" });
-
-        await sendButtons(to, `👇 Showing ${sentCount} of ${count} sarees in *${categoryName}*.`, optionButtons);
+        await sendButtons(to, `👇 Showing ${nextOffset} of ${count} sarees in *${categoryName}*.`, [
+            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Show More" },
+            { id: "menu_catalogue", title: "📖 Back to Types" }
+        ]);
     } else {
         await sendButtons(to, `✅ That's all ${count} saree${count > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
             { id: "menu_catalogue", title: "📖 More Types" },
@@ -527,84 +526,9 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
 const PAGE_SIZE = 50;
 
+// Consolidated with sendCatalogueByType for consistency
 export async function sendProductsByCategory(to, categoryIdRaw, startOffset = 0) {
-    const categoryId = categoryIdRaw.replace('page_', '').replace(/_\d+$/, ''); // clean ID
-
-    let searchTerm = '';
-    let categoryName = 'Collection';
-    if (categoryId.includes('silk')) { searchTerm = 'Silk'; categoryName = 'Royal Silk'; }
-    else if (categoryId.includes('cotton')) { searchTerm = 'Cotton'; categoryName = 'Cotton'; }
-    else if (categoryId.includes('designer')) { searchTerm = 'Designer'; categoryName = 'Designer'; }
-    else if (categoryId.includes('all')) { searchTerm = ''; categoryName = 'Full Inventory'; }
-
-    if (startOffset === 0) await sendText(to, `✨ Loading *${categoryName}*...`);
-
-    console.log(`[WA] Fetching products: cat=${categoryId}, search=${searchTerm}, offset=${startOffset}`);
-
-    let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
-    if (searchTerm) query = query.ilike('category', `%${searchTerm}%`);
-
-    // Start Stream Tracker
-    const streamId = startStream(to);
-
-    let { data: products, count } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_SIZE - 1);
-
-    if (!products || products.length === 0) {
-        if (startOffset === 0) {
-            // Fallback: try fetching any products without filter
-            console.log('[WA] specific query returned 0, trying fallback...');
-            products = (await supabase.from('products').select('*').limit(3)).data || [];
-        } else {
-            return sendText(to, "⚠️ No more items in this collection.");
-        }
-    }
-
-    console.log(`[WA] Found ${products?.length} products (Total: ${count})`);
-
-    let sentCount = 0;
-    for (const p of products) {
-        // CHECK IF STREAM IS STILL ACTIVE
-        if (!isStreamActive(to, streamId)) {
-            console.log('[WA] Stream cancelled explicitly for', to);
-            return;
-        }
-
-        const stockStatus = p.stock < 1 ? "❌ OUT OF STOCK" : p.stock < 5 ? `⚠️ Only ${p.stock} left!` : "✅ In Stock";
-        const caption = `✨ *${p.name}*\n${p.description || ''}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
-
-        const buttons = p.stock > 0 ? [{ id: `addcart_${p.id}`, title: "🛒 Add to Bag" }] : [{ id: "menu_browse", title: "Main Menu" }];
-        try {
-            await sendImageButtons(to, getPremiumImage(p), caption, buttons);
-            sentCount++;
-        } catch (err) {
-            console.error(`[WA] Failed to send image for ${p.id}`, err);
-            // Fallback to text if image fails
-            await sendText(to, caption + "\n[Image upload failed]");
-        }
-        await new Promise(r => setTimeout(r, 800));
-    }
-
-    if (!isStreamActive(to, streamId)) return;
-
-    const nextOffset = startOffset + sentCount; // Use actual sent count safe
-    const hasMore = count > (startOffset + PAGE_SIZE);
-
-    const optionButtons = [];
-    optionButtons.push({ id: "menu_browse", title: "📂 Go to Category" });
-    optionButtons.push({ id: "menu_track", title: "📋 View Orders" });
-    optionButtons.push({ id: "menu_cart", title: "👜 View Cart" });
-
-    // Ensure we don't send "Load More" if we just showed everything.
-    // User requested "show all sarees once and ask what is next action"
-    if (hasMore) {
-        // If there are truly more products (e.g. > 50), show load more
-        await sendButtons(to, `👇 Showing ${products.length} items. `, [
-            { id: `page_${categoryId}_${nextOffset}`, title: "📜 Load More" },
-            { id: "menu_browse", title: "📂 Categories" }
-        ]);
-    } else {
-        await sendButtons(to, "✅ That's all the sarees!\n\nWhat would you like to do next?", optionButtons);
-    }
+    return await sendCatalogueByType(to, categoryIdRaw, startOffset);
 }
 
 export async function handleAddToCart(to, productIdRaw) {
@@ -1147,6 +1071,7 @@ export async function processIncomingMessage(body) {
                 const typeId = parts.join('_');
                 return await sendCatalogueByType(from, typeId, offset);
             }
+            if (id === 'ctlg_all_new' || id === 'ctlg_all_full') return await sendCatalogueByType(from, 'all');
             if (id.startsWith('ctlg_')) return await sendCatalogueByType(from, id);
 
             if (id.startsWith('cat_')) return await sendProductsByCategory(from, id);

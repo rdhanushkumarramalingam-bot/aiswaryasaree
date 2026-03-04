@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
     Megaphone, Users, Send, CheckCircle2, Loader2, Search,
-    Package, Tag, X, Check, ChevronDown, ChevronUp,
-    UserCheck, ShoppingBag, Filter, MessageSquare
+    Package, Tag, Check, ChevronDown, ChevronUp,
+    UserCheck, ShoppingBag, Filter, MessageSquare, Trash2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -538,7 +538,7 @@ export default function BroadcastPage() {
                                             <img src={p.image_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50&q=60'; }} />
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{p.name}</span>
-                                            <button onClick={() => toggleProduct(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px' }}><X size={14} /></button>
+                                            <button onClick={() => toggleProduct(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
                                         </div>
                                     ))}
                                 </div>
@@ -558,7 +558,7 @@ export default function BroadcastPage() {
                                                 {c.name.charAt(0).toUpperCase()}
                                             </div>
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{c.name}</span>
-                                            <button onClick={() => toggleCustomer(c.phone)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px' }}><X size={14} /></button>
+                                            <button onClick={() => toggleCustomer(c.phone)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
                                         </div>
                                     ))}
                                     {selectedCustomersList.length > 10 && (

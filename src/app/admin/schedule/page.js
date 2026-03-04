@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Clock, Package, Send, Loader2, Search, Trash2, Edit,
-    CheckCircle2, AlertCircle, Calendar, X, Play, Pause,
+    CheckCircle2, AlertCircle, Calendar, Play, Pause,
     Facebook, ChevronDown
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
@@ -406,7 +406,7 @@ export default function SchedulePostPage() {
                                 <div style={{ padding: '8px', background: '#1877F2', borderRadius: '10px', color: 'white' }}><Facebook size={18} /></div>
                                 <h2 style={{ fontSize: '1.15rem', margin: 0 }}>{editingId ? 'Edit Scheduled Post' : 'Schedule New Post'}</h2>
                             </div>
-                            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}><X size={22} /></button>
+                            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>&times;</button>
                         </div>
 
                         <div style={{ padding: '1.5rem 1.75rem' }}>
@@ -424,7 +424,7 @@ export default function SchedulePostPage() {
                                             <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{selectedProduct.name}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>₹{(selectedProduct.price || 0).toLocaleString()}</div>
                                         </div>
-                                        <button onClick={() => setSelectedProduct(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}><X size={18} /></button>
+                                        <button onClick={() => setSelectedProduct(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '18px', lineHeight: 1 }}>&times;</button>
                                     </div>
                                 ) : (
                                     <div>

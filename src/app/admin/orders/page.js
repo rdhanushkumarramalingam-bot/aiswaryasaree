@@ -2,18 +2,13 @@
 
 
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
 import {
-
-    Search, Filter, Eye, Truck, Check, X, ChevronDown,
-
-    Loader2, MessageCircle, MapPin, Phone, Calendar, Package,
-
-    RefreshCw, Download
-
+    Search, Eye, ChevronDown,
+    Loader2, MessageCircle, Truck, RefreshCw
 } from 'lucide-react';
 
 
@@ -158,6 +153,14 @@ export default function OrdersPage() {
 
 
 
+    const sendWhatsAppNotification = (order, newStatus, shippingData = {}) => {
+        if (!order || !order.customer_phone) return;
+
+        const phone = order.customer_phone.replace(/\D/g, '');
+        // NOOP — We now rely on the automated bot notification from the backend.
+        // This avoids browser 'popup blocked' issues during async status updates.
+    };
+
     const updateOrderStatus = async (orderId, newStatus, shippingData = {}) => {
         try {
             const res = await fetch('/api/orders/update-status', {
@@ -179,11 +182,15 @@ export default function OrdersPage() {
                     status: newStatus,
                     ...mappedShipping
                 } : null);
+
                 fetchOrders();
                 setNotification({
                     message: `✅ Order updated to ${newStatus}`,
                     type: 'success'
                 });
+
+                // NO MANUAL WHATSAPP TRIGGER — The backend API /api/orders/update-status 
+                // already sends the official notification via the WhatsApp Business API.
             } else {
                 setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
             }
@@ -498,84 +505,184 @@ export default function OrdersPage() {
                                 <tbody>
 
                                     {filteredOrders.length === 0 ? (
-
-                                        <tr><td colSpan={8} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found.</td></tr>
-
+                                        <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
                                     ) : (
-
                                         filteredOrders.map(order => {
-
                                             const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                                            const isExpanded = selectedOrder?.id === order.id;
 
                                             return (
+                                                <React.Fragment key={order.id}>
+                                                    <tr
+                                                        onClick={() => isExpanded ? (setSelectedOrder(null), setOrderItems([])) : openOrderDetail(order)}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            background: isExpanded ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+                                                            transition: 'background 0.2s'
+                                                        }}
+                                                    >
+                                                        <td style={{ fontWeight: 600, color: isExpanded ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                        <td>
+                                                            <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'left' }}>
+                                                            <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
+                                                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <span style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                                                padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                                                                background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
+                                                                color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : '#25D366',
+                                                                border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
+                                                            }}>
+                                                                {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
+                                                        <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
+                                                        </td>
+                                                        <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                                                {isExpanded ? <ChevronDown size={18} color="hsl(var(--primary))" /> : <Eye size={18} />}
+                                                                <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
+                                                                    {isExpanded ? 'Hide' : 'View'}
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
 
-                                                <tr key={order.id} onClick={() => openOrderDetail(order)} style={{ cursor: 'pointer' }}>
+                                                    {/* INLINE DETAIL VIEW — ONLY FOR EXPANDED ROW */}
+                                                    {isExpanded && (
+                                                        <tr>
+                                                            <td colSpan={10} style={{ padding: '0', background: 'hsl(var(--bg-app) / 0.3)' }}>
+                                                                <div className="animate-expand" style={{ padding: '2rem', borderLeft: '4px solid hsl(var(--primary))', margin: '1rem' }}>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
 
-                                                    <td style={{ fontWeight: 600, color: 'hsl(var(--primary))' }}>#{order.id}</td>
+                                                                        {/* Left: Customer & Logistics */}
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                                            <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem', letterSpacing: '0.05em' }}>📍 Delivery Details</h4>
+                                                                                <div style={{ fontSize: '0.95rem', color: 'hsl(var(--text-main))', fontWeight: 600 }}>{order.customer_name}</div>
+                                                                                <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: '0.25rem 0 1rem' }}>{order.customer_phone}</div>
+                                                                                <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                                                    {order.delivery_address}
+                                                                                </p>
+                                                                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                                                                    <a href={`https://wa.me/${order.customer_phone}`} className="btn-wa-link">
+                                                                                        <MessageCircle size={16} /> WhatsApp Message
+                                                                                    </a>
+                                                                                </div>
+                                                                            </div>
 
-                                                    <td>
-                                                        <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'left' }}>
-                                                        <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || (order.delivery_address?.split(',').pop()?.trim()) || '—'}</div>
-                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Zone: {order.shipping_zone_id ? '✓' : 'Default'}</div>
-                                                    </td>
+                                                                            <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>🚚 Logistics Status</h4>
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                                                    <div>
+                                                                                        <label style={{ fontSize: '0.7rem', display: 'block', color: 'hsl(var(--text-muted))' }}>Current Status</label>
+                                                                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                                                                            {STATUS_OPTIONS.map(s => (
+                                                                                                <button
+                                                                                                    key={s}
+                                                                                                    onClick={(e) => { e.stopPropagation(); s === 'SHIPPED' ? setShowShippingModal(true) : updateOrderStatus(order.id, s); }}
+                                                                                                    className={`badge-btn ${order.status === s ? getStatusReference(s) : 'badge-inactive'}`}
+                                                                                                >
+                                                                                                    {s}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {order.status === 'SHIPPED' && (
+                                                                                        <div style={{ padding: '1rem', background: 'hsl(var(--primary) / 0.05)', borderRadius: '8px', border: '1px dashed hsl(var(--primary) / 0.3)' }}>
+                                                                                            <div style={{ fontSize: '0.8rem' }}><strong>Carrier:</strong> {order.courier_name || 'N/A'}</div>
+                                                                                            <div style={{ fontSize: '0.8rem' }}><strong>Tracking:</strong> {order.tracking_number || 'N/A'}</div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
 
-                                                    <td style={{ textAlign: 'center' }}>
+                                                                        {/* Right: Items & Bill */}
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                                            <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                                                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', margin: 0 }}>🛍️ Order Contents</h4>
+                                                                                    <button onClick={() => setIsEditingItems(!isEditingItems)} style={{ fontSize: '0.7rem', color: 'hsl(var(--primary))', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                                                                        {isEditingItems ? 'DONE EDITING' : 'EDIT ITEMS'}
+                                                                                    </button>
+                                                                                </div>
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                                                    {orderItems.map((item, idx) => (
+                                                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderBottom: '1px solid hsl(var(--border-subtle) / 0.5)', paddingBottom: '0.5rem' }}>
+                                                                                            <div>
+                                                                                                <div style={{ fontWeight: 600 }}>{item.product_name}</div>
+                                                                                                {isEditingItems ? (
+                                                                                                    <div style={{ fontSize: '0.75rem', display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+                                                                                                        <input type="number" value={item.quantity} onChange={e => handleUpdateItem(idx, 'quantity', parseInt(e.target.value))} style={{ width: '40px', background: 'none', border: '1px solid gray', color: 'white' }} /> x ₹
+                                                                                                        <input type="number" value={item.price_at_time} onChange={e => handleUpdateItem(idx, 'price_at_time', parseInt(e.target.value))} style={{ width: '80px', background: 'none', border: '1px solid gray', color: 'white' }} />
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{item.price_at_time.toLocaleString()}</div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div style={{ fontWeight: 700 }}>₹{(item.quantity * item.price_at_time).toLocaleString()}</div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                {isEditingItems && (
+                                                                                    <button onClick={saveOrderEdits} className="btn-save-sm">Recalculate & Save</button>
+                                                                                )}
 
-                                                        <span style={{
-
-                                                            display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-
-                                                            padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-
-                                                            background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
-
-                                                            color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : '#25D366',
-
-                                                            border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
-
-                                                        }}>
-
-                                                            {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
-
-                                                        </span>
-
-                                                    </td>
-
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
-
-                                                    <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
-
-                                                    <td style={{ textAlign: 'center' }}>
-
-                                                        <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
-
-                                                    </td>
-
-                                                    <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-
-                                                        {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-
-                                                    </td>
-
-                                                    <td style={{ textAlign: 'right' }}>
-
-                                                        <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
-
-                                                            View
-
-                                                        </button>
-
-                                                    </td>
-
-                                                </tr>
-
+                                                                                <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                                                                        <span>Subtotal:</span>
+                                                                                        <span>₹{(order.total_amount - (order.cgst || 0) - (order.sgst || 0) - (order.igst || 0) - (order.shipping_charge || 0)).toLocaleString()}</span>
+                                                                                    </div>
+                                                                                    {order.cgst > 0 && (
+                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                                                            <span>CGST (9%):</span>
+                                                                                            <span>₹{order.cgst.toLocaleString()}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {order.sgst > 0 && (
+                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                                                            <span>SGST (9%):</span>
+                                                                                            <span>₹{order.sgst.toLocaleString()}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {order.igst > 0 && (
+                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                                                            <span>IGST (18%):</span>
+                                                                                            <span>₹{order.igst.toLocaleString()}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                                                                        <span>Shipping Fee:</span>
+                                                                                        <span>₹{(order.shipping_charge || 0).toLocaleString()}</span>
+                                                                                    </div>
+                                                                                    <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.4rem 0' }} />
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                                                                                        <span>BILL TOTAL:</span>
+                                                                                        <span>₹{order.total_amount.toLocaleString()}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
                                             );
-
                                         })
-
                                     )}
 
                                 </tbody>
@@ -588,294 +695,7 @@ export default function OrdersPage() {
 
 
 
-                    {/* ────── ORDER DETAIL MODAL ────── */}
-                    {selectedOrder && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-                            backdropFilter: 'blur(8px)', zIndex: 1000,
-                            overflowY: 'auto', display: 'grid', placeItems: 'center', padding: '2rem'
-                        }} onClick={() => { setSelectedOrder(null); setOrderItems([]); }}>
-                            <div onClick={(e) => e.stopPropagation()} className="card" style={{
-                                width: '100%', maxWidth: '650px', padding: 0,
-                                border: '1px solid hsl(var(--primary) / 0.3)',
-                                boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
-                                backgroundColor: 'hsl(var(--bg-panel))',
-                                position: 'relative'
-                            }}>
-
-                                {/* Modal Header */}
-
-                                <div style={{
-
-                                    padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))',
-
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-
-                                    background: 'hsl(var(--bg-panel))'
-
-                                }}>
-
-                                    <div>
-
-                                        <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Order #{selectedOrder.id}</h2>
-
-                                        <p style={{ fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-
-                                            Placed on {new Date(selectedOrder.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-
-                                        </p>
-
-                                    </div>
-
-                                    <button onClick={() => setSelectedOrder(null)} style={{ color: 'hsl(var(--text-muted))', padding: '0.5rem' }}>
-
-                                        <X size={20} />
-
-                                    </button>
-
-                                </div>
-
-
-
-                                {/* Modal Body */}
-
-                                <div style={{ padding: '2rem' }}>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-
-                                        <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
-
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.75rem' }}>Customer Details</h4>
-
-                                            <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))', marginBottom: '0.25rem' }}>{selectedOrder.customer_name || 'Guest'}</div>
-
-                                            <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                                                <Phone size={14} /> {selectedOrder.customer_phone}
-
-                                            </div>
-
-                                            <a href={`https://wa.me/${selectedOrder.customer_phone}`} target="_self"
-
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: '#25D366', fontWeight: 600, fontSize: '0.85rem' }}>
-
-                                                <MessageCircle size={16} /> Chat on WhatsApp
-
-                                            </a>
-
-                                        </div>
-
-                                        <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.75rem' }}>Payment & Billing</h4>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span>Subtotal:</span>
-                                                    <span>₹{(selectedOrder.total_amount - (selectedOrder.cgst || 0) - (selectedOrder.sgst || 0) - (selectedOrder.igst || 0) - (selectedOrder.shipping_charge || 0)).toLocaleString()}</span>
-                                                </div>
-
-                                                {(selectedOrder.cgst > 0 || selectedOrder.sgst > 0) && (
-                                                    <>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                                            <span>CGST (9%):</span>
-                                                            <span>₹{(selectedOrder.cgst || 0).toLocaleString()}</span>
-                                                        </div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                                            <span>SGST (9%):</span>
-                                                            <span>₹{(selectedOrder.sgst || 0).toLocaleString()}</span>
-                                                        </div>
-                                                    </>
-                                                )}
-
-                                                {selectedOrder.igst > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                                        <span>IGST (18%):</span>
-                                                        <span>₹{(selectedOrder.igst || 0).toLocaleString()}</span>
-                                                    </div>
-                                                )}
-
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                                    <span>Shipping:</span>
-                                                    <span>₹{(selectedOrder.shipping_charge || 0).toLocaleString()}</span>
-                                                </div>
-
-                                                <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.4rem 0' }}></div>
-
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
-                                                    <span>Total:</span>
-                                                    <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
-                                                </div>
-                                            </div>
-
-                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '1rem' }}>
-                                                Method: <strong>{selectedOrder.payment_method || 'Pending'}</strong>
-                                            </div>
-
-                                            {selectedOrder.invoice_url && (
-                                                <a href={selectedOrder.invoice_url} target="_blank" rel="noopener noreferrer"
-                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', color: 'hsl(var(--info))', fontWeight: 600, fontSize: '0.85rem' }}>
-                                                    <Download size={16} /> Download Invoice
-                                                </a>
-                                            )}
-                                        </div>
-
-                                    </div>
-
-
-
-                                    {selectedOrder.delivery_address && (
-                                        <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                                <div>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <MapPin size={12} /> Delivery Address
-                                                    </h4>
-                                                    <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-main))', lineHeight: 1.5 }}>
-                                                        {selectedOrder.delivery_address}
-                                                        {selectedOrder.shipping_state && <div style={{ fontWeight: 600, marginTop: '0.25rem' }}>State: {selectedOrder.shipping_state}</div>}
-                                                    </div>
-                                                </div>
-
-                                                {selectedOrder.status === 'SHIPPED' && (
-                                                    <div style={{ borderLeft: '1px solid hsl(var(--border-subtle))', paddingLeft: '1rem' }}>
-                                                        <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                            <Truck size={12} /> Shipping Info
-                                                        </h4>
-                                                        <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                                            <div>Carrier: <strong>{selectedOrder.courier_name || 'N/A'}</strong></div>
-                                                            <div>Tracking: <strong>{selectedOrder.tracking_number || 'N/A'}</strong></div>
-                                                            {selectedOrder.tracking_url && (
-                                                                <a href={selectedOrder.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--info))', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                                                    Track Order →
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-
-
-                                    <div style={{ marginBottom: '2rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '0.5rem' }}>
-                                            <h4 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Order Items</h4>
-                                            <button
-                                                onClick={() => setIsEditingItems(!isEditingItems)}
-                                                className="btn btn-secondary"
-                                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
-                                            >
-                                                {isEditingItems ? 'Cancel' : 'Edit Items'}
-                                            </button>
-                                        </div>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                            {orderItems.map((item, i) => (
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)' }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: 500 }}>{item.product_name} {item.variant_name && `(${item.variant_name})`}</div>
-                                                        {isEditingItems ? (
-                                                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                    <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>Qty</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={item.quantity}
-                                                                        onChange={e => handleUpdateItem(i, 'quantity', parseInt(e.target.value) || 0)}
-                                                                        style={{ width: '60px', padding: '0.2rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
-                                                                    />
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                    <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>Price</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={item.price_at_time}
-                                                                        onChange={e => handleUpdateItem(i, 'price_at_time', parseInt(e.target.value) || 0)}
-                                                                        style={{ width: '100px', padding: '0.2rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
-                                                                    />
-                                                                </div>
-                                                                <button onClick={() => handleRemoveItem(i)} style={{ color: 'hsl(var(--danger))', padding: '0.5rem', alignSelf: 'flex-end' }}>
-                                                                    <X size={16} />
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ fontWeight: 600 }}>₹{((item.price_at_time || 0) * item.quantity).toLocaleString()}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {isEditingItems && (
-                                            <button
-                                                onClick={saveOrderEdits}
-                                                className="btn btn-primary"
-                                                style={{ width: '100%', marginTop: '1rem' }}
-                                            >
-                                                Save Changes & Recalculate Totals
-                                            </button>
-                                        )}
-                                    </div>
-
-
-
-                                    {/* Tracking fields shown when status is SHIPPED (for reference) */}
-                                    {selectedOrder.status === 'SHIPPED' && (
-                                        <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                            <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.75rem', color: 'hsl(var(--primary))' }}>Shipping Tracking Info</h4>
-                                            <div style={{ fontSize: '0.85rem' }}>
-                                                <div>Carrier: <strong>{selectedOrder.courier_name || 'N/A'}</strong></div>
-                                                <div>Tracking: <strong>{selectedOrder.tracking_number || 'N/A'}</strong></div>
-                                                {selectedOrder.tracking_url && (
-                                                    <div style={{ marginTop: '0.25rem' }}>
-                                                        <a href={selectedOrder.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--info))' }}>Track Order →</a>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem' }}>Update Status</h4>
-                                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                            {STATUS_OPTIONS.map(status => {
-                                                const isActive = selectedOrder.status === status;
-                                                return (
-                                                    <button key={status}
-                                                        onClick={() => {
-                                                            if (status === 'SHIPPED') {
-                                                                setShippingForm({
-                                                                    courier_name: selectedOrder.courier_name || '',
-                                                                    tracking_number: selectedOrder.tracking_number || '',
-                                                                    tracking_url: selectedOrder.tracking_url || ''
-                                                                });
-                                                                setShowShippingModal(true);
-                                                            } else {
-                                                                updateOrderStatus(selectedOrder.id, status);
-                                                            }
-                                                        }}
-                                                        className={`badge ${getStatusReference(status)}`}
-                                                        style={{
-                                                            cursor: 'pointer', opacity: isActive ? 1 : 0.5,
-                                                            transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                                                            transition: 'all 0.2s', border: '1px solid currentColor'
-                                                        }}>
-                                                        {isActive && '✓ '} {status}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    )}
+                    {/* ORDER DETAIL MODAL REMOVED FOR INLINE EXPANSION */}
 
                     {/* ────── SHIPPING DETAILS MODAL (ONLY FOR SHIPPED STATUS) ────── */}
                     {showShippingModal && (
@@ -998,16 +818,36 @@ export default function OrdersPage() {
 
 
             <style jsx>{`
-
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-                @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-
+                @keyframes expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
+                .animate-expand { animation: expand 0.4s ease-out; overflow: hidden; }
+                .card-sub { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+                .btn-wa-link { 
+                    display: inline-flex; align-items: center; gap: 0.5rem; 
+                    padding: 0.6rem 1rem; background: #25D36615; color: #25D366; 
+                    border: 1px solid #25D36630; border-radius: 8px; font-weight: 700; 
+                    font-size: 0.85rem; text-decoration: none; transition: 0.2s;
+                }
+                .btn-wa-link:hover { background: #25D36625; transform: translateY(-1px); }
+                .badge-btn { 
+                    padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.75rem; 
+                    font-weight: 700; cursor: pointer; border: none; transition: 0.2s;
+                    margin-right: 0.5rem; margin-bottom: 0.5rem;
+                }
+                .badge-inactive { background: hsl(var(--bg-app)); color: hsl(var(--text-muted)); border: 1px solid hsl(var(--border-subtle)); }
+                .btn-save-sm { 
+                    width: 100%; margin-top: 1rem; padding: 0.6rem; 
+                    background: hsl(var(--primary)); color: white; border: none; 
+                    border-radius: 8px; font-weight: 700; cursor: pointer;
+                }
+                @media (max-width: 768px) {
+                    .admin-header-row { flex-direction: column; align-items: stretch !important; gap: 1rem; }
+                    .admin-filter-row { overflow-x: auto; white-space: nowrap; padding-bottom: 0.5rem; }
+                    .admin-filter-row::-webkit-scrollbar { display: none; }
+                    .card { overflow: visible !important; }
+                    table { min-width: 800px; }
+                }
             `}</style>
-
         </div>
-
     );
-
 }
 

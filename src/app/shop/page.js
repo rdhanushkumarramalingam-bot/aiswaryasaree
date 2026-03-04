@@ -5,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import {
     Search, ShoppingCart, User, LogOut, ChevronLeft,
-    CheckCircle, MessageCircle, Package, Tag, ArrowRight, X,
-    Home, ShoppingBag, Clock, MapPin, Phone, ChevronDown, Truck
+    CheckCircle, MessageCircle, Package, Tag, ArrowRight,
+    Home, ShoppingBag, Clock, MapPin, Phone, ChevronDown, Truck, Menu, Loader2
 } from 'lucide-react';
 import styles from './shop.module.css';
 
@@ -42,6 +42,7 @@ function ShopContent() {
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [profileTab, setProfileTab] = useState('orders'); // 'orders', 'account', 'tracking'
     const [trackingId, setTrackingId] = useState('');
     const [trackedOrder, setTrackedOrder] = useState(null);
@@ -85,30 +86,49 @@ function ShopContent() {
         let cgst = 0;
         let sgst = 0;
         let igst = 0;
+        let isInternational = checkoutForm.country.toLowerCase() !== 'india';
 
-        if (checkoutForm.country === 'India') {
+        // ────── TAXATION LOGIC ──────
+        if (!isInternational) {
+            // Domestic Taxation (GST 18%)
             if (checkoutForm.state === businessState) {
-                cgst = Math.round(subtotal * 0.09 * 100) / 100;
-                sgst = Math.round(subtotal * 0.09 * 100) / 100;
+                // Intrastate: 9% CGST + 9% SGST
+                cgst = Math.round(subtotal * 0.09);
+                sgst = Math.round(subtotal * 0.09);
             } else {
-                igst = Math.round(subtotal * 0.18 * 100) / 100;
+                // Inter-state: 18% IGST
+                igst = Math.round(subtotal * 0.18);
             }
+        } else {
+            // International: 0% GST (Zero-Rated Export)
+            cgst = 0; sgst = 0; igst = 0;
         }
 
-        // Zone-Based Shipping Logic
+        // ────── SHIPPING LOGIC (STATE + DISTRICT) ──────
         let shipping = 0;
         let activeZone = null;
 
-        if (checkoutForm.country === 'India') {
-            const mapping = zoneMappings.find(m => m.state_name === checkoutForm.state);
-            if (mapping) {
-                activeZone = shippingZones.find(z => z.id === mapping.zone_id);
+        if (!isInternational) {
+            // 1. Check for specific District/City override first
+            const districtMapping = zoneMappings.find(m =>
+                m.state_name === checkoutForm.state &&
+                m.district_name?.toLowerCase() === checkoutForm.city.trim().toLowerCase()
+            );
+
+            if (districtMapping) {
+                activeZone = shippingZones.find(z => z.id === districtMapping.zone_id);
             } else {
-                // Fallback to first non-international zone if not specifically mapped
-                activeZone = shippingZones.find(z => !z.is_international);
+                // 2. Fallback to State mapping
+                const stateMapping = zoneMappings.find(m => m.state_name === checkoutForm.state && !m.district_name);
+                if (stateMapping) {
+                    activeZone = shippingZones.find(z => z.id === stateMapping.zone_id);
+                } else {
+                    // 3. Last fallback: First available non-international zone
+                    activeZone = shippingZones.find(z => !z.is_international);
+                }
             }
         } else {
-            // International
+            // International Zone
             activeZone = shippingZones.find(z => z.is_international);
         }
 
@@ -119,14 +139,13 @@ function ShopContent() {
                 shipping = 0;
             }
         } else {
-            // Absolute fallback if no zones are loaded yet
-            shipping = checkoutForm.country === 'India' ? 99 : 1500;
+            shipping = isInternational ? 2500 : 100; // Hard fallback
         }
 
         const totalOrder = subtotal + cgst + sgst + igst + shipping;
 
-        return { cgst, sgst, igst, shipping, totalOrder, activeZone };
-    }, [cartTotal, checkoutForm.state, checkoutForm.country, businessState, shippingZones, zoneMappings]);
+        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational };
+    }, [cartTotal, checkoutForm.state, checkoutForm.city, checkoutForm.country, businessState, shippingZones, zoneMappings]);
 
     // ── EFFECTS ──
     useEffect(() => {
@@ -502,17 +521,27 @@ function ShopContent() {
 
             <header className={styles.header}>
                 <div className={styles.headerInner}>
-                    <div className={styles.logo}>
-                        <span className={styles.logoIcon}>💮</span>
-                        <div>
-                            <div className={styles.logoName}>Aiswarya Sarees</div>
-                            <div className={styles.logoTagline}>Premium Ethnic Collections</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <button
+                            className={styles.hamburgerBtn}
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            aria-label="Toggle Menu"
+                        >
+                            {isMobileMenuOpen ? <span style={{ fontSize: '24px', fontWeight: 'bold' }}>&times;</span> : <Menu size={24} />}
+                        </button>
+                        <div className={styles.logo} onClick={() => setView('shop')}>
+                            <span className={styles.logoIcon}>💮</span>
+                            <div>
+                                <div className={styles.logoName}>Aiswarya Sarees</div>
+                                <div className={styles.logoTagline}>Premium Ethnic Collections</div>
+                            </div>
                         </div>
                     </div>
-                    <nav className={styles.navbar}>
+
+                    <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
                         <div
                             className={`${styles.navItem} ${view === 'shop' ? styles.activeNav : ''}`}
-                            onClick={() => setView('shop')}
+                            onClick={() => { setView('shop'); setIsMobileMenuOpen(false); }}
                         >
                             Shop
                         </div>
@@ -520,7 +549,7 @@ function ShopContent() {
                             className={`${styles.navItem} ${view === 'profile' && profileTab === 'tracking' ? styles.activeNav : ''}`}
                             onClick={() => {
                                 if (!user) { setShowLoginPrompt(true); return; }
-                                setView('profile'); setProfileTab('tracking');
+                                setView('profile'); setProfileTab('tracking'); setIsMobileMenuOpen(false);
                             }}
                         >
                             Track Order
@@ -535,10 +564,28 @@ function ShopContent() {
                                 setView('profile');
                                 setProfileTab('orders');
                                 fetchUserOrders();
+                                setIsMobileMenuOpen(false);
                             }}
                         >
                             My Orders
                         </div>
+                        {user && (
+                            <div
+                                className={`${styles.navItem} ${view === 'profile' && profileTab === 'account' ? styles.activeNav : ''}`}
+                                onClick={() => { setView('profile'); setProfileTab('account'); setIsMobileMenuOpen(false); }}
+                            >
+                                Account Settings
+                            </div>
+                        )}
+                        {user ? (
+                            <div className={`${styles.navItem} ${styles.mobileOnly}`} onClick={handleLogout}>
+                                <LogOut size={18} /> Logout
+                            </div>
+                        ) : (
+                            <div className={`${styles.navItem} ${styles.mobileOnly}`} onClick={() => window.location.href = '/login'}>
+                                Login / Sign Up
+                            </div>
+                        )}
                     </nav>
 
                     <div className={styles.headerActions}>
@@ -952,22 +999,78 @@ function ShopContent() {
 
                             <div className={styles.checkoutSummary}>
                                 <div className={styles.summaryCard}>
-                                    <h3>Order Total</h3>
-                                    <div className={styles.summaryLine}><span>Subtotal</span><span>₹{cartTotal.toLocaleString()}</span></div>
-                                    {taxDetails.cgst > 0 && (
-                                        <>
-                                            <div className={styles.summaryLine}><span>CGST (9%)</span><span>₹{taxDetails.cgst.toLocaleString()}</span></div>
-                                            <div className={styles.summaryLine}><span>SGST (9%)</span><span>₹{taxDetails.sgst.toLocaleString()}</span></div>
-                                        </>
-                                    )}
-                                    {taxDetails.igst > 0 && <div className={styles.summaryLine}><span>IGST (18%)</span><span>₹{taxDetails.igst.toLocaleString()}</span></div>}
+                                    <h3 style={{ marginBottom: '1.5rem', fontFamily: 'var(--font-heading)' }}>Order Summary</h3>
                                     <div className={styles.summaryLine}>
-                                        <span>Shipping {taxDetails.activeZone && <small style={{ opacity: 0.6, fontSize: '0.7em', display: 'block' }}>({taxDetails.activeZone.name})</small>}</span>
-                                        <span>{taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString()}`}</span>
+                                        <span>Items Subtotal</span>
+                                        <span>₹{cartTotal.toLocaleString()}</span>
                                     </div>
+
+                                    {/* Domestic Tax Breakdown */}
+                                    {!taxDetails.isInternational ? (
+                                        <div className={styles.taxBreakdown}>
+                                            {taxDetails.cgst > 0 && (
+                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
+                                                    <span>CGST (9%)</span>
+                                                    <span>₹{taxDetails.cgst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {taxDetails.sgst > 0 && (
+                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
+                                                    <span>SGST (9%)</span>
+                                                    <span>₹{taxDetails.sgst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {taxDetails.igst > 0 && (
+                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
+                                                    <span>IGST (18%)</span>
+                                                    <span>₹{taxDetails.igst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className={styles.summaryLine} style={{ opacity: 0.6, fontSize: '0.85rem' }}>
+                                            <span>Export Duties / Export GST</span>
+                                            <span>Zero Rated (0%)</span>
+                                        </div>
+                                    )}
+
+                                    <div className={styles.summaryLine}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span>Shipping Cost</span>
+                                            {taxDetails.activeZone && (
+                                                <small style={{ color: 'hsl(var(--primary))', fontSize: '0.7em', fontWeight: 600 }}>
+                                                    📍 {taxDetails.activeZone.name}
+                                                </small>
+                                            )}
+                                        </div>
+                                        <span style={{ fontWeight: 600 }}>
+                                            {taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString()}`}
+                                        </span>
+                                    </div>
+
                                     <div className={styles.summaryDivider} />
-                                    <div className={styles.summaryTotalLine}><span>Grand Total</span><span>₹{taxDetails.totalOrder.toLocaleString()}</span></div>
-                                    <button onClick={placeOrder} disabled={placing} className={styles.placeOrderBtn}>{placing ? 'Processing...' : 'Place Order'}</button>
+                                    <div className={styles.summaryTotalLine}>
+                                        <span>Grand Total</span>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '1.5rem' }}>₹{taxDetails.totalOrder.toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>Inclusive of all taxes</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginTop: '1.5rem', display: 'grid', gap: '0.5rem' }}>
+                                        <button onClick={placeOrder} disabled={placing} className={styles.placeOrderBtn}>
+                                            {placing ? (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <Loader2 className={styles.spin} size={16} /> Finalizing Order...
+                                                </span>
+                                            ) : (
+                                                'Place Your Order'
+                                            )}
+                                        </button>
+                                        <p style={{ fontSize: '0.65rem', textAlign: 'center', color: 'hsl(var(--text-muted))', padding: '0 1rem' }}>
+                                            By placing your order, you agree to our terms of service and delivery policy.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -990,7 +1093,7 @@ function ShopContent() {
             {selectedProduct && (
                 <div className={styles.modalOverlay} onClick={() => setSelectedProduct(null)}>
                     <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setSelectedProduct(null)}><X size={20} /></button>
+                        <button className={styles.modalClose} onClick={() => setSelectedProduct(null)} style={{ fontSize: '24px', lineHeight: 1 }}>&times;</button>
 
                         <div className={styles.modalContent}>
                             <div className={styles.modalImageWrap}>

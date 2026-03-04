@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Truck, Save, Plus, Trash2, Globe, MapPin, AlertCircle, CheckCircle2, Loader2, Info } from 'lucide-react';
+import {
+    Truck, Save, Plus, Trash2, Globe, MapPin,
+    AlertCircle, CheckCircle2, Loader2, Info,
+    Search, LayoutGrid, List, ChevronRight,
+    Tag, Map as MapIcon, ChevronDown, PlusCircle
+} from 'lucide-react';
 
 export default function ShippingAdminPage() {
     const [zones, setZones] = useState([]);
@@ -10,16 +15,12 @@ export default function ShippingAdminPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [selectedZone, setSelectedZone] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Form states for new zone
-    const [newZone, setNewZone] = useState({
-        name: '',
-        rate: 100,
-        free_threshold: 5000,
-        is_international: false
-    });
+    const [mappings, setMappings] = useState([]); // Array of {zone_id, state_name, district_name}
 
-    const [allStates] = useState([
+    const allStates = useMemo(() => [
         "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
         "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
         "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
@@ -27,9 +28,7 @@ export default function ShippingAdminPage() {
         "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
         "Uttarakhand", "West Bengal", "Delhi", "Chandigarh", "Puducherry",
         "Jammu and Kashmir", "Ladakh"
-    ].sort());
-
-    const [selectedStatesByZone, setSelectedStatesByZone] = useState({}); // { zoneId: [stateNames] }
+    ].sort(), []);
 
     useEffect(() => {
         fetchData();
@@ -38,42 +37,39 @@ export default function ShippingAdminPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Zones
-            const { data: zonesData, error: zonesError } = await supabase
+            const { data: zonesData } = await supabase
                 .from('shipping_zones')
                 .select('*')
                 .order('is_international', { ascending: true })
-                .order('rate', { ascending: true });
+                .order('name', { ascending: true });
 
-            if (zonesError) throw zonesError;
-
-            // 2. Fetch State Mappings
-            const { data: mappingData, error: mappingError } = await supabase
+            const { data: mappingData } = await supabase
                 .from('shipping_zone_states')
                 .select('*');
 
-            if (mappingError) throw mappingError;
-
-            setZones(zonesData);
-
-            // Group states by zoneId
-            const grouping = {};
-            mappingData.forEach(row => {
-                if (!grouping[row.zone_id]) grouping[row.zone_id] = [];
-                grouping[row.zone_id].push(row.state_name);
-            });
-            setSelectedStatesByZone(grouping);
+            if (zonesData) {
+                setZones(zonesData);
+                if (!selectedZone && zonesData.length > 0) setSelectedZone(zonesData[0]);
+                else if (selectedZone) {
+                    const updated = zonesData.find(z => z.id === selectedZone.id);
+                    if (updated) setSelectedZone(updated);
+                }
+            }
+            if (mappingData) setMappings(mappingData);
 
         } catch (err) {
             console.error('Fetch error:', err);
-            setError('Failed to load shipping data. Make sure the tables exist in Supabase.');
+            setError('Failed to load shipping data.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleUpdateZone = async (id, field, value) => {
+    const handleUpdateZone = (id, field, value) => {
         setZones(prev => prev.map(z => z.id === id ? { ...z, [field]: value } : z));
+        if (selectedZone?.id === id) {
+            setSelectedZone(prev => ({ ...prev, [field]: value }));
+        }
     };
 
     const saveChanges = async () => {
@@ -81,7 +77,7 @@ export default function ShippingAdminPage() {
         setError(null);
         setSuccess(null);
         try {
-            // Update zones
+            // 1. Update Zones
             for (const zone of zones) {
                 const { error: updateError } = await supabase
                     .from('shipping_zones')
@@ -92,31 +88,25 @@ export default function ShippingAdminPage() {
                         is_international: zone.is_international
                     })
                     .eq('id', zone.id);
-
                 if (updateError) throw updateError;
             }
 
-            // Sync state mappings
-            // 1. Clear current mappings for existing zones
+            // 2. Update Mappings
+            // Truncate and rewrite for simplicity (safe given small data size)
             const zoneIds = zones.map(z => z.id);
             if (zoneIds.length > 0) {
                 await supabase.from('shipping_zone_states').delete().in('zone_id', zoneIds);
-
-                // 2. Insert new mappings
-                const inserts = [];
-                Object.entries(selectedStatesByZone).forEach(([zoneId, states]) => {
-                    states.forEach(state => {
-                        inserts.push({ zone_id: zoneId, state_name: state });
-                    });
-                });
-
-                if (inserts.length > 0) {
-                    const { error: insError } = await supabase.from('shipping_zone_states').insert(inserts);
+                if (mappings.length > 0) {
+                    const { error: insError } = await supabase.from('shipping_zone_states').insert(mappings.map(m => ({
+                        zone_id: m.zone_id,
+                        state_name: m.state_name,
+                        district_name: m.district_name || null
+                    })));
                     if (insError) throw insError;
                 }
             }
 
-            setSuccess('Shipping configurations saved successfully!');
+            setSuccess('Shipping settings synchronized successfully!');
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
             console.error('Save error:', err);
@@ -127,20 +117,18 @@ export default function ShippingAdminPage() {
     };
 
     const addZone = async () => {
-        if (!newZone.name) return;
         setSaving(true);
         try {
             const { data, error } = await supabase
                 .from('shipping_zones')
-                .insert([newZone])
+                .insert([{ name: 'New Price Group', rate: 100, free_threshold: 5000, is_international: false }])
                 .select()
                 .single();
 
             if (error) throw error;
-
             setZones([...zones, data]);
-            setNewZone({ name: '', rate: 100, free_threshold: 5000, is_international: false });
-            setSuccess('New zone added!');
+            setSelectedZone(data);
+            setSuccess('New zone created!');
         } catch (err) {
             setError(err.message);
         } finally {
@@ -149,13 +137,16 @@ export default function ShippingAdminPage() {
     };
 
     const deleteZone = async (id) => {
-        if (!confirm('Are you sure you want to delete this zone?')) return;
+        if (!confirm('Permanently delete this zone?')) return;
         setSaving(true);
         try {
             const { error } = await supabase.from('shipping_zones').delete().eq('id', id);
             if (error) throw error;
-            setZones(zones.filter(z => z.id !== id));
-            setSuccess('Zone deleted.');
+            const remaining = zones.filter(z => z.id !== id);
+            setZones(remaining);
+            setMappings(mappings.filter(m => m.zone_id !== id));
+            if (selectedZone?.id === id) setSelectedZone(remaining[0] || null);
+            setSuccess('Zone removed.');
         } catch (err) {
             setError(err.message);
         } finally {
@@ -163,247 +154,315 @@ export default function ShippingAdminPage() {
         }
     };
 
-    const toggleState = (zoneId, state) => {
-        setSelectedStatesByZone(prev => {
-            const current = prev[zoneId] || [];
-            // Remove state from ANY other zone first to ensure unique mapping
-            const newStateGroup = { ...prev };
-            Object.keys(newStateGroup).forEach(id => {
-                newStateGroup[id] = (newStateGroup[id] || []).filter(s => s !== state);
-            });
+    const addLocation = (state) => {
+        if (!selectedZone) return;
+        // Check if already in this zone
+        const exists = mappings.find(m => m.zone_id === selectedZone.id && m.state_name === state && !m.district_name);
+        if (exists) return;
 
-            if (current.includes(state)) {
-                // If it was already in this zone, removing it remains removed
-                newStateGroup[zoneId] = (current.filter(s => s !== state));
-            } else {
-                // Add to this zone
-                newStateGroup[zoneId] = [...(newStateGroup[zoneId] || []), state].sort();
-            }
-            return newStateGroup;
-        });
+        // Remove from other zones if it's a global state mapping
+        const filtered = mappings.filter(m => !(m.state_name === state && !m.district_name));
+        setMappings([...filtered, { zone_id: selectedZone.id, state_name: state, district_name: null }]);
+    };
+
+    const addDistrict = (state, district) => {
+        if (!selectedZone || !district) return;
+        // Specific override should be allowed in only one zone
+        const filtered = mappings.filter(m => !(m.state_name === state && m.district_name === district));
+        setMappings([...filtered, { zone_id: selectedZone.id, state_name: state, district_name: district }]);
+    };
+
+    const removeMapping = (index) => {
+        setMappings(prev => prev.filter((_, i) => i !== index));
     };
 
     if (loading) return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>
             <Loader2 size={32} className="animate-spin" color="hsl(var(--primary))" />
-            <p style={{ color: 'hsl(var(--text-muted))' }}>Loading shipping rates...</p>
+            <p style={{ color: 'hsl(var(--text-muted))' }}>Loading shipping engine...</p>
         </div>
     );
 
     return (
-        <div className="animate-enter" style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+        <div className="shipping-page animate-enter">
+            {/* Header */}
+            <div className="page-header">
                 <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                        <Truck size={32} color="hsl(var(--primary))" /> Shipping Zones
-                    </h1>
-                    <p style={{ color: 'hsl(var(--text-muted))' }}>Define zone-based shipping charges and map states.</p>
+                    <h1><Truck /> Shipping Zones</h1>
+                    <p>Configure regional delivery pricing and global shipping rules.</p>
                 </div>
-                <button onClick={saveChanges} disabled={saving} className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>
-                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save All Changes
+                <button onClick={saveChanges} disabled={saving} className="btn-primary-glow">
+                    {saving ? <Loader2 className="animate-spin" /> : <Save />} Save Configurations
                 </button>
             </div>
 
-            {error && (
-                <div style={{ background: 'hsl(var(--danger) / 0.1)', border: '1px solid hsl(var(--danger) / 0.2)', color: 'hsl(var(--danger))', padding: '1rem', borderRadius: 'var(--radius)', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <AlertCircle size={20} /> {error}
-                </div>
-            )}
+            {/* Notifications */}
+            {error && <div className="toast toast-error"><AlertCircle /> {error}</div>}
+            {success && <div className="toast toast-success"><CheckCircle2 /> {success}</div>}
 
-            {success && (
-                <div style={{ background: 'hsl(var(--success) / 0.1)', border: '1px solid hsl(var(--success) / 0.2)', color: 'hsl(var(--success))', padding: '1rem', borderRadius: 'var(--radius)', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <CheckCircle2 size={20} /> {success}
+            <div className="shipping-grid">
+                {/* Sidebar: Zones List */}
+                <div className="sidebar">
+                    <div className="sidebar-header">
+                        <h3>Price Groups</h3>
+                        <button onClick={addZone} className="btn-add-icon"><Plus size={18} /></button>
+                    </div>
+                    <div className="zone-list">
+                        {zones.map(zone => (
+                            <div
+                                key={zone.id}
+                                onClick={() => setSelectedZone(zone)}
+                                className={`zone-item ${selectedZone?.id === zone.id ? 'active' : ''}`}
+                            >
+                                <div className="zone-info">
+                                    <div className="zone-name">{zone.name}</div>
+                                    <div className="zone-meta">
+                                        {zone.is_international ? 'International' : `${mappings.filter(m => m.zone_id === zone.id).length} regions`}
+                                        {' • '} ₹{zone.rate}
+                                    </div>
+                                </div>
+                                <ChevronRight size={14} className="chevron" />
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            )}
 
-            <div style={{ display: 'grid', gap: '2rem' }}>
-                {zones.map((zone) => (
-                    <div key={zone.id} className="card" style={{ padding: '2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '1rem' }}>
-                            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 150px 150px 150px', gap: '1.5rem' }}>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Zone Name</label>
+                {/* Main: Zone Detail Editor */}
+                <div className="main-editor">
+                    {selectedZone ? (
+                        <div className="editor-card card shadow-premium">
+                            <div className="editor-header">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                                    <div className="icon-badge">
+                                        {selectedZone.is_international ? <Globe /> : <MapPin />}
+                                    </div>
                                     <input
-                                        className="input-field"
-                                        value={zone.name}
-                                        onChange={(e) => handleUpdateZone(zone.id, 'name', e.target.value)}
-                                        style={{ marginTop: '0.25rem' }}
+                                        className="h2-input"
+                                        value={selectedZone.name}
+                                        onChange={(e) => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
                                     />
                                 </div>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Rate (₹)</label>
-                                    <input
-                                        className="input-field"
-                                        type="number"
-                                        value={zone.rate}
-                                        onChange={(e) => handleUpdateZone(zone.id, 'rate', e.target.value)}
-                                        style={{ marginTop: '0.25rem' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Free Above (₹)</label>
-                                    <input
-                                        className="input-field"
-                                        type="number"
-                                        value={zone.free_threshold}
-                                        onChange={(e) => handleUpdateZone(zone.id, 'free_threshold', e.target.value)}
-                                        style={{ marginTop: '0.25rem' }}
-                                    />
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '1.5rem' }}>
-                                    <label className="switch">
+                                <button onClick={() => deleteZone(selectedZone.id)} className="btn-danger-icon">
+                                    <Trash2 size={20} />
+                                </button>
+                            </div>
+
+                            <div className="config-grid">
+                                <div className="field-group">
+                                    <label><Truck size={14} /> Shipping Rate</label>
+                                    <div className="input-with-label">
+                                        <span>₹</span>
                                         <input
-                                            type="checkbox"
-                                            checked={zone.is_international}
-                                            onChange={(e) => handleUpdateZone(zone.id, 'is_international', e.target.checked)}
+                                            type="number"
+                                            value={selectedZone.rate}
+                                            onChange={(e) => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
                                         />
-                                        <span className="slider round"></span>
-                                    </label>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>International</span>
+                                    </div>
+                                </div>
+                                <div className="field-group">
+                                    <label><Tag size={14} /> Free Above (Threshold)</label>
+                                    <div className="input-with-label">
+                                        <span>₹</span>
+                                        <input
+                                            type="number"
+                                            value={selectedZone.free_threshold}
+                                            onChange={(e) => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="field-group">
+                                    <label>Zone Type</label>
+                                    <div className="btn-toggle-group">
+                                        <button
+                                            onClick={() => handleUpdateZone(selectedZone.id, 'is_international', false)}
+                                            className={!selectedZone.is_international ? 'active' : ''}
+                                        >Domestic</button>
+                                        <button
+                                            onClick={() => handleUpdateZone(selectedZone.id, 'is_international', true)}
+                                            className={selectedZone.is_international ? 'active' : ''}
+                                        >International</button>
+                                    </div>
                                 </div>
                             </div>
-                            <button onClick={() => deleteZone(zone.id)} style={{ color: 'hsl(var(--danger))', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
-                                <Trash2 size={20} />
-                            </button>
-                        </div>
 
-                        {!zone.is_international ? (
-                            <div>
-                                <h4 style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <MapPin size={16} /> Covered States ({(selectedStatesByZone[zone.id] || []).length})
-                                </h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
-                                    {allStates.map(state => {
-                                        const isChecked = (selectedStatesByZone[zone.id] || []).includes(state);
-                                        // Check if state is in OTHER zone
-                                        const otherZoneId = Object.keys(selectedStatesByZone).find(zid => zid !== zone.id && selectedStatesByZone[zid]?.includes(state));
+                            {!selectedZone.is_international && (
+                                <div className="destination-manager">
+                                    <div className="section-header">
+                                        <h3><MapIcon size={18} /> Assigned Locations</h3>
+                                        <p>Orders from these regions will use this rate.</p>
+                                    </div>
 
-                                        return (
-                                            <div
-                                                key={state}
-                                                onClick={() => !otherZoneId && toggleState(zone.id, state)}
-                                                style={{
-                                                    padding: '0.6rem 0.85rem',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    border: '1px solid',
-                                                    borderColor: isChecked ? 'hsl(var(--primary))' : 'hsl(var(--border-subtle))',
-                                                    background: isChecked ? 'hsl(var(--primary) / 0.05)' : 'white',
-                                                    fontSize: '0.8rem',
-                                                    cursor: otherZoneId ? 'not-allowed' : 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.5rem',
-                                                    opacity: otherZoneId ? 0.4 : 1,
-                                                    transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    readOnly
-                                                    disabled={!!otherZoneId}
-                                                />
-                                                <span style={{ color: isChecked ? 'hsl(var(--primary))' : 'inherit', fontWeight: isChecked ? 700 : 400 }}>{state}</span>
+                                    <div className="location-list">
+                                        <table className="location-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>State</th>
+                                                    <th>District / City Overrides</th>
+                                                    <th style={{ width: '50px' }}></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {mappings.filter(m => m.zone_id === selectedZone.id).map((m, idx) => (
+                                                    <tr key={idx}>
+                                                        <td><strong>{m.state_name}</strong></td>
+                                                        <td>
+                                                            {m.district_name ? (
+                                                                <span className="district-tag">{m.district_name}</span>
+                                                            ) : (
+                                                                <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>Entire State</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const realIdx = mappings.indexOf(m);
+                                                                    removeMapping(realIdx);
+                                                                }}
+                                                                className="btn-remove"
+                                                            ><Trash2 size={14} /></button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {mappings.filter(m => m.zone_id === selectedZone.id).length === 0 && (
+                                                    <tr><td colSpan={3} className="empty-msg">No locations assigned to this zone yet.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="add-controls">
+                                        <h4>Add New Region</h4>
+                                        <div className="control-row">
+                                            <div className="select-box">
+                                                <select id="state-selector" className="modern-select">
+                                                    <option value="">Select State...</option>
+                                                    {allStates.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
                                             </div>
-                                        );
-                                    })}
+                                            <input id="district-input" className="modern-input" placeholder="Specific District (Optional)" />
+                                            <button
+                                                onClick={() => {
+                                                    const s = document.getElementById('state-selector').value;
+                                                    const d = document.getElementById('district-input').value;
+                                                    if (!s) return;
+                                                    if (d) addDistrict(s, d);
+                                                    else addLocation(s);
+                                                    document.getElementById('district-input').value = '';
+                                                }}
+                                                className="btn-add-loc"
+                                            >
+                                                <Plus size={16} /> Add to Zone
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
-                                <Globe size={20} color="hsl(var(--primary))" />
-                                <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))' }}>This zone applies to all <strong>International</strong> orders (non-India countries).</span>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
 
-                {/* Add New Zone */}
-                <div className="card" style={{ padding: '2rem', border: '2px dashed hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel) / 0.5)' }}>
-                    <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Plus size={24} /> Add New Shipping Zone
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 150px 150px 150px 150px', gap: '1.5rem', alignItems: 'flex-end' }}>
-                        <div>
-                            <label className="label">Zone Name</label>
-                            <input
-                                className="input-field"
-                                placeholder="e.g. North India"
-                                value={newZone.name}
-                                onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                            />
+                            {selectedZone.is_international && (
+                                <div className="intl-notice">
+                                    <Globe size={48} />
+                                    <h3>Global Coverage</h3>
+                                    <p>As the international zone, this rate will apply to any address outside of India.</p>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <label className="label">Rate (₹)</label>
-                            <input
-                                className="input-field"
-                                type="number"
-                                value={newZone.rate}
-                                onChange={(e) => setNewZone({ ...newZone, rate: e.target.value })}
-                            />
+                    ) : (
+                        <div className="empty-state">
+                            <LayoutGrid size={48} />
+                            <h3>Select a Price Group</h3>
+                            <p>Choose a zone from the sidebar to edit its shipping rules.</p>
                         </div>
-                        <div>
-                            <label className="label">Free Above (₹)</label>
-                            <input
-                                className="input-field"
-                                type="number"
-                                value={newZone.free_threshold}
-                                onChange={(e) => setNewZone({ ...newZone, free_threshold: e.target.value })}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '42px' }}>
-                            <label className="switch">
-                                <input
-                                    type="checkbox"
-                                    checked={newZone.is_international}
-                                    onChange={(e) => setNewZone({ ...newZone, is_international: e.target.checked })}
-                                />
-                                <span className="slider round"></span>
-                            </label>
-                            <span style={{ fontSize: '0.85rem' }}>International</span>
-                        </div>
-                        <button
-                            onClick={addZone}
-                            disabled={!newZone.name || saving}
-                            className="btn btn-secondary"
-                            style={{ height: '42px', width: '100%', fontWeight: 700 }}
-                        >
-                            Add Zone
-                        </button>
-                    </div>
-                </div>
-            </div>
+                    )}
 
-            <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'hsl(var(--bg-card))', borderRadius: 'var(--radius)', border: '1px solid hsl(var(--border-subtle))', display: 'flex', gap: '1rem' }}>
-                <Info size={24} color="hsl(var(--primary))" style={{ flexShrink: 0 }} />
-                <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>
-                    <p style={{ fontWeight: 700, color: 'hsl(var(--text-main))', marginBottom: '0.5rem' }}>How Zone-Based Shipping Works:</p>
-                    <ul style={{ paddingLeft: '1.25rem' }}>
-                        <li>The system matches the customer's <strong>State</strong> (for India) or <strong>Country</strong> (for International) to a zone.</li>
-                        <li>If a state is mapped to a zone, that zone's rate is applied.</li>
-                        <li>If "Free Above" is set (non-zero), shipping becomes ₹0 if the subtotal exceeds that amount.</li>
-                        <li>Each state can only belong to <strong>one</strong> zone.</li>
-                        <li>International orders always trigger the international zone rate.</li>
-                    </ul>
+                    <div className="pro-tips">
+                        <Info size={18} />
+                        <div>
+                            <strong>Priority Rules:</strong> Specific District rates always take priority over State rates.
+                            Domestic rates apply within India based on the shipping address. International rate applies globally.
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <style jsx>{`
-                .label { display: block; font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); margin-bottom: 0.5rem; text-transform: uppercase; }
-                .input-field {
-                    width: 100%; padding: 0.75rem; border-radius: var(--radius-sm);
-                    background: hsl(var(--bg-card)); border: 1px solid hsl(var(--border-subtle));
-                    color: hsl(var(--text-main)); outline: none; transition: border 0.2s;
-                    font-family: inherit; font-size: 0.95rem;
-                }
-                .input-field:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1); }
+                .shipping-page { padding: 2rem; max-width: 1400px; margin: 0 auto; color: #fff; }
+                .page-header { display: flex; justify-content: space-between; align-items: flex-end; marginBottom: 3rem; }
+                .page-header h1 { font-size: 2.5rem; display: flex; align-items: center; gap: 1rem; margin: 0; }
+                .page-header p { color: hsl(var(--text-muted)); margin: 0.5rem 0 0; }
                 
-                .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-                .switch input { opacity: 0; width: 0; height: 0; }
-                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
-                .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-                input:checked + .slider { background-color: hsl(var(--primary)); }
-                input:checked + .slider:before { transform: translateX(20px); }
+                .btn-primary-glow {
+                    background: hsl(var(--primary)); color: white; border: none;
+                    padding: 1rem 2rem; borderRadius: 12px; font-weight: 700;
+                    display: flex; align-items: center; gap: 0.75rem; cursor: pointer;
+                    box-shadow: 0 0 20px hsl(var(--primary) / 0.3); transition: 0.3s;
+                }
+                .btn-primary-glow:hover { transform: translateY(-2px); box-shadow: 0 0 30px hsl(var(--primary) / 0.5); }
+
+                .shipping-grid { display: grid; gridTemplateColumns: 320px 1fr; gap: 2rem; margin-top: 2rem; }
+                
+                .sidebar { background: hsl(var(--bg-panel)); border-radius: 20px; border: 1px solid hsl(var(--border-subtle)); overflow: hidden; height: fit-content; }
+                .sidebar-header { padding: 1.5rem; border-bottom: 1px solid hsl(var(--border-subtle)); display: flex; justify-content: space-between; align-items: center; }
+                .sidebar-header h3 { margin: 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text-muted)); }
+                
+                .zone-list { padding: 0.5rem; }
+                .zone-item { 
+                    padding: 1.25rem; border-radius: 12px; cursor: pointer; position: relative;
+                    display: flex; align-items: center; justify-content: space-between; transition: 0.2s;
+                }
+                .zone-item:hover { background: rgba(255,255,255,0.05); }
+                .zone-item.active { background: hsl(var(--primary) / 0.15); border: 1px solid hsl(var(--primary) / 0.3); }
+                .zone-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+                .zone-meta { font-size: 0.8rem; color: hsl(var(--text-muted)); }
+                .chevron { color: hsl(var(--text-muted)); opacity: 0.5; }
+
+                .editor-card { padding: 2.5rem; }
+                .editor-header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2.5rem; border-bottom: 1px solid hsl(var(--border-subtle)); padding-bottom: 1.5rem; }
+                .icon-badge { width: 48px; height: 48px; background: hsl(var(--primary) / 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: hsl(var(--primary)); }
+                .h2-input { background: none; border: none; font-size: 2rem; font-weight: 800; color: #fff; outline: none; flex: 1; }
+                .h2-input:focus { color: hsl(var(--primary)); }
+
+                .config-grid { display: grid; gridTemplateColumns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 3rem; }
+                .field-group { display: flex; flexDirection: column; gap: 0.75rem; }
+                .field-group label { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; }
+                .input-with-label { position: relative; display: flex; align-items: center; }
+                .input-with-label span { position: absolute; left: 1rem; font-weight: 800; color: hsl(var(--primary)); }
+                .input-with-label input { width: 100%; padding: 1rem 1rem 1rem 2.5rem; background: hsl(var(--bg-app)); border: 1px solid hsl(var(--border-subtle)); border-radius: 12px; color: #fff; font-size: 1.1rem; font-weight: 700; outline: none; }
+                .input-with-label input:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 15px hsl(var(--primary) / 0.1); }
+
+                .btn-toggle-group { display: flex; background: hsl(var(--bg-app)); padding: 0.4rem; border-radius: 12px; border: 1px solid hsl(var(--border-subtle)); }
+                .btn-toggle-group button { flex: 1; padding: 0.6rem; border: none; background: none; color: hsl(var(--text-muted)); font-weight: 700; font-size: 0.85rem; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+                .btn-toggle-group button.active { background: hsl(var(--primary)); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+                .destination-manager { background: rgba(255,255,255,0.02); border-radius: 20px; padding: 2rem; border: 1px solid hsl(var(--border-subtle)); }
+                .section-header h3 { margin: 0; display: flex; align-items: center; gap: 0.75rem; }
+                .section-header p { color: hsl(var(--text-muted)); font-size: 0.9rem; margin: 0.5rem 0 1.5rem; }
+
+                .location-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                .location-table th { text-align: left; font-size: 0.7rem; color: hsl(var(--text-muted)); text-transform: uppercase; padding: 1rem; border-bottom: 2px solid hsl(var(--border-subtle)); }
+                .location-table td { padding: 1.25rem 1rem; border-bottom: 1px solid hsl(var(--border-subtle)); }
+                .district-tag { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem; font-weight: 700; border: 1px solid hsl(var(--primary) / 0.2); }
+                .btn-remove { background: none; border: none; color: hsl(var(--danger)); cursor: pointer; opacity: 0.5; transition: 0.2s; }
+                .btn-remove:hover { opacity: 1; transform: scale(1.1); }
+                .empty-msg { text-align: center; color: hsl(var(--text-muted)); padding: 3rem !important; }
+
+                .add-controls { background: hsl(var(--bg-app)); padding: 1.5rem; border-radius: 15px; border: 1px dashed hsl(var(--border-subtle)); }
+                .add-controls h4 { margin: 0 0 1rem; font-size: 0.85rem; }
+                .control-row { display: grid; gridTemplateColumns: 1fr 1fr 180px; gap: 1rem; }
+                .modern-select, .modern-input { width: 100%; padding: 0.75rem 1rem; background: hsl(var(--bg-panel)); border: 1px solid hsl(var(--border-subtle)); border-radius: 10px; color: #fff; outline: none; }
+                .btn-add-loc { background: white; color: black; border: none; border-radius: 10px; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; justify-content: center; cursor: pointer; }
+                .btn-add-loc:hover { background: hsl(var(--primary)); color: white; }
+
+                .intl-notice { text-align: center; padding: 5rem 2rem; color: hsl(var(--text-muted)); }
+                .intl-notice h3 { color: #fff; margin: 1.5rem 0 0.5rem; }
+
+                .pro-tips { display: flex; gap: 1rem; background: hsl(var(--info) / 0.1); border: 1px solid hsl(var(--info) / 0.2); padding: 1.25rem; border-radius: 15px; grid-column: 1 / -1; margin-top: 2rem; font-size: 0.85rem; color: hsl(var(--info)); line-height: 1.5; }
+                
+                .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 2rem; border-radius: 12px; display: flex; align-items: center; gap: 0.75rem; font-weight: 700; z-index: 1000; animation: slideUp 0.3s ease-out; }
+                .toast-success { background: hsl(var(--success)); color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+                .toast-error { background: hsl(var(--danger)); color: white; }
+                
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @media (max-width: 1000px) { .shipping-grid { gridTemplateColumns: 1fr; } .sidebar { display: none; } }
             `}</style>
         </div>
     );

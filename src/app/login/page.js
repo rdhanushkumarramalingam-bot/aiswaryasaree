@@ -308,6 +308,22 @@ export default function UnifiedLoginPage() {
                     </p>
                 </div>
             </div>
+
+            <style jsx>{`
+                @media (max-width: 480px) {
+                    div[style*="padding: 2.5rem"] {
+                        padding: 1.5rem !important;
+                    }
+                    h1 {
+                        font-size: 1.5rem !important;
+                    }
+                    div[style*="padding: 1.5rem"] {
+                        padding: 1rem !important;
+                    }
+                }
+                .animate-spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, FileText, Download, Eye, X, Printer, MessageCircle } from 'lucide-react';
+import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle } from 'lucide-react';
 
 
 
@@ -582,7 +582,7 @@ export default function InvoicesPage() {
 
                             }} title="Close">
 
-                                <X size={20} />
+                                <span style={{ fontSize: '24px', lineHeight: 1 }}>&times;</span>
 
                             </button>
 
