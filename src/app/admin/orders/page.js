@@ -995,13 +995,35 @@ export default function OrdersPage() {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span>Subtotal:</span>
-                                                    <span>₹{((selectedOrder.total_amount || 0) - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0)).toLocaleString()}</span>
+                                                    <span>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', color: 'hsl(var(--text-muted))' }}>
-                                                    <span>Tax (approx):</span>
-                                                    <span>₹{(selectedOrder.tax_amount || 0).toLocaleString()}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: 'hsl(var(--text-muted))' }}>
+
+                                                {selectedOrder.cgst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>CGST (2.5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.cgst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.sgst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>SGST (2.5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.sgst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.igst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>IGST (5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.igst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {(!selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && selectedOrder.tax_amount > 0) && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>Tax (Aggregate):</span>
+                                                        <span>₹{parseFloat(selectedOrder.tax_amount).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: '#94a3b8' }}>
                                                     <span>Shipping:</span>
                                                     <span>₹{(selectedOrder.shipping_cost || 0).toLocaleString()}</span>
                                                 </div>
@@ -1096,9 +1118,20 @@ export default function OrdersPage() {
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
                                             <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
                                         </div>
-                                        <div style={{ gridColumn: 'span 2' }}>
+                                        <div style={{ gridColumn: 'span 1' }}>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
-                                            <textarea rows={2} placeholder="Full address with pincode..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none' }} />
+                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
+                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}>
+                                                <option value="Tamil Nadu">Tamil Nadu</option>
+                                                <option value="Kerala">Kerala</option>
+                                                <option value="Karnataka">Karnataka</option>
+                                                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                                                <option value="Telangana">Telangana</option>
+                                                <option value="Other">Other State</option>
+                                            </select>
                                         </div>
                                     </div>
 
@@ -1158,14 +1191,25 @@ export default function OrdersPage() {
                                     <div style={{ background: 'hsl(var(--bg-panel))', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                         {(() => {
                                             const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
-                                            const tax = subtotal * 0.05;
                                             const shipping = 100;
+
+                                            let cgst = 0, sgst = 0, igst = 0;
+                                            if (newOrder.shipping_state === 'Tamil Nadu') {
+                                                cgst = Math.round(subtotal * 0.025);
+                                                sgst = Math.round(subtotal * 0.025);
+                                            } else {
+                                                igst = Math.round(subtotal * 0.05);
+                                            }
+                                            const tax = cgst + sgst + igst;
                                             const total = subtotal + tax + shipping;
+
                                             return (
                                                 <>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Subtotal:</span><span>₹{subtotal.toLocaleString()}</span></div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>GST (5%):</span><span>₹{tax.toLocaleString()}</span></div>
+                                                        {cgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>CGST (2.5%):</span><span>₹{cgst.toLocaleString()}</span></div>}
+                                                        {sgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>SGST (2.5%):</span><span>₹{sgst.toLocaleString()}</span></div>}
+                                                        {igst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>IGST (5%):</span><span>₹{igst.toLocaleString()}</span></div>}
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Shipping:</span><span>₹{shipping.toLocaleString()}</span></div>
                                                         <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', fontWeight: 900, color: 'hsl(var(--primary))' }}><span>Total:</span><span>₹{total.toLocaleString()}</span></div>
@@ -1211,6 +1255,9 @@ export default function OrdersPage() {
                                                                     shipping_state: newOrder.shipping_state,
                                                                     total_amount: total,
                                                                     tax_amount: tax,
+                                                                    cgst: cgst,
+                                                                    sgst: sgst,
+                                                                    igst: igst,
                                                                     shipping_cost: shipping,
                                                                     status: 'PLACED',
                                                                     source: 'WHATSAPP',

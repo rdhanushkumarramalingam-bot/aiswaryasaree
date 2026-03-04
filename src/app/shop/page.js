@@ -92,13 +92,17 @@ function ShopContent() {
         // ────── TAXATION LOGIC ──────
         if (!isInternational) {
             // Domestic Taxation (GST 18%)
-            if (checkoutForm.state === businessState) {
-                // Intrastate: 9% CGST + 9% SGST
-                cgst = Math.round(subtotal * 0.09);
-                sgst = Math.round(subtotal * 0.09);
+            // Normalize for comparison
+            const normalizedFormState = (checkoutForm.state || '').trim().toLowerCase();
+            const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
+
+            if (normalizedFormState === normalizedBizState) {
+                // Intrastate: 2.5% CGST + 2.5% SGST
+                cgst = Math.round(subtotal * 0.025);
+                sgst = Math.round(subtotal * 0.025);
             } else {
-                // Inter-state: 18% IGST
-                igst = Math.round(subtotal * 0.18);
+                // Inter-state: 5% IGST
+                igst = Math.round(subtotal * 0.05);
             }
         } else {
             // International: 0% GST (Zero-Rated Export)
@@ -521,7 +525,11 @@ function ShopContent() {
             setOrderData({
                 orderId,
                 customerName: checkoutForm.name,
-                total: taxDetails.totalOrder
+                total: taxDetails.totalOrder,
+                cgst: taxDetails.cgst,
+                sgst: taxDetails.sgst,
+                igst: taxDetails.igst,
+                shipping: taxDetails.shipping
             });
             setCart([]);
             setView('success');
@@ -1042,19 +1050,19 @@ function ShopContent() {
                                         <div className={styles.taxBreakdown}>
                                             {taxDetails.cgst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>CGST (9%)</span>
+                                                    <span>CGST (2.5%)</span>
                                                     <span>₹{(taxDetails.cgst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {taxDetails.sgst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>SGST (9%)</span>
+                                                    <span>SGST (2.5%)</span>
                                                     <span>₹{(taxDetails.sgst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {taxDetails.igst > 0 && (
                                                 <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>IGST (18%)</span>
+                                                    <span>IGST (5%)</span>
                                                     <span>₹{(taxDetails.igst || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
@@ -1112,11 +1120,52 @@ function ShopContent() {
                 {view === 'success' && orderData && (
                     <div className={styles.successView}>
                         <div className={styles.successCard}>
-                            <h2>Order Confirmed!</h2>
-                            <p>Thank you, {orderData.customerName}!</p>
-                            <p>Order ID: <strong>#{orderData.orderId}</strong></p>
-                            <p>Total: <strong>₹{orderData.total.toLocaleString()}</strong></p>
-                            <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.waBtn}>Confirm on WhatsApp</button>
+                            <div className={styles.successBadge}>✅</div>
+                            <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Order Confirmed!</h2>
+                            <p style={{ color: 'hsl(var(--text-muted))' }}>Thank you, {orderData.customerName}!</p>
+
+                            <div className={styles.orderSummarySuccess}>
+                                <div className={styles.orderIdTag}>Order ID: #{orderData.orderId}</div>
+
+                                <div className={styles.successPriceDetails}>
+                                    {orderData.cgst > 0 && (
+                                        <div className={styles.successPriceLine}>
+                                            <span>CGST (2.5%):</span>
+                                            <span>₹{orderData.cgst.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {orderData.sgst > 0 && (
+                                        <div className={styles.successPriceLine}>
+                                            <span>SGST (2.5%):</span>
+                                            <span>₹{orderData.sgst.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {orderData.igst > 0 && (
+                                        <div className={styles.successPriceLine}>
+                                            <span>IGST (5%):</span>
+                                            <span>₹{orderData.igst.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {orderData.shipping > 0 && (
+                                        <div className={styles.successPriceLine}>
+                                            <span>Shipping:</span>
+                                            <span>₹{orderData.shipping.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className={styles.successPriceTotal}>
+                                        <span>Total Amount Paid:</span>
+                                        <span>₹{orderData.total.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.waBtn}>
+                                <MessageCircle size={18} /> Confirm on WhatsApp
+                            </button>
+
+                            <button onClick={() => setView('shop')} className={styles.secondaryBtn} style={{ marginTop: '1rem' }}>
+                                Continue Shopping
+                            </button>
                         </div>
                     </div>
                 )}
