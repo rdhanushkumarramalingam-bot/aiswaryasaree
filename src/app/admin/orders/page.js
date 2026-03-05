@@ -875,7 +875,7 @@ export default function OrdersPage() {
                         <div style={{
                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
                             backdropFilter: 'blur(15px)', zIndex: 1200,
-                            display: 'grid', placeItems: 'center', padding: '1.5rem',
+                            display: '', placeItems: 'center', padding: '1.5rem',
                             overflowY: 'auto'
                         }} onClick={() => { setSelectedOrder(null); setOrderItems([]); }}>
                             <div onClick={(e) => e.stopPropagation()} className="card animate-enter" style={{

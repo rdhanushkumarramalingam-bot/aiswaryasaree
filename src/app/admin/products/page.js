@@ -580,7 +580,7 @@ export default function ProductsPage() {
             </div>
 
             {/* Group Tags Filter */}
-            {groups.length > 1 && (
+            {/* {groups.length > 1 && (
                 <div className="admin-filter-row" style={{ marginTop: '-0.75rem' }}>
                     <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>🏷️ Groups:</span>
                     {groups.map(grp => (
@@ -595,7 +595,7 @@ export default function ProductsPage() {
                         </button>
                     ))}
                 </div>
-            )}
+            )} */}
 
             {/* Toolbar */}
             <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -738,8 +738,8 @@ export default function ProductsPage() {
                                     <th>#</th>
                                     <th>Product</th>
                                     <th>Category</th>
-                                    <th>Group</th>
-                                    <th>Status</th>
+                                    {/* <th>Group</th>
+                                    <th>Status</th> */}
                                     <th style={{ textAlign: 'right' }}>Price</th>
                                     <th style={{ textAlign: 'center' }}>Stock</th>
                                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -776,7 +776,7 @@ export default function ProductsPage() {
                                                 {product.category}
                                             </span>
                                         </td>
-                                        <td>
+                                        {/* <td>
                                             {product.product_group ? (
                                                 <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
                                                     🏷️ {product.product_group}
@@ -784,8 +784,8 @@ export default function ProductsPage() {
                                             ) : (
                                                 <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
                                             )}
-                                        </td>
-                                        <td>
+                                        </td> */}
+                                        {/* <td>
                                             <span style={{
                                                 padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600,
                                                 background: product.is_active ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--danger) / 0.1)',
@@ -794,7 +794,7 @@ export default function ProductsPage() {
                                             }}>
                                                 {product.is_active ? 'Active' : 'Hidden'}
                                             </span>
-                                        </td>
+                                        </td> */}
                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                         <td style={{ textAlign: 'center' }}>
                                             <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
@@ -803,7 +803,7 @@ export default function ProductsPage() {
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                <button onClick={async () => {
+                                                {/* <button onClick={async () => {
                                                     await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
                                                     fetchProducts();
                                                 }} title={product.is_active ? "Hide from Shop" : "Show on Shop"} className="btn btn-secondary" style={{ padding: '0.4rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }}>
@@ -811,7 +811,7 @@ export default function ProductsPage() {
                                                 </button>
                                                 <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                     {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
-                                                </button>
+                                                </button> */}
                                                 <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: '#25D366' }}>
                                                     <Share2 size={15} />
                                                 </button>
@@ -865,23 +865,23 @@ export default function ProductsPage() {
                                     <div style={{ padding: '1rem' }}>
                                         <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             {product.category}
-                                            {product.product_group && (
+                                            {/* {product.product_group && (
                                                 <span style={{ padding: '1px 6px', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
                                                     {product.product_group}
                                                 </span>
-                                            )}
+                                            )} */}
                                         </div>
                                         <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.95rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
                                         <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.description || '—'}</div>
                                         <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                         {/* Actions */}
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button onClick={async () => {
+                                            {/* <button onClick={async () => {
                                                 await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
                                                 fetchProducts();
                                             }} className="btn btn-secondary" style={{ padding: '0.5rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }} title={product.is_active ? "Hide from Shop" : "Show on Shop"}>
                                                 {product.is_active ? <Eye size={13} /> : <EyeOff size={13} />}
-                                            </button>
+                                            </button> */}
                                             <button onClick={() => openEditModal(product)}
                                                 className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                 <Edit size={13} /> Edit
@@ -889,10 +889,10 @@ export default function ProductsPage() {
                                             <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Details">
                                                 <PackageIcon size={13} />
                                             </button>
-                                            <button onClick={() => copyLink(product)}
+                                            {/* <button onClick={() => copyLink(product)}
                                                 className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                 {copiedId === product.id ? <Check size={13} /> : <LinkIcon size={13} />}
-                                            </button>
+                                            </button> */}
                                             <button onClick={() => shareToStatus(product)}
                                                 className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: '#25D366' }}>
                                                 <Share2 size={13} />

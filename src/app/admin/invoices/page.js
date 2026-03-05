@@ -527,7 +527,6 @@ export default function InvoicesPage() {
                                     </tbody>
 
                                 </table>
-
                             </div>
 
 
@@ -546,16 +545,52 @@ export default function InvoicesPage() {
 
                                 }}>
 
-                                    <div style={{ textAlign: 'right' }}>
+                                    <div style={{ textAlign: 'right', width: '100%', maxWidth: '300px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#6b7280' }}>Subtotal:</span>
+                                                <span style={{ fontWeight: 600 }}>₹{(selectedInvoice.subtotal || (selectedInvoice.total_amount - (selectedInvoice.tax_amount || 0) - (selectedInvoice.shipping_cost || 0))).toLocaleString()}</span>
+                                            </div>
 
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.25rem' }}>Grand Total</div>
+                                            {selectedInvoice.cgst > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ color: '#6b7280' }}>CGST (2.5%):</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.cgst).toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {selectedInvoice.sgst > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ color: '#6b7280' }}>SGST (2.5%):</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.sgst).toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {selectedInvoice.igst > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ color: '#6b7280' }}>IGST (5%):</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.igst).toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {((!selectedInvoice.cgst && !selectedInvoice.sgst && !selectedInvoice.igst) && selectedInvoice.tax_amount > 0) && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ color: '#6b7280' }}>Tax:</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.tax_amount).toLocaleString()}</span>
+                                                </div>
+                                            )}
 
-                                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#6366f1' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#6b7280' }}>Shipping:</span>
+                                                <span style={{ fontWeight: 600 }}>₹{(selectedInvoice.shipping_cost || 0).toLocaleString()}</span>
+                                            </div>
 
-                                            ₹{(selectedInvoice.total_amount || 0).toLocaleString()}
+                                            <div style={{ height: '1px', background: '#e5e7eb', margin: '0.5rem 0' }} />
 
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>Grand Total:</span>
+                                                <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#6366f1' }}>
+                                                    ₹{(selectedInvoice.total_amount || 0).toLocaleString()}
+                                                </span>
+                                            </div>
                                         </div>
-
                                     </div>
 
                                 </div>
