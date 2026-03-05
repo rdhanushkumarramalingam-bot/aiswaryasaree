@@ -170,7 +170,7 @@ export default function ShippingAdminPage() {
                     <p>Manage delivery price groups and regional coverage.</p>
                 </div>
                 <button onClick={saveChanges} disabled={saving} className="btn-primary-glow">
-                    {saving ? <Loader2 className="spin" /> : <Save size={18} />} 
+                    {saving ? <Loader2 className="spin" /> : <Save size={18} />}
                     <span>Save Network Configuration</span>
                 </button>
             </header>
@@ -185,11 +185,11 @@ export default function ShippingAdminPage() {
                         <h3>Price Groups</h3>
                         <button onClick={addZone} className="btn-icon-plus"><Plus size={16} /></button>
                     </div>
-                    
+
                     <div className="zones-list">
                         {zones.map(zone => (
-                            <div 
-                                key={zone.id} 
+                            <div
+                                key={zone.id}
                                 className={`zone-card ${selectedZone?.id === zone.id ? 'active' : ''}`}
                                 onClick={() => setSelectedZone(zone)}
                             >
@@ -218,9 +218,9 @@ export default function ShippingAdminPage() {
                             <div className="settings-row">
                                 <div className="setting-input">
                                     <label>Price Group Title</label>
-                                    <input 
-                                        type="text" 
-                                        value={selectedZone.name} 
+                                    <input
+                                        type="text"
+                                        value={selectedZone.name}
                                         onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
                                         placeholder="e.g. South India Express"
                                     />
@@ -229,10 +229,10 @@ export default function ShippingAdminPage() {
                                     <label>Shipping Rate</label>
                                     <div className="input-prefix">
                                         <IndianRupee size={14} />
-                                        <input 
-                                            type="number" 
-                                            value={selectedZone.rate} 
-                                            onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)} 
+                                        <input
+                                            type="number"
+                                            value={selectedZone.rate}
+                                            onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
                                         />
                                     </div>
                                 </div>
@@ -240,10 +240,10 @@ export default function ShippingAdminPage() {
                                     <label>Free Threshold</label>
                                     <div className="input-prefix">
                                         <IndianRupee size={14} />
-                                        <input 
-                                            type="number" 
-                                            value={selectedZone.free_threshold} 
-                                            onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)} 
+                                        <input
+                                            type="number"
+                                            value={selectedZone.free_threshold}
+                                            onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
                                         />
                                     </div>
                                 </div>
@@ -282,10 +282,10 @@ export default function ShippingAdminPage() {
                                             {filteredStates.map(s => {
                                                 const isAssigned = mappings.find(m => m.state_name === s && m.zone_id === selectedZone.id);
                                                 const isInOther = mappings.find(m => m.state_name === s && m.zone_id !== selectedZone.id);
-                                                
+
                                                 return (
-                                                    <button 
-                                                        key={s} 
+                                                    <button
+                                                        key={s}
                                                         className={`state-btn ${isAssigned ? 'assigned' : ''} ${isInOther ? 'other' : ''}`}
                                                         onClick={() => addLocation(s)}
                                                     >
@@ -318,7 +318,7 @@ export default function ShippingAdminPage() {
             </div>
 
             <style jsx>{`
-                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: white; font-family: 'Inter', sans-serif; }
+                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: white; font-family: 'Roboto', sans-serif; }
                 
                 .premium-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; }
                 .breadcrumb { font-size: 0.75rem; color: hsl(var(--primary)); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 0.5rem; text-transform: uppercase; }

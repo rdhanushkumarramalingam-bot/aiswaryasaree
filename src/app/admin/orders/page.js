@@ -509,34 +509,11 @@ export default function OrdersPage() {
                     {/* Header */}
 
                     <div className="admin-header-row">
-
                         <div>
-
                             <h1 style={{ marginBottom: '0.5rem' }}>Orders</h1>
-
                             <p>Manage and track all customer orders • {orders.length} total</p>
-
                         </div>
-
                         <div style={{ display: 'flex', gap: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius)', padding: '4px' }}>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    style={{
-                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
-                                        background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))'
-                                    }}>List View</button>
-                                <button
-                                    onClick={() => setViewMode('analytics')}
-                                    style={{
-                                        padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                        fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
-                                        background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))'
-                                    }}><TrendingUp size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Analysis</button>
-                            </div>
                             <button onClick={() => setIsAddingOrder(true)} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none' }}>
                                 <Plus size={16} /> Add Manual Order
                             </button>
@@ -560,20 +537,87 @@ export default function OrdersPage() {
                         </div>
                     </div>
 
-                    {/* ─── ANALYTICS VIEW ─── */}
+                    {/* Unified View Controls & Filters Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', gap: '2rem', flexWrap: 'wrap' }}>
+                        <div>
+                            {viewMode === 'list' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {/* Status Filters */}
+                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        {Object.entries(orderCounts).map(([status, count]) => (
+                                            <button key={status} onClick={() => setStatusFilter(status)} style={{
+                                                padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
+                                                fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                                                background: statusFilter === status ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
+                                                color: statusFilter === status ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                                border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
+                                                boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
+                                            }}>
+                                                {status === 'ALL' ? 'All Orders' : status} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {/* Source Filter */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Channel:</span>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            {SOURCE_FILTERS.map(src => (
+                                                <button key={src} onClick={() => setSourceFilter(src)} style={{
+                                                    padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
+                                                    fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                                                    background: sourceFilter === src
+                                                        ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? '#25D366' : 'hsl(var(--bg-panel))'
+                                                        : 'hsl(var(--bg-card))',
+                                                    color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
+                                                    border: '1px solid hsl(var(--border-subtle))'
+                                                }}>
+                                                    {src === 'ALL' ? '🌐 All' : src === 'WEBSITE' ? '🌐 Website' : '💬 WhatsApp'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                    <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Analytics Range:</span>
+                                    <div style={{ display: 'flex', gap: '4px', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                                            <button key={r} onClick={() => setTimeRange(r)} style={{
+                                                padding: '0.5rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, transition: 'all 0.2s',
+                                                background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                                color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                            }}>{r}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* View Switcher Toggle - Now on the right of filters */}
+                        <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                style={{
+                                    padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                    background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
+                                    display: 'flex', alignItems: 'center', gap: '8px'
+                                }}><Eye size={16} /> List View</button>
+                            <button
+                                onClick={() => setViewMode('analytics')}
+                                style={{
+                                    padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                    background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
+                                    display: 'flex', alignItems: 'center', gap: '8px'
+                                }}><TrendingUp size={16} /> Analysis</button>
+                        </div>
+                    </div>
+
                     {viewMode === 'analytics' && (
                         <div className="animate-enter">
-                            {/* Time Filters */}
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
-                                {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
-                                    <button key={r} onClick={() => setTimeRange(r)} style={{
-                                        padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
-                                        background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
-                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
-                                    }}>{r}</button>
-                                ))}
-                            </div>
-
                             <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
                                 {/* Revenue Title updated dynamically */}
                                 <div className="card" style={{ padding: '1.5rem' }}>
@@ -675,72 +719,6 @@ export default function OrdersPage() {
 
                     {viewMode === 'list' && (
                         <>
-
-                            <div className="admin-filter-row">
-
-                                {Object.entries(orderCounts).map(([status, count]) => (
-
-                                    <button key={status} onClick={() => setStatusFilter(status)} style={{
-
-                                        padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
-
-                                        fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-
-                                        background: statusFilter === status ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-
-                                        color: statusFilter === status ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-
-                                        border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-
-                                        boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
-
-                                    }}>
-
-                                        {status === 'ALL' ? 'All Orders' : status} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
-
-                                    </button>
-
-                                ))}
-
-                            </div>
-
-
-
-                            {/* Source Filter */}
-
-                            <div className="admin-filter-row" style={{ marginTop: '0.5rem' }}>
-
-                                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Channel:</span>
-
-                                {SOURCE_FILTERS.map(src => (
-
-                                    <button key={src} onClick={() => setSourceFilter(src)} style={{
-
-                                        padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
-
-                                        fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-
-                                        background: sourceFilter === src
-
-                                            ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? '#25D366' : 'hsl(var(--bg-panel))'
-
-                                            : 'hsl(var(--bg-card))',
-
-                                        color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
-
-                                        border: '1px solid hsl(var(--border-subtle))'
-
-                                    }}>
-
-                                        {src === 'ALL' ? '🌐 All' : src === 'WEBSITE' ? '🌐 Website' : '💬 WhatsApp'}
-
-                                    </button>
-
-                                ))}
-
-                            </div>
-
-
 
                             {/* Search + Table Card */}
 
@@ -893,12 +871,12 @@ export default function OrdersPage() {
                         </>
                     )}
 
-                    {/* ORDER DETAIL MODAL */}
                     {selectedOrder && (
                         <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
-                            backdropFilter: 'blur(10px)', zIndex: 1200,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                            backdropFilter: 'blur(15px)', zIndex: 1200,
+                            display: 'grid', placeItems: 'center', padding: '1.5rem',
+                            overflowY: 'auto'
                         }} onClick={() => { setSelectedOrder(null); setOrderItems([]); }}>
                             <div onClick={(e) => e.stopPropagation()} className="card animate-enter" style={{
                                 width: '100%', maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', padding: 0,
@@ -1090,16 +1068,17 @@ export default function OrdersPage() {
                         </div>
                     )}
 
-                    {/* MANUAL ORDER MODAL */}
                     {isAddingOrder && (
                         <div style={{
                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
                             backdropFilter: 'blur(15px)', zIndex: 1300,
-                            display: 'grid', placeItems: 'center', padding: '1rem'
+                            display: 'grid', placeItems: 'center', padding: '1.5rem',
+                            overflowY: 'auto'
                         }} onClick={() => setIsAddingOrder(false)}>
                             <div onClick={(e) => e.stopPropagation()} className="card animate-enter" style={{
-                                width: '100%', maxWidth: '800px', maxHeight: '95vh', overflow: 'hidden',
-                                display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--primary) / 0.3)'
+                                width: '100%', maxWidth: '800px', maxHeight: 'min-content',
+                                display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--primary) / 0.3)', borderRadius: '24px',
+                                background: 'hsl(var(--bg-panel))'
                             }}>
                                 <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1323,7 +1302,7 @@ export default function OrdersPage() {
                         <div style={{
                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
                             backdropFilter: 'blur(15px)', zIndex: 2000,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                            display: 'grid', placeItems: 'center', padding: '1.5rem'
                         }}>
                             <div className="card animate-enter" style={{ width: '100%', maxWidth: '500px', border: '1px solid hsl(var(--primary) / 0.5)', position: 'relative' }}>
                                 <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1443,4 +1422,5 @@ export default function OrdersPage() {
         </div>
     );
 }
+
 

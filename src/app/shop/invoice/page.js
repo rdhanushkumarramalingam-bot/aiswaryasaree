@@ -114,7 +114,7 @@ function InvoiceContent() {
 
     return (
 
-        <div style={{ minHeight: '100vh', background: '#0a0a0a', padding: '1rem', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ minHeight: '100vh', background: '#0a0a0a', padding: '1rem', color: '#fff', fontFamily: 'Roboto, sans-serif' }}>
 
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 

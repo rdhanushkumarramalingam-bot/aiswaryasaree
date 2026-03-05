@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient';
 import styles from '../page.module.css';
+import { Save, MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings } from 'lucide-react';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+
 
 export default function WhatsAppSettingsPage() {
     const [settings, setSettings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
+    const [notification, setNotification] = useState(null);
 
     useEffect(() => {
         setHasMounted(true);
@@ -29,11 +28,25 @@ export default function WhatsAppSettingsPage() {
 
     async function handleSave() {
         setSaving(true);
-        for (const s of settings) {
-            await supabase.from('app_settings').upsert({ key: s.key, value: s.value, description: s.description });
+        try {
+            const updates = settings.map(s => ({
+                key: s.key,
+                value: s.value,
+                description: s.description,
+                updated_at: new Date().toISOString()
+            }));
+
+            const { error } = await supabase.from('app_settings').upsert(updates);
+            if (error) throw error;
+
+            setNotification({ message: 'WhatsApp configuration updated!', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to save settings');
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
-        alert('Settings Saved!');
     }
 
     function handleChange(key, value) {
@@ -47,70 +60,112 @@ export default function WhatsAppSettingsPage() {
     const groupStart = settings.find(s => s.key.includes('welcome')) ? 'Welcome Flow' : 'General';
 
     return (
-        <div className="animate-enter">
-            <div className="admin-header-row">
+        <div className="animate-enter" style={{ paddingBottom: '5rem' }}>
+            <div className="admin-header-row" style={{ marginBottom: '2.5rem' }}>
                 <div>
-                    <h1 className={styles.pageTitle}>WhatsApp Funnel Config</h1>
-                    <p style={{ color: 'hsl(var(--text-muted))' }}>Customize the messages sent by your WhatsApp Bot.</p>
+                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
+                        <MessageSquare size={32} color="hsl(var(--primary))" /> WhatsApp Funnel
+                    </h1>
+                    <p style={{ color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Configure automated message triggers and bot responses.</p>
                 </div>
                 <button
                     onClick={handleSave}
                     disabled={saving}
+                    className="btn btn-primary"
                     style={{
-                        padding: '0.75rem 1.5rem', borderRadius: 'var(--radius)',
-                        background: 'hsl(var(--primary))', color: 'white',
-                        border: 'none', fontWeight: 600, cursor: saving ? 'wait' : 'pointer'
+                        padding: '0.85rem 2rem', borderRadius: '14px',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        fontWeight: 700, boxShadow: '0 8px 25px hsl(var(--primary) / 0.25)'
                     }}
                 >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {saving ? 'Syncing...' : 'Save Configuration'}
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '800px' }}>
-                {settings.length === 0 && <p>No settings found. Please run the setup script.</p>}
+            {notification && (
+                <div style={{
+                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 1100,
+                    background: 'hsl(142 70% 45%)', color: 'white',
+                    padding: '1rem 2rem', borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    fontWeight: 700, boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    animation: 'slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <CheckCircle2 size={20} /> {notification.message}
+                </div>
+            )}
 
-                {settings.map(setting => (
-                    <div key={setting.key} style={{
-                        background: 'hsl(var(--bg-card))', padding: '1.5rem',
-                        borderRadius: 'var(--radius)', border: '1px solid hsl(var(--border-subtle))'
+            <div style={{ display: 'grid', gap: '1.25rem', maxWidth: '900px' }}>
+                {settings.length === 0 && (
+                    <div style={{ padding: '4rem', textAlign: 'center', background: 'hsl(var(--bg-panel))', borderRadius: '24px', border: '1px dashed hsl(var(--border-subtle))' }}>
+                        <Settings size={40} color="hsl(var(--text-muted))" style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <p style={{ color: 'hsl(var(--text-muted))' }}>No WhatsApp settings detected in database.</p>
+                    </div>
+                )}
+
+                {settings.filter(s => s.key.startsWith('wa_')).map(setting => (
+                    <div key={setting.key} className="card shadow-premium" style={{
+                        padding: '2rem', background: 'hsl(var(--bg-panel))',
+                        borderRadius: '20px', border: '1px solid hsl(var(--border-subtle))',
+                        transition: 'all 0.3s ease'
                     }}>
-                        <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
-                            {setting.key.replace('wa_', '').replace(/_/g, ' ').toUpperCase()}
-                        </label>
-                        <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginBottom: '0.75rem' }}>
-                            {setting.description}
-                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                            <div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.7rem', color: 'hsl(var(--primary))', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    <ChevronRight size={14} /> {setting.key.replace('wa_', '').replace(/_/g, ' ')}
+                                </label>
+                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.4rem', lineHeight: 1.5 }}>
+                                    {setting.description}
+                                </p>
+                            </div>
+                        </div>
 
                         {setting.key.includes('image') ? (
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                <input
-                                    type="text"
-                                    value={setting.value}
-                                    onChange={(e) => handleChange(setting.key, e.target.value)}
-                                    style={{
-                                        width: '100%', padding: '0.75rem', borderRadius: 'var(--radius)',
-                                        border: '1px solid hsl(var(--border-bright))',
-                                        background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))'
-                                    }}
-                                />
-                                {setting.value && <img src={setting.value} alt="Preview" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />}
+                            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                                {setting.value && (
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', background: 'white', flexShrink: 0 }}>
+                                        <img src={setting.value} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                )}
+                                <div style={{ flex: 1, position: 'relative' }}>
+                                    <ImageIcon size={16} style={{ position: 'absolute', right: '1rem', top: '1rem', color: 'hsl(var(--text-muted))' }} />
+                                    <input
+                                        type="text"
+                                        value={setting.value}
+                                        onChange={(e) => handleChange(setting.key, e.target.value)}
+                                        placeholder="https://..."
+                                        style={{
+                                            width: '100%', padding: '1rem 3rem 1rem 1rem', borderRadius: '12px',
+                                            border: '1px solid hsl(var(--border-subtle))',
+                                            background: 'hsl(var(--bg-app))', color: 'white', outline: 'none'
+                                        }}
+                                    />
+                                </div>
                             </div>
                         ) : (
                             <textarea
                                 value={setting.value}
                                 onChange={(e) => handleChange(setting.key, e.target.value)}
-                                rows={4}
+                                rows={Math.max(3, setting.value.split('\n').length)}
                                 style={{
-                                    width: '100%', padding: '0.75rem', borderRadius: 'var(--radius)',
-                                    border: '1px solid hsl(var(--border-bright))',
-                                    background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))',
-                                    fontFamily: 'monospace'
+                                    width: '100%', padding: '1.25rem', borderRadius: '16px',
+                                    border: '1px solid hsl(var(--border-subtle))',
+                                    background: 'hsl(var(--bg-app))', color: 'white',
+                                    fontFamily: 'inherit', fontSize: '0.95rem', lineHeight: 1.6,
+                                    outline: 'none', resize: 'vertical',
+                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
                                 }}
                             />
                         )}
                     </div>
                 ))}
             </div>
+
+            <style jsx>{`
+                @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                .card:hover { border-color: hsl(var(--primary) / 0.3) !important; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.2) !important; }
+            `}</style>
         </div>
     );
 }

@@ -595,11 +595,11 @@ export default function CustomersPage() {
 
                         <div style={{
 
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
 
-                            backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center',
+                            backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center',
 
-                            justifyContent: 'center', zIndex: 1000
+                            zIndex: 1000, padding: '1.5rem', overflowY: 'auto'
 
                         }} onClick={() => setSelectedCustomer(null)}>
 

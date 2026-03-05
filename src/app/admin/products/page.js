@@ -910,11 +910,10 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ─── ADD / EDIT MODAL ─── */}
             {isEditing && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: '1.5rem', overflowY: 'auto' }}
                     onClick={() => setIsEditing(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '700px', maxHeight: 'min-content', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 40px 100px rgba(0,0,0,0.6)', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
                         <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
                             <h2 style={{ fontSize: '1.2rem', margin: 0 }}>{currentProduct ? '✏️ Edit Saree' : '➕ Add New Saree'}</h2>
                             <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>&times;</button>
@@ -1099,10 +1098,9 @@ export default function ProductsPage() {
             )}
 
 
-            {/* ─── STOCK HISTORY MODAL ─── */}
             {showHistory && selectedProductForHistory && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }} onClick={() => setShowHistory(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card shadow-premium" style={{ width: '600px', maxHeight: '80vh', overflow: 'hidden', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1100, padding: '1.5rem', overflowY: 'auto' }} onClick={() => setShowHistory(false)}>
+                    <div onClick={e => e.stopPropagation()} className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', maxHeight: 'min-content', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
                         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>📊 Stock History</h2>
@@ -1162,8 +1160,8 @@ export default function ProductsPage() {
                 </div>
             )}
             {importModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '450px', padding: '2rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1200, padding: '1.5rem', overflowY: 'auto' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '450px', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
                         <div style={{ marginBottom: '1.5rem' }}>
                             <div style={{ width: '60px', height: '60px', borderRadius: '20px', background: 'hsl(var(--primary) / 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', color: 'hsl(var(--primary))' }}>
                                 <Upload size={30} />
