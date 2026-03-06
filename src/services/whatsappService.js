@@ -882,12 +882,17 @@ export async function startCheckout(to) {
 }
 
 export async function askState(to, orderId) {
-    const rows = INDIAN_STATES.map(s => ({
-        id: `state_${s.replace(/\s+/g, '_').toLowerCase()}_${orderId}`,
-        title: s
-    }));
-
-    await sendList(to, "📍 SELECT STATE", "Please select your delivery state to calculate taxes & shipping correctly:", "Select State", rows);
+    // WhatsApp lists have a max 10 row limit — too few for all 28 Indian states.
+    // Instead, prompt the user to type their state name.
+    await sendButtons(to,
+        `📍 *Delivery State*\n\nWhich state are you in? Reply with your state name.\n\n` +
+        `_e.g. Tamil Nadu, Kerala, Karnataka, Maharashtra, Delhi..._`,
+        [
+            { id: `state_tamil_nadu_${orderId}`, title: '📍 Tamil Nadu' },
+            { id: `state_kerala_${orderId}`, title: '📍 Kerala' },
+            { id: `state_other_${orderId}`, title: '📍 Other State' }
+        ]
+    );
 }
 
 export async function handleStateSelection(to, stateNameClean, orderId) {
@@ -1023,65 +1028,103 @@ export async function handleContact(to) {
 }
 
 // ─── IMAGE OCR: Read product catalog ID from customer screenshot ──────────────
-// Uses OCR.space free API (25k requests/month free, no signup needed).
-// Downloads the WhatsApp image, sends to OCR.space, extracts CAT-XXXXX catalog ID.
+// Uses OCR.space free API. The customer screenshots the product image (which has
+// a CAT-XXXXX code stamped on it) and sends it — bot reads the code via OCR.
 async function analyzeImageForCatalogId(mediaId) {
     try {
         const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
-        // Step 1: Get the media download URL from WhatsApp Graph API
+        // Step 1: Get image download URL from WhatsApp Graph API
         const mediaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
         const mediaJson = await mediaRes.json();
         const mediaUrl = mediaJson?.url;
         if (!mediaUrl) {
-            console.error('[OCR] Could not get media URL:', mediaJson);
+            console.error('[OCR] ❌ No media URL in response:', JSON.stringify(mediaJson));
             return null;
         }
+        console.log('[OCR] ✅ Got media URL, downloading image...');
 
-        // Step 2: Download the image and convert to base64
+        // Step 2: Download image
         const imgRes = await fetch(mediaUrl, {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
         const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        console.log(`[OCR] Image size: ${(imgBuffer.length / 1024).toFixed(1)} KB`);
+
+        // Step 3: Convert to base64 (OCR.space free key limit: 1MB)
+        // If image > 900KB, we still try — OCR.space may resize internally
         const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
 
-        // Step 3: Send to OCR.space free API for text recognition
-        // Free public key works up to 25,000 requests/month — no signup required
+        // Step 4: Call OCR.space API
         const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
-        const formData = new URLSearchParams();
-        formData.append('base64Image', base64Image);
-        formData.append('language', 'eng');
-        formData.append('isOverlayRequired', 'false');
-        formData.append('detectOrientation', 'true');
-        formData.append('scale', 'true');
+        const params = new URLSearchParams({
+            base64Image,
+            language: 'eng',
+            isOverlayRequired: 'false',
+            detectOrientation: 'true',
+            scale: 'true',
+            OCREngine: '2',          // Engine 2 is better for printed text
+            isTable: 'false',
+        });
 
+        console.log('[OCR] Sending to OCR.space...');
         const ocrRes = await fetch('https://api.ocr.space/parse/image', {
             method: 'POST',
             headers: {
                 'apikey': ocrApiKey,
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: formData.toString()
+            body: params.toString()
         });
+
         const ocrJson = await ocrRes.json();
-        const detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
 
-        console.log('[OCR] Detected text:', detectedText.substring(0, 200));
+        // Log the full response for debugging
+        console.log('[OCR] Response:', JSON.stringify({
+            IsErroredOnProcessing: ocrJson.IsErroredOnProcessing,
+            ErrorMessage: ocrJson.ErrorMessage,
+            ErrorDetails: ocrJson.ErrorDetails,
+            ParsedText: ocrJson?.ParsedResults?.[0]?.ParsedText?.substring(0, 300)
+        }));
 
-        // Step 4: Find catalog ID pattern CAT-XXXXX (5 alphanumeric chars)
-        const match = detectedText.match(/CAT-([A-Z0-9]{5})/i);
-        if (match) {
-            return `CAT-${match[1].toUpperCase()}`;
+        if (ocrJson.IsErroredOnProcessing) {
+            console.error('[OCR] ❌ OCR.space error:', ocrJson.ErrorMessage);
+            return null;
         }
 
+        const detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
+        console.log('[OCR] Detected text:', detectedText.substring(0, 300));
+
+        // Step 5: Flexible pattern matching — handles:
+        // CAT-KY028   CAT KY028   CATKY028   cat-ky028   KY028 etc.
+        const patterns = [
+            /CAT[-\s]?([A-Z0-9]{5})/i,   // CAT-KY028 or CAT KY028 or CATKY028
+            /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,  // XX-YYYY or XXX-YYY
+        ];
+
+        for (const pattern of patterns) {
+            const m = detectedText.match(pattern);
+            if (m) {
+                // Reconstruct as CAT-XXXXX (first group might be prefix, second is code)
+                const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '');
+                if (/^[A-Z]{2,3}[A-Z0-9]{3,5}$/i.test(code) && code.length <= 8) {
+                    const catalogId = `CAT-${code.slice(-5).toUpperCase()}`;
+                    console.log('[OCR] ✅ Extracted catalog ID:', catalogId);
+                    return catalogId;
+                }
+            }
+        }
+
+        console.log('[OCR] ❌ No CAT-XXXXX pattern found in text');
         return null;
     } catch (err) {
-        console.error('[OCR] analyzeImageForCatalogId error:', err);
+        console.error('[OCR] Exception:', err.message);
         return null;
     }
 }
+
 
 
 
