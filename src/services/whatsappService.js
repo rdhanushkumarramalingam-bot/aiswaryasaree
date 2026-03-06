@@ -393,11 +393,12 @@ export async function handleProductInquiry(to, catalogId) {
             );
         }
 
-        const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
-        const stockStatus = effectiveStock <= 0
+        const stock = product.stock || 0;
+        const alertThreshold = product.alert_threshold || 5;
+        const stockStatus = stock <= 0
             ? '❌ Out of Stock'
-            : effectiveStock <= 5
-                ? `⚠️ Only ${effectiveStock} left — Order soon!`
+            : stock <= alertThreshold
+                ? `⚠️ Only ${stock} left — Order soon!`
                 : `✅ In Stock`;
 
         const desc = product.description
@@ -411,7 +412,7 @@ export async function handleProductInquiry(to, catalogId) {
             `${stockStatus}${desc}`;
 
         const imgUrl = getPremiumImage(product);
-        const buttons = effectiveStock > 0
+        const buttons = stock > 0
             ? [
                 { id: `addcart_${product.id}`, title: '🛒 Add to Bag' },
                 { id: 'menu_catalogue', title: '📖 Browse More' }
