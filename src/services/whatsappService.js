@@ -356,6 +356,78 @@ async function generateAndUploadInvoice(order) {
 
 // ─── 5. FLOW FUNCTIONS ───────────────────────────────────────────────────────
 
+// ─── PRODUCT INQUIRY via Catalog ID (printed on product image) ────────────────
+// Customer reads the CAT-XXXXX code from the product image and texts it to the bot.
+
+// Generate lookup variants to fix common OCR misreads (e.g. 1→I, 0→O)
+function getCatalogIdVariants(catalogId) {
+    const code = catalogId.replace(/^CAT-/i, '').toUpperCase();
+    const CONFUSABLES = {
+        '1': ['I', 'L'], '0': ['O'], '5': ['S'], '8': ['B'],
+        'I': ['1'], 'O': ['0'], 'S': ['5'], 'B': ['8']
+    };
+    const variants = new Set([`CAT-${code}`]);
+    for (let i = 0; i < code.length; i++) {
+        const alts = CONFUSABLES[code[i]];
+        if (alts) alts.forEach(a => variants.add(`CAT-${code.slice(0, i)}${a}${code.slice(i + 1)}`));
+    }
+    return [...variants];
+}
+
+export async function handleProductInquiry(to, catalogId) {
+    try {
+        // Try exact match first, then OCR-confusion variants (1↔I, 0↔O etc.)
+        const variants = getCatalogIdVariants(catalogId);
+        let product = null;
+        for (const variant of variants) {
+            const { data } = await supabase
+                .from('products').select('*')
+                .ilike('product_catalog_image_id', variant)
+                .eq('is_active', true).single();
+            if (data) { product = data; break; }
+        }
+
+        if (!product) {
+            return sendText(to,
+                `❌ Product code *${catalogId.toUpperCase()}* not found.\n\nSend *Hi* to browse our full collection! 💮`
+            );
+        }
+
+        const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
+        const stockStatus = effectiveStock <= 0
+            ? '❌ Out of Stock'
+            : effectiveStock <= 5
+                ? `⚠️ Only ${effectiveStock} left — Order soon!`
+                : `✅ In Stock`;
+
+        const desc = product.description
+            ? `\n📝 ${product.description.substring(0, 120)}${product.description.length > 120 ? '...' : ''}`
+            : '';
+
+        const caption =
+            `📦 *${product.name}*\n` +
+            (product.category ? `🏷️ ${product.category}\n` : '') +
+            `💎 *₹${(product.price || 0).toLocaleString()}*\n` +
+            `${stockStatus}${desc}`;
+
+        const imgUrl = getPremiumImage(product);
+        const buttons = effectiveStock > 0
+            ? [
+                { id: `addcart_${product.id}`, title: '🛒 Add to Bag' },
+                { id: 'menu_catalogue', title: '📖 Browse More' }
+            ]
+            : [
+                { id: 'menu_catalogue', title: '📖 Browse More' },
+                { id: 'menu_main', title: '🏠 Main Menu' }
+            ];
+
+        await sendImageButtons(to, imgUrl, caption, buttons);
+    } catch (err) {
+        console.error('[WA] handleProductInquiry error:', err);
+        await sendText(to, '⚠️ Could not load product details. Please send *Hi* to browse our catalogue.');
+    }
+}
+
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
         "💮 *Welcome to Cast Prince!*\n\nDiscover our premium collection of silk & cotton sarees."
@@ -949,6 +1021,69 @@ export async function handleContact(to) {
     await sendText(to, contactMsg);
 }
 
+// ─── IMAGE OCR: Read product catalog ID from customer screenshot ──────────────
+// Uses OCR.space free API (25k requests/month free, no signup needed).
+// Downloads the WhatsApp image, sends to OCR.space, extracts CAT-XXXXX catalog ID.
+async function analyzeImageForCatalogId(mediaId) {
+    try {
+        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+        // Step 1: Get the media download URL from WhatsApp Graph API
+        const mediaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const mediaJson = await mediaRes.json();
+        const mediaUrl = mediaJson?.url;
+        if (!mediaUrl) {
+            console.error('[OCR] Could not get media URL:', mediaJson);
+            return null;
+        }
+
+        // Step 2: Download the image and convert to base64
+        const imgRes = await fetch(mediaUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+
+        // Step 3: Send to OCR.space free API for text recognition
+        // Free public key works up to 25,000 requests/month — no signup required
+        const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
+        const formData = new URLSearchParams();
+        formData.append('base64Image', base64Image);
+        formData.append('language', 'eng');
+        formData.append('isOverlayRequired', 'false');
+        formData.append('detectOrientation', 'true');
+        formData.append('scale', 'true');
+
+        const ocrRes = await fetch('https://api.ocr.space/parse/image', {
+            method: 'POST',
+            headers: {
+                'apikey': ocrApiKey,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        });
+        const ocrJson = await ocrRes.json();
+        const detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
+
+        console.log('[OCR] Detected text:', detectedText.substring(0, 200));
+
+        // Step 4: Find catalog ID pattern CAT-XXXXX (5 alphanumeric chars)
+        const match = detectedText.match(/CAT-([A-Z0-9]{5})/i);
+        if (match) {
+            return `CAT-${match[1].toUpperCase()}`;
+        }
+
+        return null;
+    } catch (err) {
+        console.error('[OCR] analyzeImageForCatalogId error:', err);
+        return null;
+    }
+}
+
+
+
 // ─── 6. ROUTER ───────────────────────────────────────────────────────────────
 
 // Message deduplication — WhatsApp often delivers the same webhook 2-3x
@@ -994,6 +1129,24 @@ export async function processIncomingMessage(body) {
         // 🛑 Stop any active stream for this user immediately
         cancelStream(from);
 
+        // 📸 IMAGE MESSAGE — Customer sent a screenshot of a product
+        // Use Google Cloud Vision OCR to read the catalog ID stamped on the image
+        if (msgType === 'image') {
+            const mediaId = message.image?.id;
+            await sendText(from, '🔍 Analysing your image... Please wait a moment!');
+            const catalogId = await analyzeImageForCatalogId(mediaId);
+            if (catalogId) {
+                console.log(`[WA] OCR found catalog ID: ${catalogId} from ${from}`);
+                return await handleProductInquiry(from, catalogId);
+            } else {
+                return await sendText(from,
+                    '❌ Could not read a product code from the image.\n\n' +
+                    'Please make sure the image shows the product code clearly (e.g. *CAT-AB12X*).\n\n' +
+                    'Or send *Hi* to browse our catalogue! 💮'
+                );
+            }
+        }
+
         if (msgType === 'text') {
             // ─── STEP 1: Keywords ALWAYS take priority — checked before anything else ───
             const MENU_TRIGGERS = ['hi', 'hello', 'menu', 'start', '0'];
@@ -1007,6 +1160,15 @@ export async function processIncomingMessage(body) {
             if (MENU_TRIGGERS.includes(text)) return await sendMainMenu(from);
             if (['cart', 'bag'].includes(text)) return await handleViewCart(from);
             if (['catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees'].includes(text)) return await sendCatalogueCategories(from);
+
+            // ── CATALOG ID LOOKUP: customer reads CAT-XXXXX code from product image ──
+            // Matches patterns like: CAT-AB12X  or  cat-ab12x  or just  AB12X
+            const catalogMatch = message.text.body.trim().match(/^(CAT-)?([A-Z0-9]{5})$/i);
+            if (catalogMatch) {
+                const catalogId = `CAT-${catalogMatch[2].toUpperCase()}`;
+                return await handleProductInquiry(from, catalogId);
+            }
+
             if (text === 'contact') return await handleContact(from);
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
