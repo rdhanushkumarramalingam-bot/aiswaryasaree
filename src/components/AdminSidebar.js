@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingBag, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout } from 'lucide-react';
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
@@ -16,7 +16,8 @@ const menuItems = [
     { name: 'Meta Connect', href: '/admin/facebook', icon: Facebook },
     { name: 'Schedule Post', href: '/admin/schedule', icon: Clock },
     { name: 'Shipping', href: '/admin/shipping', icon: Truck },
-    { name: 'CMS', href: '/admin/cms', icon: FileText },
+    { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
+    { name: 'CMS', href: '/admin/cms', icon: Layout },
     { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
 ];
 

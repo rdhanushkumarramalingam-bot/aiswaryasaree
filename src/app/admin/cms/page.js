@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import MediaPicker from '@/components/MediaPicker';
 
 const TABS = [
     { id: 'content', label: 'Page Builder', icon: FileText },
@@ -35,6 +36,12 @@ export default function CMSPage() {
     const [activeTab, setActiveTab] = useState('content');
     const [saving, setSaving] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+
+    // Media Picker States
+    const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [activeImageField, setActiveImageField] = useState(null); // 'og_image' | 'featured_image'
+    const [ogImageUrl, setOgImageUrl] = useState('');
+    const [featuredImageUrl, setFeaturedImageUrl] = useState('');
 
     const fetchPages = async () => {
         setLoading(true);
@@ -101,6 +108,8 @@ export default function CMSPage() {
             }
             setIsEditing(false);
             setCurrentPage(null);
+            setOgImageUrl('');
+            setFeaturedImageUrl('');
             setActiveTab('content');
             fetchPages();
         } catch (error) {
@@ -298,7 +307,13 @@ export default function CMSPage() {
                                         <td style={{ padding: '1.5rem 2rem', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                                                 <button
-                                                    onClick={() => { setCurrentPage(page); setIsEditing(true); setActiveTab('content'); }}
+                                                    onClick={() => {
+                                                        setCurrentPage(page);
+                                                        setOgImageUrl(page.og_image || '');
+                                                        setFeaturedImageUrl(page.featured_image || '');
+                                                        setIsEditing(true);
+                                                        setActiveTab('content');
+                                                    }}
                                                     className="btn-icon"
                                                     title="Refine Page"
                                                 >
@@ -463,7 +478,12 @@ export default function CMSPage() {
                                             <textarea name="meta_description" rows={4} placeholder="Summarize your page for Google search results..." defaultValue={currentPage?.meta_description} style={{ ...inputStyle, minHeight: '100px' }} />
 
                                             <label style={labelStyle}>Social Sharing Image (OpenGraph URL)</label>
-                                            <input name="og_image" placeholder="https://image-url-for-whatsapp-fb.jpg" defaultValue={currentPage?.og_image} style={inputStyle} />
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <input name="og_image" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                                <button type="button" onClick={() => { setActiveImageField('og_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
+                                                    <Upload size={16} />
+                                                </button>
+                                            </div>
 
                                             <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'white', borderRadius: '14px', border: '1px solid #e2e8f0', color: '#1a202c' }}>
                                                 <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.aiswaryasaree.com/page/{currentPage?.slug || 'preview'}</div>
@@ -487,10 +507,15 @@ export default function CMSPage() {
                                                 </select>
 
                                                 <label style={labelStyle}>Featured Media (Cover Image)</label>
-                                                <input name="featured_image" placeholder="https://image-url" defaultValue={currentPage?.featured_image} style={inputStyle} />
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <input name="featured_image" value={featuredImageUrl} onChange={(e) => setFeaturedImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                                    <button type="button" onClick={() => { setActiveImageField('featured_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
+                                                        <Upload size={16} />
+                                                    </button>
+                                                </div>
 
-                                                {currentPage?.featured_image && (
-                                                    <img src={currentPage.featured_image} alt="Preview" style={{ width: '100%', borderRadius: '12px', height: '200px', objectFit: 'cover', marginTop: '1rem', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                {featuredImageUrl && (
+                                                    <img src={featuredImageUrl} alt="Preview" style={{ width: '100%', borderRadius: '12px', height: '200px', objectFit: 'cover', marginTop: '1rem', border: '1px solid hsl(var(--border-subtle))' }} />
                                                 )}
                                             </div>
 
@@ -548,6 +573,18 @@ export default function CMSPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showMediaPicker && (
+                <MediaPicker
+                    currentImage={activeImageField === 'og_image' ? ogImageUrl : featuredImageUrl}
+                    onSelect={(url) => {
+                        if (activeImageField === 'og_image') setOgImageUrl(url);
+                        else setFeaturedImageUrl(url);
+                        setShowMediaPicker(false);
+                    }}
+                    onClose={() => setShowMediaPicker(false)}
+                />
             )}
 
             <style jsx>{`

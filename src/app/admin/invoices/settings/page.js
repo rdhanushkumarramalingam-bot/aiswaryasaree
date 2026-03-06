@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import {
     Loader2, Printer, Save, ArrowLeft, Image, MapPin,
-    Hash, Info, CheckCircle2, MessageSquare, Settings
+    Hash, Info, CheckCircle2, MessageSquare, Settings, Upload
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import MediaPicker from '@/components/MediaPicker';
 
 export default function InvoiceSettingsPage() {
     const router = useRouter();
@@ -23,6 +24,7 @@ export default function InvoiceSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [showMediaPicker, setShowMediaPicker] = useState(false);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -122,8 +124,11 @@ export default function InvoiceSettingsPage() {
 
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Logo Image URL</label>
-                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                 <input type="text" value={settings.shop_logo} onChange={e => setSettings({ ...settings, shop_logo: e.target.value })} placeholder="https://..." style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                                <button type="button" onClick={() => setShowMediaPicker(true)} className="btn btn-secondary" style={{ padding: '0.75rem', height: 'auto' }} title="Open Media Library">
+                                    <Upload size={18} />
+                                </button>
                                 {settings.shop_logo && (
                                     <div style={{ width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', background: 'white' }}>
                                         <img src={settings.shop_logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -272,6 +277,17 @@ export default function InvoiceSettingsPage() {
                     </div>
                 </div>
             </div>
+
+            {showMediaPicker && (
+                <MediaPicker
+                    currentImage={settings.shop_logo}
+                    onSelect={(url) => {
+                        setSettings({ ...settings, shop_logo: url });
+                        setShowMediaPicker(false);
+                    }}
+                    onClose={() => setShowMediaPicker(false)}
+                />
+            )}
 
             <style jsx>{`
                 @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

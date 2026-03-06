@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Plus, Edit, Trash2, Search, Loader2, Image, LayoutGrid, List,
+    Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag,
     Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, EyeOff
 } from 'lucide-react';
@@ -14,6 +14,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
+import MediaPicker from '@/components/MediaPicker';
+import ProductImageAssigner from '@/components/ProductImageAssigner';
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -52,6 +54,14 @@ export default function ProductsPage() {
     const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+
+    // Media Picker States
+    const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [activeImageField, setActiveImageField] = useState(null); // { type: 'product' } or { type: 'variant', index: number }
+    const [productImageUrl, setProductImageUrl] = useState('');
+
+    // Post-Import Image Assigner State
+    const [importedProductsForImage, setImportedProductsForImage] = useState(null);
 
     const fetchHistory = async (product) => {
         setSelectedProductForHistory(product);
@@ -208,6 +218,7 @@ export default function ProductsPage() {
 
             let successCount = 0;
             let fbSuccessCount = 0;
+            const newlyImportedProducts = [];
 
             for (const rawRow of jsonData) {
                 try {
@@ -253,6 +264,7 @@ export default function ProductsPage() {
                     if (!newProd) continue;
 
                     successCount++;
+                    newlyImportedProducts.push(newProd);
 
                     // Log history
                     if (stock > 0) {
@@ -295,6 +307,9 @@ export default function ProductsPage() {
                     ? `✅ Imported ${successCount} products & synced ${fbSuccessCount} with WhatsApp!`
                     : `✅ Successfully imported ${successCount} products!`;
                 setNotification({ message: msg, type: 'success' });
+
+                // Open the image assigner modal with newly imported products
+                setImportedProductsForImage(newlyImportedProducts);
             } else if (!notification) {
                 setNotification({ message: '⚠️ Import failed. Please check column headers.', type: 'error' });
             }
@@ -329,14 +344,52 @@ export default function ProductsPage() {
         if (productType === 'simple') {
             productData.price = Number(formData.get('price'));
             productData.stock = Number(formData.get('stock'));
-            productData.alert_threshold = Number(formData.get('alert_threshold') || 0);
-            productData.image_url = formData.get('image') || '';
+            productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
+
+            // Handle image with catalog ID generation
+            const imageUrl = formData.get('image') || '';
+            if (imageUrl && imageUrl.startsWith('blob:')) {
+                // This is a newly uploaded file, process it like ProductImageAssigner
+                try {
+                    // 1. Generate catalog ID
+                    const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                    console.log('Processing image - Generated catalog ID:', catalogId);
+                    
+                    // 2. Stamp the catalog ID onto the image
+                    console.log('Stamping image with catalog ID:', catalogId);
+                    const watermarkedBlob = await stampProductCode(imageUrl, catalogId);
+                    
+                    // 3. Upload to media library
+                    const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                    console.log('Upload successful, final URL:', finalUrl);
+                    
+                    // 5. Update product data with catalog ID and URL
+                    productData.image_url = finalUrl;
+                    productData.product_catalog_image_id = catalogId;
+                    
+                    console.log('About to save product with catalog ID:', catalogId);
+                } catch (err) {
+                    console.error('Image processing failed:', err);
+                    // Fallback to original URL but still set a catalog ID
+                    productData.image_url = imageUrl;
+                    productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                    console.log('Fallback - Generated catalog ID:', productData.product_catalog_image_id);
+                }
+            } else {
+                // Use existing URL as-is
+                productData.image_url = imageUrl;
+                // If there's an existing image but no catalog ID, generate one
+                if (imageUrl && !productData.product_catalog_image_id) {
+                    productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                    console.log('Generated catalog ID for existing image:', productData.product_catalog_image_id);
+                }
+            }
         } else {
             // For variants, we take price/stock/image from the first variant as "representative" for the list view
             if (variants.length > 0) {
                 productData.price = variants[0].price;
                 productData.stock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
-                productData.alert_threshold = Number(formData.get('alert_threshold') || 0);
+                productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
                 productData.image_url = variants[0].image_url;
             }
         }
@@ -428,9 +481,10 @@ export default function ProductsPage() {
             }
 
             fetchProducts();
-            alert('✨ Product Saved Successfully!\n\n✅ Updated in Website Database\n✅ Synced with WhatsApp Catalogue');
+            alert('✨ Product Saved Successfully!\n\n✅ Updated in Website Database\n✅ Generated Catalog ID: ' + (productData.product_catalog_image_id || 'N/A') + '\n✅ Image stored in Media Library');
             setIsEditing(false);
             setCurrentProduct(null);
+            setProductImageUrl('');
             setVariants([]);
             setPostToFacebook(false);
         } catch (error) {
@@ -442,6 +496,7 @@ export default function ProductsPage() {
     const openEditModal = async (product) => {
         setCurrentProduct(product);
         setProductType(product?.type || 'simple');
+        setProductImageUrl(product?.image_url || '');
         if (product?.id) {
             const { data } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
             setVariants(data || []);
@@ -753,13 +808,25 @@ export default function ProductsPage() {
                                         <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
                                         <td style={{ padding: '0.75rem 1.5rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
-                                                <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
                                                     {product.image_url ? (
-                                                        <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
+                                                        <>
+                                                            <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
+                                                            {product.product_catalog_image_id && (
+                                                                <div style={{
+                                                                    position: 'absolute', bottom: 2, right: 2,
+                                                                    background: 'hsl(var(--accent))', color: 'white',
+                                                                    fontSize: '0.6rem', fontWeight: 700, padding: '2px 4px',
+                                                                    borderRadius: '4px', fontFamily: 'monospace'
+                                                                }}>
+                                                                    {/* {product.product_catalog_image_id} */}
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     ) : (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Image size={18} color="hsl(var(--text-muted))" />
+                                                            <ImageIcon size={18} color="hsl(var(--text-muted))" />
                                                         </div>
                                                     )}
                                                 </div>
@@ -768,6 +835,15 @@ export default function ProductsPage() {
                                                     <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {product.description || '—'}
                                                     </div>
+                                                    {product.product_catalog_image_id && (
+                                                        <div style={{
+                                                            fontSize: '0.7rem', fontWeight: 700, fontFamily: 'monospace',
+                                                            background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))',
+                                                            padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px'
+                                                        }}>
+                                                            {product.product_catalog_image_id}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -848,9 +924,23 @@ export default function ProductsPage() {
                                     {/* Product Image */}
                                     <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative' }}>
                                         {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name}
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                            <>
+                                                <img src={product.image_url} alt={product.name}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                                {/* Catalog ID Badge */}
+                                                {product.product_catalog_image_id && (
+                                                    <div style={{
+                                                        position: 'absolute', bottom: '10px', left: '10px',
+                                                        background: 'hsl(var(--accent))', color: 'white',
+                                                        fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
+                                                        borderRadius: '6px', fontFamily: 'monospace',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                                                    }}>
+                                                        {product.product_catalog_image_id}
+                                                    </div>
+                                                )}
+                                            </>
                                         ) : (
                                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>💮</div>
                                         )}
@@ -985,8 +1075,22 @@ export default function ProductsPage() {
                                     </div>
                                     <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Image URL (WhatsApp display)</label>
-                                            <input name="image" defaultValue={currentProduct?.image_url} placeholder="https://..." style={inputStyle} />
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Image *</label>
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <div
+                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
+                                                    style={{
+                                                        width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden',
+                                                        background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))'
+                                                    }}
+                                                >
+                                                    {productImageUrl ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={20} className="text-muted" style={{ margin: '12px' }} />}
+                                                </div>
+                                                <input name="image" value={productImageUrl} onChange={(e) => setProductImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                                <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }} title="Open Media Library">
+                                                    <Upload size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold</label>
@@ -1023,7 +1127,15 @@ export default function ProductsPage() {
                                                     <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
                                                     <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
                                                     <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
-                                                    <input placeholder="Link..." value={v.image_url} onChange={e => updateVariant(i, 'image_url', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <div
+                                                            onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
+                                                            style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))', flexShrink: 0 }}
+                                                        >
+                                                            {v.image_url ? <img src={v.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} className="text-muted" style={{ margin: '9px' }} />}
+                                                        </div>
+                                                        <input placeholder="Link..." value={v.image_url} onChange={e => updateVariant(i, 'image_url', e.target.value)} style={{ ...inputStyle, padding: '0.5rem', flex: 1 }} />
+                                                    </div>
                                                     <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                                                         onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.2)'}
                                                         onMouseLeave={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.1)'}>
@@ -1220,6 +1332,33 @@ export default function ProductsPage() {
                     {notification.type === 'error' ? '❌' : '✅'} {notification.message}
                     <button onClick={() => setNotification(null)} style={{ marginLeft: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}>&times;</button>
                 </div>
+            )}
+
+            {showMediaPicker && (
+                <MediaPicker
+                    currentImage={activeImageField?.type === 'product' ? productImageUrl : variants[activeImageField?.index]?.image_url}
+                    onSelect={(url) => {
+                        if (activeImageField.type === 'product') {
+                            setProductImageUrl(url);
+                        } else if (activeImageField.type === 'variant') {
+                            updateVariant(activeImageField.index, 'image_url', url);
+                        }
+                        setShowMediaPicker(false);
+                    }}
+                    onClose={() => setShowMediaPicker(false)}
+                />
+            )}
+
+            {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
+            {importedProductsForImage && importedProductsForImage.length > 0 && (
+                <ProductImageAssigner
+                    products={importedProductsForImage}
+                    onClose={() => setImportedProductsForImage(null)}
+                    onDone={() => {
+                        fetchProducts();
+                        setImportedProductsForImage(null);
+                    }}
+                />
             )}
 
             <style jsx>{`

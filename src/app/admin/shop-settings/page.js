@@ -7,6 +7,7 @@ import {
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
     Upload, Globe, Phone, Mail
 } from 'lucide-react';
+import MediaPicker from '@/components/MediaPicker';
 
 export default function ShopSettingsPage() {
     const [settings, setSettings] = useState({});
@@ -14,6 +15,7 @@ export default function ShopSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
+    const [showMediaPicker, setShowMediaPicker] = useState(false);
 
     useEffect(() => {
         setHasMounted(true);
@@ -122,14 +124,24 @@ export default function ShopSettingsPage() {
                             />
                         </div>
                         <div className="field-group">
-                            <label><Image size={14} /> Shop Logo URL</label>
+                            <label><Image size={14} /> Shop Logo</label>
                             <div className="input-with-preview">
-                                <input
-                                    type="text"
-                                    value={settings.shop_logo || ''}
-                                    onChange={(e) => handleUpdate('shop_logo', e.target.value)}
-                                    placeholder="https://your-domain.com/logo.png"
-                                />
+                                <div style={{ flex: 1, display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={settings.shop_logo || ''}
+                                        onChange={(e) => handleUpdate('shop_logo', e.target.value)}
+                                        placeholder="https://your-domain.com/logo.png"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn-primary-glow"
+                                        style={{ padding: '0.5rem 1rem', width: 'auto', boxShadow: 'none' }}
+                                        onClick={() => setShowMediaPicker(true)}
+                                    >
+                                        <Upload size={16} />
+                                    </button>
+                                </div>
                                 {settings.shop_logo && (
                                     <div className="logo-preview">
                                         <img src={settings.shop_logo} alt="Preview" />
@@ -213,6 +225,17 @@ export default function ShopSettingsPage() {
                     </div>
                 </section>
             </div>
+
+            {showMediaPicker && (
+                <MediaPicker
+                    currentImage={settings.shop_logo}
+                    onSelect={(url) => {
+                        handleUpdate('shop_logo', url);
+                        setShowMediaPicker(false);
+                    }}
+                    onClose={() => setShowMediaPicker(false)}
+                />
+            )}
 
             <style jsx>{`
                 .shop-settings-page { padding: 2rem; max-width: 1200px; margin: 0 auto; }
