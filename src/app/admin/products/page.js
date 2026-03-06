@@ -216,7 +216,8 @@ export default function ProductsPage() {
 
             const normalizeKey = (k) => String(k || '').toLowerCase().replace(/[\s_]/g, '');
 
-            let successCount = 0;
+            let insertCount = 0;
+            let updateCount = 0;
             let fbSuccessCount = 0;
             const newlyImportedProducts = [];
 
@@ -227,6 +228,7 @@ export default function ProductsPage() {
                         row[normalizeKey(k)] = rawRow[k];
                     }
 
+                    const id = row.id || row.productid || row.itemid || null;
                     const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Saree';
                     const priceVal = parseFloat(row.price || row.sellingprice || row.mrp || row.rate || row.amount);
                     const price = isNaN(priceVal) ? 0 : priceVal;
@@ -236,7 +238,6 @@ export default function ProductsPage() {
 
                     const description = String(row.description || row.desc || row.details || row.about || row.info || '');
                     const category = String(row.category || row.collection || row.type || row.group || 'General');
-                    const image_url = String(row.imageurl || row.image || row.picture || row.imagrurl || row.imglink || row.photo || '');
 
                     const productData = {
                         name,
@@ -244,47 +245,104 @@ export default function ProductsPage() {
                         price,
                         category,
                         stock,
-                        image_url,
                         type: 'simple',
-                        total_added: stock,
                         is_active: true
                     };
 
-                    const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
+                    let savedProduct = null;
 
-                    if (insertError) {
-                        console.error('Database Error for row:', name, JSON.stringify(insertError));
-                        if (successCount === 0) {
-                            setNotification({ message: `❌ DB Error: ${insertError.message || 'Check required fields'}`, type: 'error' });
+                    if (id) {
+                        // Check if exists
+                        const { data: existingData } = await supabase.from('products').select('*').eq('id', id).single();
+
+                        if (existingData) {
+                            // Update
+                            // Only update stock if explicitly changing it, but Excel usually gives absolute numbers.
+                            // If user is syncing, replace stock and record diff.
+                            const oldStock = existingData.stock || 0;
+                            const newStock = stock;
+                            const diff = newStock - oldStock;
+
+                            const { data, error: updateError } = await supabase.from('products').update(productData).eq('id', id).select();
+
+                            if (updateError) {
+                                console.error('Update Error for row:', id, JSON.stringify(updateError));
+                                continue;
+                            }
+                            savedProduct = data?.[0];
+                            if (savedProduct) {
+                                updateCount++;
+                                newlyImportedProducts.push(savedProduct);
+
+                                // History for stock adjustment
+                                if (diff !== 0) {
+                                    await supabase.from('product_history').insert({
+                                        product_id: savedProduct.id,
+                                        change_type: diff > 0 ? 'ADJUSTMENT' : 'ADJUSTMENT',
+                                        quantity_change: Math.abs(diff),
+                                        new_stock: newStock,
+                                        reason: 'Excel Bulk Sync'
+                                    });
+                                }
+                            }
+                        } else {
+                            // ID provided but not found, ignore ID and Insert
+                            productData.total_added = stock;
+                            const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
+                            if (!insertError && data?.[0]) {
+                                savedProduct = data[0];
+                                insertCount++;
+                                newlyImportedProducts.push(savedProduct);
+                                if (stock > 0) {
+                                    await supabase.from('product_history').insert({
+                                        product_id: savedProduct.id,
+                                        change_type: 'ADD',
+                                        quantity_change: stock,
+                                        new_stock: stock,
+                                        reason: 'Bulk Excel Import'
+                                    });
+                                }
+                            }
                         }
-                        continue;
-                    }
+                    } else {
+                        // No ID, standard Insert
+                        productData.total_added = stock;
+                        const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
 
-                    const newProd = data?.[0];
-                    if (!newProd) continue;
+                        if (insertError) {
+                            console.error('Database Error for row:', name, JSON.stringify(insertError));
+                            if (insertCount === 0 && updateCount === 0) {
+                                setNotification({ message: `❌ DB Error: ${insertError.message || 'Check required fields'}`, type: 'error' });
+                            }
+                            continue;
+                        }
 
-                    successCount++;
-                    newlyImportedProducts.push(newProd);
+                        savedProduct = data?.[0];
+                        if (savedProduct) {
+                            insertCount++;
+                            newlyImportedProducts.push(savedProduct);
 
-                    // Log history
-                    if (stock > 0) {
-                        await supabase.from('product_history').insert({
-                            product_id: newProd.id,
-                            change_type: 'ADD',
-                            quantity_change: stock,
-                            new_stock: stock,
-                            reason: 'Bulk Excel Import'
-                        });
+                            // Log history
+                            if (stock > 0) {
+                                await supabase.from('product_history').insert({
+                                    product_id: savedProduct.id,
+                                    change_type: 'ADD',
+                                    quantity_change: stock,
+                                    new_stock: stock,
+                                    reason: 'Bulk Excel Import'
+                                });
+                            }
+                        }
                     }
 
                     // WhatsApp/Meta Catalogue Sync
-                    if (syncWithMeta && canPostToFacebook() && image_url && image_url.startsWith('http')) {
+                    if (syncWithMeta && canPostToFacebook() && savedProduct?.image_url && savedProduct.image_url.startsWith('http')) {
                         try {
                             const fbRes = await fetch('/api/facebook/post', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    imageUrl: image_url,
+                                    imageUrl: savedProduct.image_url,
                                     name,
                                     price,
                                     description,
@@ -302,10 +360,11 @@ export default function ProductsPage() {
                 }
             }
 
-            if (successCount > 0) {
+            if (insertCount > 0 || updateCount > 0) {
+                const total = insertCount + updateCount;
                 const msg = syncWithMeta
-                    ? `✅ Imported ${successCount} products & synced ${fbSuccessCount} with WhatsApp!`
-                    : `✅ Successfully imported ${successCount} products!`;
+                    ? `✅ Processed ${total} items (${insertCount} new, ${updateCount} updated) & synced ${fbSuccessCount} with WhatsApp!`
+                    : `✅ Processed ${total} items (${insertCount} new, ${updateCount} updated)!`;
                 setNotification({ message: msg, type: 'success' });
 
                 // Open the image assigner modal with newly imported products
@@ -326,6 +385,59 @@ export default function ProductsPage() {
             setImporting(false);
         }
     }
+
+    const handleExportExcel = () => {
+        if (!products || products.length === 0) {
+            setNotification({ message: '⚠️ No products to export!', type: 'error' });
+            return;
+        }
+
+        try {
+            // Map products to the Excel format
+            const exportData = products.map(p => ({
+                'ID': p.id,
+                'Name': p.name || '',
+                'Category': p.category || '',
+                'Price': p.price || 0,
+                'Stock': p.stock || 0,
+                'Description': p.description || ''
+            }));
+
+            // Create a new workbook and add the data
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+
+            // Set column widths for better readability
+            const colWidths = [
+                { wch: 36 }, // ID (UUID length)
+                { wch: 40 }, // Name
+                { wch: 20 }, // Category
+                { wch: 10 }, // Price
+                { wch: 10 }, // Stock
+                { wch: 50 }, // Description
+            ];
+            worksheet['!cols'] = colWidths;
+
+            // Generate file buffer and trigger download
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            const downloadUrl = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `Sarees_Catalog_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+
+            setNotification({ message: `✅ Exported ${products.length} products successfully!`, type: 'success' });
+        } catch (err) {
+            console.error('Export Error:', err);
+            setNotification({ message: '❌ Error exporting products', type: 'error' });
+        }
+    };
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -354,19 +466,19 @@ export default function ProductsPage() {
                     // 1. Generate catalog ID
                     const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                     console.log('Processing image - Generated catalog ID:', catalogId);
-                    
+
                     // 2. Stamp the catalog ID onto the image
                     console.log('Stamping image with catalog ID:', catalogId);
                     const watermarkedBlob = await stampProductCode(imageUrl, catalogId);
-                    
+
                     // 3. Upload to media library
                     const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
                     console.log('Upload successful, final URL:', finalUrl);
-                    
+
                     // 5. Update product data with catalog ID and URL
                     productData.image_url = finalUrl;
                     productData.product_catalog_image_id = catalogId;
-                    
+
                     console.log('About to save product with catalog ID:', catalogId);
                 } catch (err) {
                     console.error('Image processing failed:', err);
@@ -589,53 +701,59 @@ export default function ProductsPage() {
 
     return (
         <div className="animate-enter">
-            {/* Header */}
-            <div className="admin-header-row">
-                <div>
-                    <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
-                    <p>Manage your premium saree collection • {products.length} items</p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => setImportModal(true)} className="btn btn-secondary">
-                        <FileDown size={18} /> Import Excel
-                    </button>
-                    <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
-                        <Plus size={18} /> Add Product
-                    </button>
-                </div>
-            </div>
-
-            {/* Stats */}
-            <div className="admin-grid-3">
-                {[
-                    { label: 'Total Products', value: products.length, color: 'hsl(var(--primary))' },
-                    { label: 'Total Stock', value: `${totalStock} pcs`, color: 'hsl(var(--accent))' },
-                    { label: 'Inventory Value', value: `₹${totalValue.toLocaleString()}`, color: 'hsl(var(--success))' },
-                ].map(s => (
-                    <div key={s.label} className="card" style={{ padding: '1.5rem', borderTop: `3px solid ${s.color}` }}>
-                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: s.color, fontFamily: 'var(--font-heading)' }}>{s.value}</div>
+            {/* ─── MAIN LIST VIEW (Hidden when a sub-page is active) ─── */}
+            {!isEditing && !showHistory && !importModal && (
+                <>
+                    {/* Header */}
+                    <div className="admin-header-row">
+                        <div>
+                            <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
+                            <p>Manage your premium saree collection • {products.length} items</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setImportModal(true)} className="btn btn-secondary">
+                                <FileDown size={18} /> Import Excel
+                            </button>
+                            <button onClick={handleExportExcel} className="btn btn-secondary">
+                                <FileDown size={18} style={{ transform: 'rotate(180deg)' }} /> Export Excel
+                            </button>
+                            <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
+                                <Plus size={18} /> Add Product
+                            </button>
+                        </div>
                     </div>
-                ))}
-            </div>
 
-            {/* Category Tabs */}
-            <div className="admin-filter-row">
-                {categories.map(cat => (
-                    <button key={cat} onClick={() => setCategoryFilter(cat)} style={{
-                        padding: '0.5rem 1.1rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600,
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        background: categoryFilter === cat ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-                        color: categoryFilter === cat ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                        border: categoryFilter === cat ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                    }}>
-                        {cat === 'ALL' ? 'All Collections' : cat}
-                    </button>
-                ))}
-            </div>
+                    {/* Stats */}
+                    <div className="admin-grid-3">
+                        {[
+                            { label: 'Total Products', value: products.length, color: 'hsl(var(--primary))' },
+                            { label: 'Total Stock', value: `${totalStock} pcs`, color: 'hsl(var(--accent))' },
+                            { label: 'Inventory Value', value: `₹${totalValue.toLocaleString()}`, color: 'hsl(var(--success))' },
+                        ].map(s => (
+                            <div key={s.label} className="card" style={{ padding: '1.5rem', borderTop: `3px solid ${s.color}` }}>
+                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+                                <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: s.color, fontFamily: 'var(--font-heading)' }}>{s.value}</div>
+                            </div>
+                        ))}
+                    </div>
 
-            {/* Group Tags Filter */}
-            {/* {groups.length > 1 && (
+                    {/* Category Tabs */}
+                    <div className="admin-filter-row">
+                        {categories.map(cat => (
+                            <button key={cat} onClick={() => setCategoryFilter(cat)} style={{
+                                padding: '0.5rem 1.1rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600,
+                                cursor: 'pointer', transition: 'all 0.2s',
+                                background: categoryFilter === cat ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
+                                color: categoryFilter === cat ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                border: categoryFilter === cat ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
+                            }}>
+                                {cat === 'ALL' ? 'All Collections' : cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Group Tags Filter */}
+                    {/* {groups.length > 1 && (
                 <div className="admin-filter-row" style={{ marginTop: '-0.75rem' }}>
                     <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>🏷️ Groups:</span>
                     {groups.map(grp => (
@@ -652,207 +770,207 @@ export default function ProductsPage() {
                 </div>
             )} */}
 
-            {/* Toolbar */}
-            <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Search */}
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                    <input type="text" placeholder="Search products..." value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
-                </div>
-                {/* Sort */}
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '0.65rem 1rem', cursor: 'pointer' }}>
-                    <option value="newest">Newest First</option>
-                    <option value="low_stock">⚠️ Low Stock First</option>
-                    <option value="high_price">Price: High to Low</option>
-                </select>
+                    {/* Toolbar */}
+                    <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Search */}
+                        <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                            <input type="text" placeholder="Search products..." value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
+                        </div>
+                        {/* Sort */}
+                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '0.65rem 1rem', cursor: 'pointer' }}>
+                            <option value="newest">Newest First</option>
+                            <option value="low_stock">⚠️ Low Stock First</option>
+                            <option value="high_price">Price: High to Low</option>
+                        </select>
 
-                {/* View Toggle */}
-                <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
-                    <button
-                        onClick={() => setViewMode('table')}
-                        title="Table View"
-                        style={{
-                            padding: '0.45rem 0.8rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
-                            background: viewMode === 'table' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'table' ? 'white' : 'hsl(var(--text-muted))',
-                            transition: 'all 0.2s'
-                        }}>
-                        <List size={15} /> Table
-                    </button>
-                    <button
-                        onClick={() => setViewMode('card')}
-                        title="Card View"
-                        style={{
-                            padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
-                            background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'card' ? 'white' : 'hsl(var(--text-muted))',
-                            transition: 'all 0.2s'
-                        }}>
-                        <LayoutGrid size={14} /> Cards
-                    </button>
-                    <button
-                        onClick={() => setViewMode('analytics')}
-                        title="Analytics View"
-                        style={{
-                            padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
-                            background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
-                            transition: 'all 0.2s'
-                        }}>
-                        <TrendingUp size={14} /> Analysis
-                    </button>
-                </div>
-                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{filtered.length} items</span>
-            </div>
-
-            {/* ─── ANALYTICS VIEW ─── */}
-            {viewMode === 'analytics' && (
-                <div className="animate-enter">
-                    {/* Time Filters */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
-                        {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
-                            <button key={r} onClick={() => setTimeRange(r)} style={{
-                                padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
-                                background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
-                                color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
-                            }}>{r}</button>
-                        ))}
+                        {/* View Toggle */}
+                        <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
+                            <button
+                                onClick={() => setViewMode('table')}
+                                title="Table View"
+                                style={{
+                                    padding: '0.45rem 0.8rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
+                                    background: viewMode === 'table' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'table' ? 'white' : 'hsl(var(--text-muted))',
+                                    transition: 'all 0.2s'
+                                }}>
+                                <List size={15} /> Table
+                            </button>
+                            <button
+                                onClick={() => setViewMode('card')}
+                                title="Card View"
+                                style={{
+                                    padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
+                                    background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'card' ? 'white' : 'hsl(var(--text-muted))',
+                                    transition: 'all 0.2s'
+                                }}>
+                                <LayoutGrid size={14} /> Cards
+                            </button>
+                            <button
+                                onClick={() => setViewMode('analytics')}
+                                title="Analytics View"
+                                style={{
+                                    padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
+                                    background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
+                                    transition: 'all 0.2s'
+                                }}>
+                                <TrendingUp size={14} /> Analysis
+                            </button>
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{filtered.length} items</span>
                     </div>
 
-                    <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
-                        <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Trophy size={18} color="#f59e0b" /> Best Sellers ({timeRange})
-                            </h3>
-                            <div style={{ height: '300px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={analyticsData.topSellers}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                        <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
-                                        <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={34} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                    {/* ─── ANALYTICS VIEW ─── */}
+                    {viewMode === 'analytics' && (
+                        <div className="animate-enter">
+                            {/* Time Filters */}
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                                {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                                    <button key={r} onClick={() => setTimeRange(r)} style={{
+                                        padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                                        background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                    }}>{r}</button>
+                                ))}
+                            </div>
+
+                            <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
+                                <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Trophy size={18} color="#f59e0b" /> Best Sellers ({timeRange})
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={analyticsData.topSellers}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                                <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={34} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <PackageIcon size={18} color="hsl(var(--success))" /> Stock Health Monitor
+                                    </h3>
+                                    <div style={{ height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={analyticsData.inventoryStatus} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                                    {analyticsData.inventoryStatus.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Collection Distribution</h3>
+                                <div style={{ height: '300px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={analyticsData.categoryValue}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                            <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                            <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} barSize={24} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
                         </div>
+                    )}
 
-                        <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <PackageIcon size={18} color="hsl(var(--success))" /> Stock Health Monitor
-                            </h3>
-                            <div style={{ height: '300px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={analyticsData.inventoryStatus} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                            {analyticsData.inventoryStatus.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="card shadow-premium" style={{ padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Collection Distribution</h3>
-                        <div style={{ height: '300px' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={analyticsData.categoryValue}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                    <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
-                                    <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} barSize={24} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ─── TABLE VIEW ─── */}
-            {viewMode === 'table' && (
-                <div className="card" style={{ padding: 0 }}>
-                    {loading ? (
-                        <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-                            <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
-                        </div>
-                    ) : (
-                        <table style={{ margin: 0 }}>
-                            <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    {/* <th>Group</th>
+                    {/* ─── TABLE VIEW ─── */}
+                    {viewMode === 'table' && (
+                        <div className="card" style={{ padding: 0 }}>
+                            {loading ? (
+                                <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                                    <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+                                </div>
+                            ) : (
+                                <table style={{ margin: 0 }}>
+                                    <thead style={{ background: 'hsl(var(--bg-panel))' }}>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Product</th>
+                                            <th>Category</th>
+                                            {/* <th>Group</th>
                                     <th>Status</th> */}
-                                    <th style={{ textAlign: 'right' }}>Price</th>
-                                    <th style={{ textAlign: 'center' }}>Stock</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.length === 0 ? (
-                                    <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
-                                ) : filtered.map((product, idx) => (
-                                    <tr key={product.id}>
-                                        <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
-                                        <td style={{ padding: '0.75rem 1.5rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
-                                                <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
-                                                    {product.image_url ? (
-                                                        <>
-                                                            <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
-                                                            {product.product_catalog_image_id && (
-                                                                <div style={{
-                                                                    position: 'absolute', bottom: 2, right: 2,
-                                                                    background: 'hsl(var(--accent))', color: 'white',
-                                                                    fontSize: '0.6rem', fontWeight: 700, padding: '2px 4px',
-                                                                    borderRadius: '4px', fontFamily: 'monospace'
-                                                                }}>
-                                                                    {/* {product.product_catalog_image_id} */}
+                                            <th style={{ textAlign: 'right' }}>Price</th>
+                                            <th style={{ textAlign: 'center' }}>Stock</th>
+                                            <th style={{ textAlign: 'right' }}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.length === 0 ? (
+                                            <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
+                                        ) : filtered.map((product, idx) => (
+                                            <tr key={product.id}>
+                                                <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
+                                                <td style={{ padding: '0.75rem 1.5rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+                                                        <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
+                                                            {product.image_url ? (
+                                                                <>
+                                                                    <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                        onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
+                                                                    {product.product_catalog_image_id && (
+                                                                        <div style={{
+                                                                            position: 'absolute', bottom: 2, right: 2,
+                                                                            background: 'hsl(var(--accent))', color: 'white',
+                                                                            fontSize: '0.6rem', fontWeight: 700, padding: '2px 4px',
+                                                                            borderRadius: '4px', fontFamily: 'monospace'
+                                                                        }}>
+                                                                            {/* {product.product_catalog_image_id} */}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <ImageIcon size={18} color="hsl(var(--text-muted))" />
                                                                 </div>
                                                             )}
-                                                        </>
-                                                    ) : (
-                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <ImageIcon size={18} color="hsl(var(--text-muted))" />
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{product.name}</div>
-                                                    <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {product.description || '—'}
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{product.name}</div>
+                                                            <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {product.description || '—'}
+                                                            </div>
+                                                            {product.product_catalog_image_id && (
+                                                                <div style={{
+                                                                    fontSize: '0.7rem', fontWeight: 700, fontFamily: 'monospace',
+                                                                    background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))',
+                                                                    padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px'
+                                                                }}>
+                                                                    {product.product_catalog_image_id}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    {product.product_catalog_image_id && (
-                                                        <div style={{
-                                                            fontSize: '0.7rem', fontWeight: 700, fontFamily: 'monospace',
-                                                            background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))',
-                                                            padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px'
-                                                        }}>
-                                                            {product.product_catalog_image_id}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                {product.category}
-                                            </span>
-                                        </td>
-                                        {/* <td>
+                                                </td>
+                                                <td>
+                                                    <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                        {product.category}
+                                                    </span>
+                                                </td>
+                                                {/* <td>
                                             {product.product_group ? (
                                                 <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
                                                     🏷️ {product.product_group}
@@ -861,7 +979,7 @@ export default function ProductsPage() {
                                                 <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
                                             )}
                                         </td> */}
-                                        {/* <td>
+                                                {/* <td>
                                             <span style={{
                                                 padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600,
                                                 background: product.is_active ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--danger) / 0.1)',
@@ -871,15 +989,15 @@ export default function ProductsPage() {
                                                 {product.is_active ? 'Active' : 'Hidden'}
                                             </span>
                                         </td> */}
-                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
-                                                {product.stock} pcs
-                                            </span>
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                {/* <button onClick={async () => {
+                                                <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
+                                                        {product.stock} pcs
+                                                    </span>
+                                                </td>
+                                                <td style={{ textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                                        {/* <button onClick={async () => {
                                                     await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
                                                     fetchProducts();
                                                 }} title={product.is_active ? "Hide from Shop" : "Show on Shop"} className="btn btn-secondary" style={{ padding: '0.4rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }}>
@@ -888,125 +1006,115 @@ export default function ProductsPage() {
                                                 <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                     {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
                                                 </button> */}
-                                                <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: '#25D366' }}>
-                                                    <Share2 size={15} />
-                                                </button>
-                                                <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
-                                                <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
-                                                    <PackageIcon size={15} />
-                                                </button>
-                                                <button onClick={() => handleDelete(product.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            )}
-
-            {/* ─── CARD VIEW ─── */}
-            {viewMode === 'card' && (
-                <div>
-                    {loading ? (
-                        <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-                            <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
-                        </div>
-                    ) : filtered.length === 0 ? (
-                        <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
-                            {filtered.map(product => (
-                                <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.3)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
-                                    {/* Product Image */}
-                                    <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative' }}>
-                                        {product.image_url ? (
-                                            <>
-                                                <img src={product.image_url} alt={product.name}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
-                                                {/* Catalog ID Badge */}
-                                                {product.product_catalog_image_id && (
-                                                    <div style={{
-                                                        position: 'absolute', bottom: '10px', left: '10px',
-                                                        background: 'hsl(var(--accent))', color: 'white',
-                                                        fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
-                                                        borderRadius: '6px', fontFamily: 'monospace',
-                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                                                    }}>
-                                                        {product.product_catalog_image_id}
+                                                        <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: '#25D366' }}>
+                                                            <Share2 size={15} />
+                                                        </button>
+                                                        <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
+                                                        <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
+                                                            <PackageIcon size={15} />
+                                                        </button>
+                                                        <button onClick={() => handleDelete(product.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
                                                     </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>💮</div>
-                                        )}
-                                        {/* Stock badge */}
-                                        <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
-                                            <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
-                                                {product.stock} pcs
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {/* Info */}
-                                    <div style={{ padding: '1rem' }}>
-                                        <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            {product.category}
-                                            {/* {product.product_group && (
-                                                <span style={{ padding: '1px 6px', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
-                                                    {product.product_group}
-                                                </span>
-                                            )} */}
-                                        </div>
-                                        <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.95rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
-                                        <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.description || '—'}</div>
-                                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
-                                        {/* Actions */}
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            {/* <button onClick={async () => {
-                                                await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
-                                                fetchProducts();
-                                            }} className="btn btn-secondary" style={{ padding: '0.5rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }} title={product.is_active ? "Hide from Shop" : "Show on Shop"}>
-                                                {product.is_active ? <Eye size={13} /> : <EyeOff size={13} />}
-                                            </button> */}
-                                            <button onClick={() => openEditModal(product)}
-                                                className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                                <Edit size={13} /> Edit
-                                            </button>
-                                            <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Details">
-                                                <PackageIcon size={13} />
-                                            </button>
-                                            {/* <button onClick={() => copyLink(product)}
-                                                className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
-                                                {copiedId === product.id ? <Check size={13} /> : <LinkIcon size={13} />}
-                                            </button> */}
-                                            <button onClick={() => shareToStatus(product)}
-                                                className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: '#25D366' }}>
-                                                <Share2 size={13} />
-                                            </button>
-                                            <button onClick={() => handleDelete(product.id)}
-                                                className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}>
-                                                <Trash2 size={13} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     )}
-                </div>
+
+                    {/* ─── CARD VIEW ─── */}
+                    {viewMode === 'card' && (
+                        <div>
+                            {loading ? (
+                                <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                                    <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+                                </div>
+                            ) : filtered.length === 0 ? (
+                                <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
+                                    {filtered.map(product => (
+                                        <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.3)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
+                                            {/* Product Image */}
+                                            <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative' }}>
+                                                {product.image_url ? (
+                                                    <>
+                                                        <img src={product.image_url} alt={product.name}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                                        {/* Catalog ID Badge */}
+                                                        {product.product_catalog_image_id && (
+                                                            <div style={{
+                                                                position: 'absolute', bottom: '10px', left: '10px',
+                                                                background: 'hsl(var(--accent))', color: 'white',
+                                                                fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
+                                                                borderRadius: '6px', fontFamily: 'monospace',
+                                                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                                                            }}>
+                                                                {product.product_catalog_image_id}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>💮</div>
+                                                )}
+                                                {/* Stock badge */}
+                                                <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+                                                    <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
+                                                        {product.stock} pcs
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {/* Info */}
+                                            <div style={{ padding: '1rem' }}>
+                                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    {product.category}
+                                                </div>
+                                                <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.95rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
+                                                <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.description || '—'}</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
+                                                {/* Actions */}
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button onClick={() => openEditModal(product)}
+                                                        className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                                        <Edit size={13} /> Edit
+                                                    </button>
+                                                    <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Details">
+                                                        <PackageIcon size={13} />
+                                                    </button>
+                                                    <button onClick={() => shareToStatus(product)}
+                                                        className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: '#25D366' }}>
+                                                        <Share2 size={13} />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(product.id)}
+                                                        className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}>
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
             )}
 
+            {/* ─── EDIT / ADD PRODUCT PAGE ─── */}
             {isEditing && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: '1.5rem', overflowY: 'auto' }}
-                    onClick={() => setIsEditing(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '700px', maxHeight: 'min-content', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 40px 100px rgba(0,0,0,0.6)', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
-                        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
-                            <h2 style={{ fontSize: '1.2rem', margin: 0 }}>{currentProduct ? '✏️ Edit Saree' : '➕ Add New Saree'}</h2>
-                            <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>&times;</button>
+                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
+                        <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? '✏️ Edit Product' : '✨ Add New Product'}</h2>
+                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>Fill in the details for your catalogue.</p>
+                            </div>
+                            <button onClick={() => setIsEditing(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
                         </div>
                         <form onSubmit={handleSave} style={{ padding: '1.75rem' }}>
                             {/* Product Type Toggle */}
@@ -1211,14 +1319,14 @@ export default function ProductsPage() {
 
 
             {showHistory && selectedProductForHistory && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1100, padding: '1.5rem', overflowY: 'auto' }} onClick={() => setShowHistory(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', maxHeight: 'min-content', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
+                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
                         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>📊 Stock History</h2>
                                 <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0' }}>{selectedProductForHistory.name}</p>
                             </div>
-                            <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px' }}>&times;</button>
+                            <button onClick={() => setShowHistory(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
                         </div>
 
                         <div style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
@@ -1271,9 +1379,11 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
+
+            {/* ─── IMPORT EXCEL PAGE ─── */}
             {importModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'grid', placeItems: 'center', zIndex: 1200, padding: '1.5rem', overflowY: 'auto' }}>
-                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '450px', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-panel))' }}>
+                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
                         <div style={{ marginBottom: '1.5rem' }}>
                             <div style={{ width: '60px', height: '60px', borderRadius: '20px', background: 'hsl(var(--primary) / 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', color: 'hsl(var(--primary))' }}>
                                 <Upload size={30} />
@@ -1318,48 +1428,55 @@ export default function ProductsPage() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
-            {notification && (
-                <div style={{
-                    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 3000,
-                    padding: '1.25rem 2rem', borderRadius: '16px',
-                    background: notification.type === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--success))',
-                    color: 'white', fontWeight: 800, boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}>
-                    {notification.type === 'error' ? '❌' : '✅'} {notification.message}
-                    <button onClick={() => setNotification(null)} style={{ marginLeft: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}>&times;</button>
-                </div>
-            )}
+            {
+                notification && (
+                    <div style={{
+                        position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 3000,
+                        padding: '1.25rem 2rem', borderRadius: '16px',
+                        background: notification.type === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--success))',
+                        color: 'white', fontWeight: 800, boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}>
+                        {notification.type === 'error' ? '❌' : '✅'} {notification.message}
+                        <button onClick={() => setNotification(null)} style={{ marginLeft: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}>&times;</button>
+                    </div>
+                )
+            }
 
-            {showMediaPicker && (
-                <MediaPicker
-                    currentImage={activeImageField?.type === 'product' ? productImageUrl : variants[activeImageField?.index]?.image_url}
-                    onSelect={(url) => {
-                        if (activeImageField.type === 'product') {
-                            setProductImageUrl(url);
-                        } else if (activeImageField.type === 'variant') {
-                            updateVariant(activeImageField.index, 'image_url', url);
-                        }
-                        setShowMediaPicker(false);
-                    }}
-                    onClose={() => setShowMediaPicker(false)}
-                />
-            )}
+            {
+                showMediaPicker && (
+                    <MediaPicker
+                        currentImage={activeImageField?.type === 'product' ? productImageUrl : variants[activeImageField?.index]?.image_url}
+                        onSelect={(url) => {
+                            if (activeImageField.type === 'product') {
+                                setProductImageUrl(url);
+                            } else if (activeImageField.type === 'variant') {
+                                updateVariant(activeImageField.index, 'image_url', url);
+                            }
+                            setShowMediaPicker(false);
+                        }}
+                        onClose={() => setShowMediaPicker(false)}
+                    />
+                )
+            }
 
             {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
-            {importedProductsForImage && importedProductsForImage.length > 0 && (
-                <ProductImageAssigner
-                    products={importedProductsForImage}
-                    onClose={() => setImportedProductsForImage(null)}
-                    onDone={() => {
-                        fetchProducts();
-                        setImportedProductsForImage(null);
-                    }}
-                />
-            )}
+            {
+                importedProductsForImage && importedProductsForImage.length > 0 && (
+                    <ProductImageAssigner
+                        products={importedProductsForImage}
+                        onClose={() => setImportedProductsForImage(null)}
+                        onDone={() => {
+                            fetchProducts();
+                            setImportedProductsForImage(null);
+                        }}
+                    />
+                )
+            }
 
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1368,4 +1485,3 @@ export default function ProductsPage() {
         </div>
     );
 }
-
