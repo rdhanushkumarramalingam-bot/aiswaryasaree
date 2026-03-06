@@ -1194,7 +1194,19 @@ export default function ProductsPage() {
                                                 >
                                                     {productImageUrl ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={20} className="text-muted" style={{ margin: '12px' }} />}
                                                 </div>
-                                                <input name="image" value={productImageUrl} onChange={(e) => setProductImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                                <div
+                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
+                                                    style={{
+                                                        flex: 1, height: '45px', borderRadius: '8px',
+                                                        background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))',
+                                                        display: 'flex', alignItems: 'center', padding: '0 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    {productImageUrl ? (
+                                                        <span style={{ color: 'hsl(var(--primary))', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productImageUrl}</span>
+                                                    ) : 'Select Image from Library...'}
+                                                </div>
+
                                                 <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }} title="Open Media Library">
                                                     <Upload size={16} />
                                                 </button>
@@ -1242,7 +1254,19 @@ export default function ProductsPage() {
                                                         >
                                                             {v.image_url ? <img src={v.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} className="text-muted" style={{ margin: '9px' }} />}
                                                         </div>
-                                                        <input placeholder="Link..." value={v.image_url} onChange={e => updateVariant(i, 'image_url', e.target.value)} style={{ ...inputStyle, padding: '0.5rem', flex: 1 }} />
+                                                        <div
+                                                            onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
+                                                            style={{
+                                                                flex: 1, height: '32px', borderRadius: '6px',
+                                                                background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))',
+                                                                display: 'flex', alignItems: 'center', padding: '0 0.75rem', color: 'hsl(var(--text-muted))', fontSize: '0.75rem'
+                                                            }}
+                                                        >
+                                                            {v.image_url ? (
+                                                                <span style={{ color: 'hsl(var(--primary))', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.image_url}</span>
+                                                            ) : 'Select...'}
+                                                        </div>
+
                                                     </div>
                                                     <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                                                         onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.2)'}

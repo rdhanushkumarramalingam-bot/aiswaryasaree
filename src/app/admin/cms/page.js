@@ -5,7 +5,7 @@ import {
     Plus, Edit, Trash2, Search, Loader2, FileText, Check, X,
     Eye, EyeOff, ExternalLink, Globe, Layout, ArrowLeft,
     Settings, Image as ImageIcon, Code, BarChart, Calendar, Lock,
-    ChevronRight, Save, Copy, Monitor, Smartphone, Tablet
+    ChevronRight, Save, Copy, Monitor, Smartphone, Tablet, Upload
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -83,7 +83,6 @@ export default function CMSPage() {
             content: formData.get('content'),
             is_published: formData.get('status') === 'published',
             status: formData.get('status'),
-            visibility: formData.get('visibility'),
             template: formData.get('template'),
             menu_order: parseInt(formData.get('menu_order') || '0'),
             meta_description: formData.get('meta_description'),
@@ -92,8 +91,7 @@ export default function CMSPage() {
             featured_image: formData.get('featured_image'),
             custom_css: formData.get('custom_css'),
             custom_js: formData.get('custom_js'),
-            parent_id: formData.get('parent_id') === 'none' ? null : formData.get('parent_id'),
-            publish_date: formData.get('publish_date') ? new Date(formData.get('publish_date')).toISOString() : new Date().toISOString()
+            parent_id: formData.get('parent_id') === 'none' ? null : formData.get('parent_id')
         };
 
         try {
@@ -142,7 +140,6 @@ export default function CMSPage() {
         page.slug.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // CSS variables & styles
     const inputStyle = {
         width: '100%', padding: '0.85rem', borderRadius: '12px',
         background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
@@ -207,157 +204,154 @@ export default function CMSPage() {
                 </div>
             )}
 
-            {/* Header Area */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '2.25rem', fontWeight: 800 }}>
-                        <Layout size={32} color="hsl(var(--primary))" />
-                        CMS Pages
-                    </h1>
-                    <p style={{ color: 'hsl(var(--text-muted))', fontSize: '1rem' }}>Ultimate Store Content Management • {pages.length} Pages Managed</p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={() => { setCurrentPage(null); setIsEditing(true); setActiveTab('content'); }}
-                        className="btn btn-primary"
-                        style={{ padding: '0.8rem 1.8rem', borderRadius: '12px', boxShadow: '0 8px 20px hsl(var(--primary) / 0.3)' }}
-                    >
-                        <Plus size={20} /> Add New Page
-                    </button>
-                </div>
-            </div>
+            {!isEditing && (
+                <div style={{ padding: '0 1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                        <div>
+                            <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '2.25rem', fontWeight: 800 }}>
+                                <Layout size={32} color="hsl(var(--primary))" />
+                                CMS Pages
+                            </h1>
+                            <p style={{ color: 'hsl(var(--text-muted))', fontSize: '1rem' }}>Ultimate Store Content Management • {pages.length} Pages Managed</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button
+                                onClick={() => { setCurrentPage(null); setIsEditing(true); setActiveTab('content'); }}
+                                className="btn btn-primary"
+                                style={{ padding: '0.8rem 1.8rem', borderRadius: '12px', boxShadow: '0 8px 20px hsl(var(--primary) / 0.3)' }}
+                            >
+                                <Plus size={20} /> Add New Page
+                            </button>
+                        </div>
+                    </div>
 
-            {/* Main Listing View */}
-            <div className="card shadow-premium" style={{ padding: '0', overflow: 'hidden' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel)/0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', width: '400px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                        <input
-                            type="text"
-                            placeholder="Find pages by title, slug, or content..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ ...inputStyle, paddingLeft: '3rem', marginBottom: 0, background: 'hsl(var(--bg-card))' }}
-                        />
-                    </div>
-                </div>
+                    <div className="card shadow-premium" style={{ padding: '0', overflow: 'hidden' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel)/0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ position: 'relative', width: '400px' }}>
+                                <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                                <input
+                                    type="text"
+                                    placeholder="Find pages by title, slug, or content..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    style={{ ...inputStyle, paddingLeft: '3rem', marginBottom: 0, background: 'hsl(var(--bg-card))' }}
+                                />
+                            </div>
+                        </div>
 
-                {loading ? (
-                    <div style={{ padding: '8rem 0', textAlign: 'center' }}>
-                        <Loader2 size={40} className="animate-spin" style={{ color: 'hsl(var(--primary))', margin: '0 auto 1.5rem' }} />
-                        <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>Hydrating content engine...</p>
-                    </div>
-                ) : filteredPages.length === 0 ? (
-                    <div style={{ padding: '6rem 3rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-                        <h3 style={{ fontSize: '1.5rem' }}>No pages found</h3>
-                        <p style={{ color: 'hsl(var(--text-muted))' }}>{searchTerm ? 'Try adjusting your search filters' : 'Start building your store content by adding your first page!'}</p>
-                    </div>
-                ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
-                            <thead style={{ background: 'hsl(var(--bg-panel)/0.8)' }}>
-                                <tr>
-                                    <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Structure & Title</th>
-                                    <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Endpoint</th>
-                                    <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status</th>
-                                    <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Template</th>
-                                    <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Control</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredPages.map((page, idx) => (
-                                    <tr key={page.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))', transition: 'background 0.2s', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--bg-panel)/0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ padding: '1.5rem 2rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div style={{
-                                                    width: '44px', height: '44px', borderRadius: '12px',
-                                                    background: page.is_published ? 'hsl(var(--primary)/0.1)' : 'hsl(var(--bg-app))',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                }}>
-                                                    <FileText size={20} color={page.is_published ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'hsl(var(--text-main))' }}>{page.title}</div>
-                                                    <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
-                                                        {page.parent_id ? `↳ Sub-page of ${pages.find(p => p.id === page.parent_id)?.title || '...'}` : 'Root Level Page'}
+                        {loading ? (
+                            <div style={{ padding: '8rem 0', textAlign: 'center' }}>
+                                <Loader2 size={40} className="animate-spin" style={{ color: 'hsl(var(--primary))', margin: '0 auto 1.5rem' }} />
+                                <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>Hydrating content engine...</p>
+                            </div>
+                        ) : filteredPages.length === 0 ? (
+                            <div style={{ padding: '6rem 3rem', textAlign: 'center' }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+                                <h3 style={{ fontSize: '1.5rem' }}>No pages found</h3>
+                                <p style={{ color: 'hsl(var(--text-muted))' }}>{searchTerm ? 'Try adjusting your search filters' : 'Start building your store content by adding your first page!'}</p>
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
+                                    <thead style={{ background: 'hsl(var(--bg-panel)/0.8)' }}>
+                                        <tr>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Structure & Title</th>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Endpoint</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Template</th>
+                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Control</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredPages.map((page, idx) => (
+                                            <tr key={page.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))', transition: 'background 0.2s', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--bg-panel)/0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <td style={{ padding: '1.5rem 2rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                        <div style={{
+                                                            width: '44px', height: '44px', borderRadius: '12px',
+                                                            background: page.is_published ? 'hsl(var(--primary)/0.1)' : 'hsl(var(--bg-app))',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        }}>
+                                                            <FileText size={20} color={page.is_published ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'hsl(var(--text-main))' }}>{page.title}</div>
+                                                            <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
+                                                                {page.parent_id ? `↳ Sub-page of ${pages.find(p => p.id === page.parent_id)?.title || '...'}` : 'Root Level Page'}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '1.5rem' }}>
-                                            <code style={{ background: 'hsl(var(--bg-app))', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}>/page/{page.slug}</code>
-                                        </td>
-                                        <td style={{ padding: '1.5rem', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '0.4rem 1rem', borderRadius: '30px', fontSize: '0.72rem', fontWeight: 800,
-                                                textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                background: page.status === 'published' ? 'hsl(var(--success)/0.15)' : page.status === 'scheduled' ? 'hsl(var(--accent)/0.15)' : 'hsl(var(--bg-app))',
-                                                color: page.status === 'published' ? 'hsl(var(--success))' : page.status === 'scheduled' ? 'hsl(var(--accent))' : 'hsl(var(--text-muted))',
-                                                border: `1px solid ${page.status === 'published' ? 'hsl(var(--success)/0.3)' : 'hsl(var(--text-muted)/0.3)'}`
-                                            }}>
-                                                {page.status}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '1.5rem', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
-                                                <ImageIcon size={14} /> {page.template || 'default'}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '1.5rem 2rem', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                                                <button
-                                                    onClick={() => {
-                                                        setCurrentPage(page);
-                                                        setOgImageUrl(page.og_image || '');
-                                                        setFeaturedImageUrl(page.featured_image || '');
-                                                        setIsEditing(true);
-                                                        setActiveTab('content');
-                                                    }}
-                                                    className="btn-icon"
-                                                    title="Refine Page"
-                                                >
-                                                    <Edit size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(page.id)}
-                                                    className="btn-icon danger"
-                                                    title="Destroy Page"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                                <a
-                                                    href={`/page/${page.slug}`}
-                                                    target="_blank"
-                                                    className="btn-icon primary"
-                                                    title="Simulate Content View"
-                                                >
-                                                    <ExternalLink size={18} />
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                                </td>
+                                                <td style={{ padding: '1.5rem' }}>
+                                                    <code style={{ background: 'hsl(var(--bg-app))', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}>/page/{page.slug}</code>
+                                                </td>
+                                                <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                    <span style={{
+                                                        padding: '0.4rem 1rem', borderRadius: '30px', fontSize: '0.72rem', fontWeight: 800,
+                                                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                        background: page.status === 'published' ? 'hsl(var(--success)/0.15)' : page.status === 'scheduled' ? 'hsl(var(--accent)/0.15)' : 'hsl(var(--bg-app))',
+                                                        color: page.status === 'published' ? 'hsl(var(--success))' : page.status === 'scheduled' ? 'hsl(var(--accent))' : 'hsl(var(--text-muted))',
+                                                        border: `1px solid ${page.status === 'published' ? 'hsl(var(--success)/0.3)' : 'hsl(var(--text-muted)/0.3)'}`
+                                                    }}>
+                                                        {page.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
+                                                        <ImageIcon size={14} /> {page.template || 'default'}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1.5rem 2rem', textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={() => {
+                                                                setCurrentPage(page);
+                                                                setOgImageUrl(page.og_image || '');
+                                                                setFeaturedImageUrl(page.featured_image || '');
+                                                                setIsEditing(true);
+                                                                setActiveTab('content');
+                                                            }}
+                                                            className="btn-icon"
+                                                            title="Refine Page"
+                                                        >
+                                                            <Edit size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(page.id)}
+                                                            className="btn-icon danger"
+                                                            title="Destroy Page"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                        <a
+                                                            href={`/page/${page.slug}`}
+                                                            target="_blank"
+                                                            className="btn-icon primary"
+                                                            title="Simulate Content View"
+                                                        >
+                                                            <ExternalLink size={18} />
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
-            {/* Advanced WooCommerce-Style Editor Modal */}
             {isEditing && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 1000,
-                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
-                }}>
+                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                     <div style={{
-                        background: 'hsl(var(--bg-card))', width: '100%', maxWidth: '1100px',
-                        borderRadius: '32px', display: 'flex', flexDirection: 'column', height: '90vh',
-                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.6)', border: '1px solid hsl(var(--border-subtle))',
-                        position: 'relative', overflow: 'hidden'
+                        background: 'hsl(var(--bg-card))', width: '100%', maxWidth: '1200px',
+                        borderRadius: '32px', display: 'flex', flexDirection: 'column', margin: '0 auto',
+                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.2)', border: '1px solid hsl(var(--border-subtle))',
+                        position: 'relative', overflow: 'hidden', minHeight: '85vh'
                     }}>
-                        {/* Modal Header */}
+                        {/* Editor Header */}
                         <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel)/0.4)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -386,7 +380,7 @@ export default function CMSPage() {
                             </div>
                         </div>
 
-                        {/* Modal Navigation (Tabs) */}
+                        {/* Editor Navigation (Tabs) */}
                         <div style={{ display: 'flex', background: 'hsl(var(--bg-panel)/0.2)', borderBottom: '1px solid hsl(var(--border-subtle))', padding: '0 1rem' }}>
                             {TABS.map(tab => (
                                 <button
@@ -405,7 +399,7 @@ export default function CMSPage() {
                             ))}
                         </div>
 
-                        {/* Modal Body (Forms) */}
+                        {/* Editor Body (Forms) */}
                         <div style={{ flex: 1, overflowY: 'auto', padding: '3rem' }} id="cms-editor-body">
                             <form id="cms-page-form" style={{ maxWidth: '900px', margin: '0 auto' }}>
 
@@ -559,12 +553,11 @@ export default function CMSPage() {
                 </div>
             )}
 
-            {/* ────── LIVE PREVIEW MODAL ────── */}
             {showPreview && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
                     <div style={{ background: 'white', width: '100%', maxWidth: '1000px', height: '80vh', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontWeight: 800, color: '#1e293b' }}>🖥️ Desktop Preview: {document.querySelector('input[name="title"]')?.value}</div>
+                            <div style={{ fontWeight: 800, color: '#1e293b' }}>🖥️ Desktop Preview</div>
                             <button onClick={() => setShowPreview(false)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Close Preview</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '3rem', color: '#334155', fontFamily: 'Inter, sans-serif' }}>

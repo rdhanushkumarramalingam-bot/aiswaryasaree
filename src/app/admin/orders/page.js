@@ -851,10 +851,9 @@ export default function OrdersPage() {
                                                                             {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                                                                         </td>
                                                                         <td style={{ textAlign: 'right' }}>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                                                                <Eye size={18} />
-                                                                                <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>View</button>
-                                                                            </div>
+                                                                            <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                                <Eye size={14} /> View
+                                                                            </button>
                                                                         </td>
                                                                     </tr>
                                                                 </React.Fragment>
@@ -871,518 +870,515 @@ export default function OrdersPage() {
                                     </div>
                                 </>
                             )}
+                        </>
+                    )}
 
-                            {selectedOrder && (
-                                <div style={{
-                                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-                                    backdropFilter: 'blur(15px)', zIndex: 1200,
-                                    display: '', placeItems: 'center', padding: '1.5rem',
-                                    overflowY: 'auto'
-                                }} onClick={() => { setSelectedOrder(null); setOrderItems([]); }}>
-                                    <div onClick={(e) => e.stopPropagation()} className="card animate-enter" style={{
-                                        width: '100%', maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', padding: 0,
-                                        display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))',
-                                        position: 'relative'
-                                    }}>
-                                        <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
-                                                <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Plced on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}</div>
+                    {/* ─── ORDER DETAILS PAGE ─── */}
+                    {selectedOrder && (
+                        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                            <div className="card shadow-premium" style={{
+                                width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: 'hsl(var(--bg-panel))', overflow: 'hidden'
+                            }}>
+                                <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
+                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Placed on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                        <button onClick={() => { setSelectedOrder(null); setOrderItems([]); }} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
+                                        <button onClick={async () => {
+                                            const buf = await generateInvoicePDF({ ...selectedOrder, order_items: orderItems });
+                                            const blob = new Blob([buf], { type: 'application/pdf' });
+                                            const url = URL.createObjectURL(blob);
+                                            window.open(url, '_blank');
+                                        }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>
+                                            <ExternalLink size={14} /> View Invoice
+                                        </button>
+                                        <button onClick={async () => {
+                                            const buf = await generateInvoicePDF({ ...selectedOrder, order_items: orderItems });
+                                            const blob = new Blob([buf], { type: 'application/pdf' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `Invoice_${selectedOrder.id}.pdf`;
+                                            a.click();
+                                        }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>
+                                            <Download size={14} /> Download
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, padding: '2rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem' }}>
+
+                                    {/* Left: Items */}
+                                    <div>
+                                        <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>🛒 Order Items</h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {orderItems.map((item, idx) => (
+                                                <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: 'hsl(var(--bg-app))', padding: '1rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                    <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#222', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                        <img src={item.products?.image_url || 'https://via.placeholder.com/100x130?text=Saree'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--primary))', fontWeight: 600, marginTop: '0.25rem' }}>{item.variant_name || 'Standard Unit'}</div>
+                                                        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
+                                                            <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'hsl(var(--success))' }}>₹{((item.quantity * item.price_at_time) || 0).toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {selectedOrder.tracking_number && (
+                                            <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'hsl(var(--primary) / 0.05)', borderRadius: '15px', border: '1px dashed hsl(var(--primary) / 0.3)' }}>
+                                                <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'hsl(var(--primary))', marginBottom: '1rem' }}>
+                                                    <Truck size={18} /> Shipping & Tracking Information
+                                                </h4>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Courier Partner</div>
+                                                        <div style={{ fontWeight: 700 }}>{selectedOrder.courier_name}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Tracking Number</div>
+                                                        <div style={{ fontWeight: 700, fontFamily: 'monospace', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
+                                                    </div>
+                                                </div>
+                                                {selectedOrder.tracking_url && (
+                                                    <a href={selectedOrder.tracking_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', fontSize: '0.8rem' }}>
+                                                        <ExternalLink size={14} /> Track Package Real-time
+                                                    </a>
+                                                )}
                                             </div>
-                                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                                <button onClick={async () => {
-                                                    const buf = await generateInvoicePDF({ ...selectedOrder, order_items: orderItems });
-                                                    const blob = new Blob([buf], { type: 'application/pdf' });
-                                                    const url = URL.createObjectURL(blob);
-                                                    window.open(url, '_blank');
-                                                }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>
-                                                    <ExternalLink size={14} /> View Invoice
-                                                </button>
-                                                <button onClick={async () => {
-                                                    const buf = await generateInvoicePDF({ ...selectedOrder, order_items: orderItems });
-                                                    const blob = new Blob([buf], { type: 'application/pdf' });
-                                                    const url = URL.createObjectURL(blob);
-                                                    const a = document.createElement('a');
-                                                    a.href = url;
-                                                    a.download = `Invoice_${selectedOrder.id}.pdf`;
-                                                    a.click();
-                                                }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>
-                                                    <Download size={14} /> Download
-                                                </button>
-                                                <button onClick={() => { setSelectedOrder(null); setOrderItems([]); }} style={{ background: 'none', border: 'none', color: 'gray', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
+                                        )}
+                                    </div>
+
+                                    {/* Right: Summary & Customer */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📍 Customer Info</h4>
+                                            <div style={{ fontWeight: 700 }}>{selectedOrder.customer_name}</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.customer_phone}</div>
+                                            <div style={{ marginTop: '1rem', fontSize: '0.85rem', lineHeight: 1.5, color: '#ccc' }}>{selectedOrder.delivery_address}</div>
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
+                                        </div>
+
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💰 Order Summary</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Subtotal:</span>
+                                                    <span>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
+                                                </div>
+
+                                                {selectedOrder.cgst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>CGST (2.5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.cgst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.sgst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>SGST (2.5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.sgst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.igst > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>IGST (5%):</span>
+                                                        <span>₹{parseFloat(selectedOrder.igst).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {(!selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && selectedOrder.tax_amount > 0) && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                        <span>Tax (Aggregate):</span>
+                                                        <span>₹{parseFloat(selectedOrder.tax_amount).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: '#94a3b8' }}>
+                                                    <span>Shipping:</span>
+                                                    <span>₹{(selectedOrder.shipping_cost || 0).toLocaleString()}</span>
+                                                </div>
+                                                <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.5rem 0' }} />
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                                                    <span>Total:</span>
+                                                    <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div style={{ flex: 1, overflow: 'auto', padding: '2rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem' }}>
-                                            {/* Left: Items */}
-                                            <div>
-                                                <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>🛒 Order Items</h3>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                    {orderItems.map((item, idx) => (
-                                                        <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: 'hsl(var(--bg-app))', padding: '1rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                            <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#222', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                                <img src={item.products?.image_url || 'https://via.placeholder.com/100x130?text=Saree'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                            </div>
-                                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
-                                                                <div style={{ fontSize: '0.85rem', color: 'hsl(var(--primary))', fontWeight: 600, marginTop: '0.25rem' }}>{item.variant_name || 'Standard Unit'}</div>
-                                                                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
-                                                                    <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'hsl(var(--success))' }}>₹{((item.quantity * item.price_at_time) || 0).toLocaleString()}</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>⚙️ Actions</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                                                <select
+                                                    value={selectedOrder.status}
+                                                    onChange={(e) => {
+                                                        const newStatus = e.target.value;
+                                                        if (newStatus === 'SHIPPED') {
+                                                            setSelectedOrderForTracking(selectedOrder);
+                                                            setShowShippingModal(true);
+                                                        } else {
+                                                            updateOrderStatus(selectedOrder.id, newStatus);
+                                                        }
+                                                    }}
+                                                    style={{ padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                >
+                                                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                                {selectedOrder.status === 'PLACED' && (
+                                                    <button onClick={() => {
+                                                        setSelectedOrderForTracking(selectedOrder);
+                                                        setShowShippingModal(true);
+                                                    }} className="btn btn-primary" style={{ width: '100%' }}>
+                                                        <Truck size={16} /> Update Tracking Info
+                                                    </button>
+                                                )}
+                                                <a href={`https://wa.me/${selectedOrder.customer_phone}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center', justifyContent: 'center' }}>
+                                                    <MessageCircle size={14} /> Contact via WhatsApp
+                                                </a>
+                                                <button
+                                                    onClick={() => handleDeleteOrder(selectedOrder.id)}
+                                                    className="btn"
+                                                    style={{
+                                                        width: '100%',
+                                                        marginTop: '0.5rem',
+                                                        background: 'rgba(239, 68, 68, 0.1)',
+                                                        color: '#f87171',
+                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '0.5rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} /> Delete Order
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                                {selectedOrder.tracking_number && (
-                                                    <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'hsl(var(--primary) / 0.05)', borderRadius: '15px', border: '1px dashed hsl(var(--primary) / 0.3)' }}>
-                                                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'hsl(var(--primary))', marginBottom: '1rem' }}>
-                                                            <Truck size={18} /> Shipping & Tracking Information
-                                                        </h4>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                                            <div>
-                                                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Courier Partner</div>
-                                                                <div style={{ fontWeight: 700 }}>{selectedOrder.courier_name}</div>
+                    {/* ─── ADD MANUAL ORDER PAGE ─── */}
+                    {isAddingOrder && (
+                        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                            <div className="card shadow-premium" style={{
+                                width: '100%', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--primary) / 0.3)', borderRadius: '24px', background: 'hsl(var(--bg-panel))'
+                            }}>
+                                <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <Package size={24} color="hsl(var(--primary))" /> Manual Order Creation
+                                    </h2>
+                                    <button onClick={() => setIsAddingOrder(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
+                                </div>
+
+                                <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name</label>
+                                            <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
+                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 1' }}>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
+                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
+                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}>
+                                                <option value="Tamil Nadu">Tamil Nadu</option>
+                                                <option value="Kerala">Kerala</option>
+                                                <option value="Karnataka">Karnataka</option>
+                                                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                                                <option value="Telangana">Telangana</option>
+                                                <option value="Other">Other State</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Item Selection */}
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '1rem', display: 'block' }}>Add Products</label>
+                                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                                            <div style={{ flex: 1, position: 'relative' }}>
+                                                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'gray' }} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search product..."
+                                                    value={productSearch}
+                                                    onChange={e => setProductSearch(e.target.value)}
+                                                    style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                />
+                                                {productSearch && (
+                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                                                        {allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                                                            <div key={p.id} onClick={() => {
+                                                                const exists = newOrder.items.find(i => i.product_id === p.id);
+                                                                if (exists) {
+                                                                    setNewOrder({ ...newOrder, items: newOrder.items.map(i => i.product_id === p.id ? { ...i, quantity: i.quantity + 1 } : i) });
+                                                                } else {
+                                                                    setNewOrder({ ...newOrder, items: [...newOrder.items, { product_id: p.id, product_name: p.name, quantity: 1, price: p.price }] });
+                                                                }
+                                                                setProductSearch('');
+                                                            }} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
+                                                                <span>{p.name}</span>
+                                                                <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>₹{p.price.toLocaleString()}</span>
                                                             </div>
-                                                            <div>
-                                                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Tracking Number</div>
-                                                                <div style={{ fontWeight: 700, fontFamily: 'monospace', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
-                                                            </div>
-                                                        </div>
-                                                        {selectedOrder.tracking_url && (
-                                                            <a href={selectedOrder.tracking_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', fontSize: '0.8rem' }}>
-                                                                <ExternalLink size={14} /> Track Package Real-time
-                                                            </a>
-                                                        )}
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
+                                        </div>
 
-                                            {/* Right: Summary & Customer */}
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📍 Customer Info</h4>
-                                                    <div style={{ fontWeight: 700 }}>{selectedOrder.customer_name}</div>
-                                                    <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.customer_phone}</div>
-                                                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', lineHeight: 1.5, color: '#ccc' }}>{selectedOrder.delivery_address}</div>
-                                                    <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
-                                                </div>
-
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💰 Order Summary</h4>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                            <span>Subtotal:</span>
-                                                            <span>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
-                                                        </div>
-
-                                                        {selectedOrder.cgst > 0 && (
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
-                                                                <span>CGST (2.5%):</span>
-                                                                <span>₹{parseFloat(selectedOrder.cgst).toLocaleString()}</span>
-                                                            </div>
-                                                        )}
-                                                        {selectedOrder.sgst > 0 && (
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
-                                                                <span>SGST (2.5%):</span>
-                                                                <span>₹{parseFloat(selectedOrder.sgst).toLocaleString()}</span>
-                                                            </div>
-                                                        )}
-                                                        {selectedOrder.igst > 0 && (
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
-                                                                <span>IGST (5%):</span>
-                                                                <span>₹{parseFloat(selectedOrder.igst).toLocaleString()}</span>
-                                                            </div>
-                                                        )}
-                                                        {(!selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && selectedOrder.tax_amount > 0) && (
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
-                                                                <span>Tax (Aggregate):</span>
-                                                                <span>₹{parseFloat(selectedOrder.tax_amount).toLocaleString()}</span>
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: '#94a3b8' }}>
-                                                            <span>Shipping:</span>
-                                                            <span>₹{(selectedOrder.shipping_cost || 0).toLocaleString()}</span>
-                                                        </div>
-                                                        <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.5rem 0' }} />
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
-                                                            <span>Total:</span>
-                                                            <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
-                                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {newOrder.items.map((item, idx) => (
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'hsl(var(--bg-panel))', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                    <div style={{ flex: 1, fontWeight: 700 }}>{item.product_name}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input type="number" min="1" value={item.quantity} onChange={e => {
+                                                            const val = parseInt(e.target.value);
+                                                            setNewOrder({ ...newOrder, items: newOrder.items.map((it, i) => i === idx ? { ...it, quantity: val } : it) });
+                                                        }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: 'hsl(var(--bg-app))', border: '1px solid gray', color: 'white', textAlign: 'center' }} />
                                                     </div>
+                                                    <div style={{ width: '100px', textAlign: 'right', fontWeight: 800 }}>₹{(item.price * item.quantity).toLocaleString()}</div>
+                                                    <button onClick={() => setNewOrder({ ...newOrder, items: newOrder.items.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                 </div>
+                                            ))}
+                                            {newOrder.items.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', border: '1px dashed hsl(var(--border-subtle))', borderRadius: '12px', color: 'gray' }}>No items added. Search above to add products.</div>}
+                                        </div>
+                                    </div>
 
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>⚙️ Actions</h4>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-                                                        <select
-                                                            value={selectedOrder.status}
-                                                            onChange={(e) => {
-                                                                const newStatus = e.target.value;
-                                                                if (newStatus === 'SHIPPED') {
-                                                                    setSelectedOrderForTracking(selectedOrder);
-                                                                    setShowShippingModal(true);
+                                    {/* Summary & Save */}
+                                    <div style={{ background: 'hsl(var(--bg-panel))', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                        {(() => {
+                                            const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                                            const shipping = 100;
+
+                                            let cgst = 0, sgst = 0, igst = 0;
+                                            if (newOrder.shipping_state === 'Tamil Nadu') {
+                                                cgst = Math.round(subtotal * 0.025);
+                                                sgst = Math.round(subtotal * 0.025);
+                                            } else {
+                                                igst = Math.round(subtotal * 0.05);
+                                            }
+                                            const tax = cgst + sgst + igst;
+                                            const total = subtotal + tax + shipping;
+
+                                            return (
+                                                <>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Subtotal:</span><span>₹{subtotal.toLocaleString()}</span></div>
+                                                        {cgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>CGST (2.5%):</span><span>₹{cgst.toLocaleString()}</span></div>}
+                                                        {sgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>SGST (2.5%):</span><span>₹{sgst.toLocaleString()}</span></div>}
+                                                        {igst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>IGST (5%):</span><span>₹{igst.toLocaleString()}</span></div>}
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Shipping:</span><span>₹{shipping.toLocaleString()}</span></div>
+                                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', fontWeight: 900, color: 'hsl(var(--primary))' }}><span>Total:</span><span>₹{total.toLocaleString()}</span></div>
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!newOrder.customer_name || !newOrder.customer_phone || newOrder.items.length === 0) {
+                                                                alert('Please fill all details and add items.'); return;
+                                                            }
+                                                            setLoading(true);
+                                                            try {
+                                                                const orderId = `MAN-${Date.now().toString().slice(-6)}`;
+
+                                                                // ────── NORMALISE PHONE & SYNC CUSTOMER ──────
+                                                                const cleanPhone = newOrder.customer_phone.replace(/\D/g, '');
+                                                                const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
+
+                                                                const { data: existingCusts, error: lookupError } = await supabase.from('customers').select('id, name').eq('phone', normalizedPhone);
+
+                                                                if (!existingCusts || existingCusts.length === 0) {
+                                                                    const { error: custErr } = await supabase.from('customers').insert({
+                                                                        phone: normalizedPhone,
+                                                                        name: newOrder.customer_name || 'Website User',
+                                                                        address: newOrder.delivery_address,
+                                                                        state: newOrder.shipping_state,
+                                                                        role: 'user'
+                                                                    });
+                                                                    if (custErr) console.error('Failed to auto-create customer profile:', custErr);
                                                                 } else {
-                                                                    updateOrderStatus(selectedOrder.id, newStatus);
+                                                                    // Update existing customer with new latest details
+                                                                    await supabase.from('customers').update({
+                                                                        name: newOrder.customer_name || existingCusts[0].name,
+                                                                        address: newOrder.delivery_address,
+                                                                        state: newOrder.shipping_state
+                                                                    }).eq('id', existingCusts[0].id);
                                                                 }
-                                                            }}
-                                                            style={{ padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
-                                                        >
-                                                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                                        </select>
-                                                        {selectedOrder.status === 'PLACED' && (
-                                                            <button onClick={() => {
-                                                                setSelectedOrderForTracking(selectedOrder);
-                                                                setShowShippingModal(true);
-                                                            }} className="btn btn-primary" style={{ width: '100%' }}>
-                                                                <Truck size={16} /> Update Tracking Info
-                                                            </button>
-                                                        )}
-                                                        <a href={`https://wa.me/${selectedOrder.customer_phone}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center', justifyContent: 'center' }}>
-                                                            <MessageCircle size={14} /> Contact via WhatsApp
-                                                        </a>
-                                                        <button
-                                                            onClick={() => handleDeleteOrder(selectedOrder.id)}
-                                                            className="btn"
-                                                            style={{
-                                                                width: '100%',
-                                                                marginTop: '0.5rem',
-                                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                                color: '#f87171',
-                                                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '0.5rem',
-                                                                fontWeight: 600
-                                                            }}
-                                                        >
-                                                            <Trash2 size={14} /> Delete Order
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* ─── ADD MANUAL ORDER PAGE ─── */}
-                            {isAddingOrder && (
-                                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                                    <div className="card shadow-premium" style={{
-                                        width: '100%', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--primary) / 0.3)', borderRadius: '24px', background: 'hsl(var(--bg-panel))'
-                                    }}>
-                                        <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <Package size={24} color="hsl(var(--primary))" /> Manual Order Creation
-                                            </h2>
-                                            <button onClick={() => setIsAddingOrder(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
-                                        </div>
+                                                                const { error: ordErr } = await supabase.from('orders').insert({
+                                                                    id: orderId,
+                                                                    customer_name: newOrder.customer_name,
+                                                                    customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
+                                                                    delivery_address: newOrder.delivery_address,
+                                                                    shipping_state: newOrder.shipping_state,
+                                                                    total_amount: total,
+                                                                    tax_amount: tax,
+                                                                    cgst: cgst,
+                                                                    sgst: sgst,
+                                                                    igst: igst,
+                                                                    shipping_cost: shipping,
+                                                                    status: 'PLACED',
+                                                                    source: 'WHATSAPP',
+                                                                    payment_method: newOrder.payment_method
+                                                                });
+                                                                if (ordErr) throw ordErr;
+                                                                const { error: itemErr } = await supabase.from('order_items').insert(newOrder.items.map(it => ({
+                                                                    order_id: orderId,
+                                                                    product_id: it.product_id,
+                                                                    product_name: it.product_name,
+                                                                    quantity: it.quantity,
+                                                                    price_at_time: it.price
+                                                                })));
+                                                                if (itemErr) throw itemErr;
 
-                                        <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name</label>
-                                                    <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
-                                                    <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
-                                                </div>
-                                                <div style={{ gridColumn: 'span 1' }}>
-                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
-                                                    <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none' }} />
-                                                </div>
-                                                <div>
-                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
-                                                    <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}>
-                                                        <option value="Tamil Nadu">Tamil Nadu</option>
-                                                        <option value="Kerala">Kerala</option>
-                                                        <option value="Karnataka">Karnataka</option>
-                                                        <option value="Andhra Pradesh">Andhra Pradesh</option>
-                                                        <option value="Telangana">Telangana</option>
-                                                        <option value="Other">Other State</option>
-                                                    </select>
-                                                </div>
-                                            </div>
+                                                                // ────── DEDUCT STOCK & LOG HISTORY ──────
+                                                                for (const item of newOrder.items) {
+                                                                    const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
+                                                                    if (prod) {
+                                                                        const newStock = Math.max(0, prod.stock - item.quantity);
+                                                                        await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
 
-                                            {/* Item Selection */}
-                                            <div style={{ marginBottom: '2rem' }}>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '1rem', display: 'block' }}>Add Products</label>
-                                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                                                    <div style={{ flex: 1, position: 'relative' }}>
-                                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'gray' }} />
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Search product..."
-                                                            value={productSearch}
-                                                            onChange={e => setProductSearch(e.target.value)}
-                                                            style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
-                                                        />
-                                                        {productSearch && (
-                                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                                                                {allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
-                                                                    <div key={p.id} onClick={() => {
-                                                                        const exists = newOrder.items.find(i => i.product_id === p.id);
-                                                                        if (exists) {
-                                                                            setNewOrder({ ...newOrder, items: newOrder.items.map(i => i.product_id === p.id ? { ...i, quantity: i.quantity + 1 } : i) });
-                                                                        } else {
-                                                                            setNewOrder({ ...newOrder, items: [...newOrder.items, { product_id: p.id, product_name: p.name, quantity: 1, price: p.price }] });
-                                                                        }
-                                                                        setProductSearch('');
-                                                                    }} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-                                                                        <span>{p.name}</span>
-                                                                        <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>₹{p.price.toLocaleString()}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                    {newOrder.items.map((item, idx) => (
-                                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'hsl(var(--bg-panel))', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                            <div style={{ flex: 1, fontWeight: 700 }}>{item.product_name}</div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                <input type="number" min="1" value={item.quantity} onChange={e => {
-                                                                    const val = parseInt(e.target.value);
-                                                                    setNewOrder({ ...newOrder, items: newOrder.items.map((it, i) => i === idx ? { ...it, quantity: val } : it) });
-                                                                }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: 'hsl(var(--bg-app))', border: '1px solid gray', color: 'white', textAlign: 'center' }} />
-                                                            </div>
-                                                            <div style={{ width: '100px', textAlign: 'right', fontWeight: 800 }}>₹{(item.price * item.quantity).toLocaleString()}</div>
-                                                            <button onClick={() => setNewOrder({ ...newOrder, items: newOrder.items.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                                                        </div>
-                                                    ))}
-                                                    {newOrder.items.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', border: '1px dashed hsl(var(--border-subtle))', borderRadius: '12px', color: 'gray' }}>No items added. Search above to add products.</div>}
-                                                </div>
-                                            </div>
-
-                                            {/* Summary & Save */}
-                                            <div style={{ background: 'hsl(var(--bg-panel))', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                                {(() => {
-                                                    const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
-                                                    const shipping = 100;
-
-                                                    let cgst = 0, sgst = 0, igst = 0;
-                                                    if (newOrder.shipping_state === 'Tamil Nadu') {
-                                                        cgst = Math.round(subtotal * 0.025);
-                                                        sgst = Math.round(subtotal * 0.025);
-                                                    } else {
-                                                        igst = Math.round(subtotal * 0.05);
-                                                    }
-                                                    const tax = cgst + sgst + igst;
-                                                    const total = subtotal + tax + shipping;
-
-                                                    return (
-                                                        <>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Subtotal:</span><span>₹{subtotal.toLocaleString()}</span></div>
-                                                                {cgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>CGST (2.5%):</span><span>₹{cgst.toLocaleString()}</span></div>}
-                                                                {sgst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>SGST (2.5%):</span><span>₹{sgst.toLocaleString()}</span></div>}
-                                                                {igst > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>IGST (5%):</span><span>₹{igst.toLocaleString()}</span></div>}
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'gray' }}><span>Shipping:</span><span>₹{shipping.toLocaleString()}</span></div>
-                                                                <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', fontWeight: 900, color: 'hsl(var(--primary))' }}><span>Total:</span><span>₹{total.toLocaleString()}</span></div>
-                                                            </div>
-                                                            <button
-                                                                onClick={async () => {
-                                                                    if (!newOrder.customer_name || !newOrder.customer_phone || newOrder.items.length === 0) {
-                                                                        alert('Please fill all details and add items.'); return;
-                                                                    }
-                                                                    setLoading(true);
-                                                                    try {
-                                                                        const orderId = `MAN-${Date.now().toString().slice(-6)}`;
-
-                                                                        // ────── NORMALISE PHONE & SYNC CUSTOMER ──────
-                                                                        const cleanPhone = newOrder.customer_phone.replace(/\D/g, '');
-                                                                        const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
-
-                                                                        const { data: existingCusts, error: lookupError } = await supabase.from('customers').select('id, name').eq('phone', normalizedPhone);
-
-                                                                        if (!existingCusts || existingCusts.length === 0) {
-                                                                            const { error: custErr } = await supabase.from('customers').insert({
-                                                                                phone: normalizedPhone,
-                                                                                name: newOrder.customer_name || 'Website User',
-                                                                                address: newOrder.delivery_address,
-                                                                                state: newOrder.shipping_state,
-                                                                                role: 'user'
-                                                                            });
-                                                                            if (custErr) console.error('Failed to auto-create customer profile:', custErr);
-                                                                        } else {
-                                                                            // Update existing customer with new latest details
-                                                                            await supabase.from('customers').update({
-                                                                                name: newOrder.customer_name || existingCusts[0].name,
-                                                                                address: newOrder.delivery_address,
-                                                                                state: newOrder.shipping_state
-                                                                            }).eq('id', existingCusts[0].id);
-                                                                        }
-
-                                                                        const { error: ordErr } = await supabase.from('orders').insert({
-                                                                            id: orderId,
-                                                                            customer_name: newOrder.customer_name,
-                                                                            customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
-                                                                            delivery_address: newOrder.delivery_address,
-                                                                            shipping_state: newOrder.shipping_state,
-                                                                            total_amount: total,
-                                                                            tax_amount: tax,
-                                                                            cgst: cgst,
-                                                                            sgst: sgst,
-                                                                            igst: igst,
-                                                                            shipping_cost: shipping,
-                                                                            status: 'PLACED',
-                                                                            source: 'WHATSAPP',
-                                                                            payment_method: newOrder.payment_method
+                                                                        await supabase.from('product_history').insert({
+                                                                            product_id: item.product_id,
+                                                                            change_type: 'SALE',
+                                                                            quantity_change: -item.quantity,
+                                                                            new_stock: newStock,
+                                                                            reason: `Admin Manual Order #${orderId}`
                                                                         });
-                                                                        if (ordErr) throw ordErr;
-                                                                        const { error: itemErr } = await supabase.from('order_items').insert(newOrder.items.map(it => ({
-                                                                            order_id: orderId,
-                                                                            product_id: it.product_id,
-                                                                            product_name: it.product_name,
-                                                                            quantity: it.quantity,
-                                                                            price_at_time: it.price
-                                                                        })));
-                                                                        if (itemErr) throw itemErr;
 
-                                                                        // ────── DEDUCT STOCK & LOG HISTORY ──────
-                                                                        for (const item of newOrder.items) {
-                                                                            const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
-                                                                            if (prod) {
-                                                                                const newStock = Math.max(0, prod.stock - item.quantity);
-                                                                                await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
-
-                                                                                await supabase.from('product_history').insert({
-                                                                                    product_id: item.product_id,
-                                                                                    change_type: 'SALE',
-                                                                                    quantity_change: -item.quantity,
-                                                                                    new_stock: newStock,
-                                                                                    reason: `Admin Manual Order #${orderId}`
-                                                                                });
-
-                                                                                await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
-                                                                            }
-                                                                        }
-
-                                                                        setNotification({ message: '✅ Manual Order Created Successfully! Stock updated.', type: 'success' });
-                                                                        setIsAddingOrder(false);
-                                                                        setNewOrder({ customer_name: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', items: [] });
-                                                                        fetchOrders();
-                                                                    } catch (err) {
-                                                                        console.error('Manual Order Error:', err);
-                                                                        setNotification({ message: `❌ Failed to create order: ${err.message || 'Unknown error'}`, type: 'error' });
-                                                                    } finally {
-                                                                        setLoading(false);
-                                                                        setTimeout(() => setNotification(null), 3000);
+                                                                        await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
                                                                     }
-                                                                }}
-                                                                disabled={loading}
-                                                                style={{ width: '100%', padding: '1rem', borderRadius: '12px', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 10px 20px rgba(168, 85, 247, 0.3)' }}
-                                                            >
-                                                                {loading ? <Loader2 className="animate-spin" /> : 'Confirm & Place Order'}
-                                                            </button>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
+                                                                }
+
+                                                                setNotification({ message: '✅ Manual Order Created Successfully! Stock updated.', type: 'success' });
+                                                                setIsAddingOrder(false);
+                                                                setNewOrder({ customer_name: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', items: [] });
+                                                                fetchOrders();
+                                                            } catch (err) {
+                                                                console.error('Manual Order Error:', err);
+                                                                setNotification({ message: `❌ Failed to create order: ${err.message || 'Unknown error'}`, type: 'error' });
+                                                            } finally {
+                                                                setLoading(false);
+                                                                setTimeout(() => setNotification(null), 3000);
+                                                            }
+                                                        }}
+                                                        disabled={loading}
+                                                        style={{ width: '100%', padding: '1rem', borderRadius: '12px', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 10px 20px rgba(168, 85, 247, 0.3)' }}
+                                                    >
+                                                        {loading ? <Loader2 className="animate-spin" /> : 'Confirm & Place Order'}
+                                                    </button>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        </div>
+                    )}
 
-                            {/* SHIPPING MODAL */}
-                            {showShippingModal && (
-                                <div style={{
-                                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
-                                    backdropFilter: 'blur(15px)', zIndex: 2000,
-                                    display: 'grid', placeItems: 'center', padding: '1.5rem'
-                                }}>
-                                    <div className="card animate-enter" style={{ width: '100%', maxWidth: '500px', border: '1px solid hsl(var(--primary) / 0.5)', position: 'relative' }}>
-                                        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <Truck size={24} color="hsl(var(--primary))" /> Ready to Ship Order
-                                        </h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                            <div>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Courier Name (e.g. Delhivery, DTDC)</label>
-                                                <input
-                                                    type="text"
-                                                    value={shippingForm.courier_name}
-                                                    onChange={(e) => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
-                                                    placeholder="Enter courier name"
-                                                    style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Tracking Number (AWB)</label>
-                                                <input
-                                                    type="text"
-                                                    value={shippingForm.tracking_number}
-                                                    onChange={(e) => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
-                                                    placeholder="Enter AWB number"
-                                                    style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Tracking URL (Optional)</label>
-                                                <input
-                                                    type="url"
-                                                    value={shippingForm.tracking_url}
-                                                    onChange={(e) => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
-                                                    placeholder="https://delhivery.com/track/..."
-                                                    style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
-                                                />
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                                                <button onClick={() => setShowShippingModal(false)} className="btn btn-secondary">Cancel</button>
-                                                <button
-                                                    onClick={() => {
-                                                        updateOrderStatus(selectedOrderForTracking.id, 'SHIPPED', {
-                                                            courierName: shippingForm.courier_name,
-                                                            trackingNumber: shippingForm.tracking_number,
-                                                            trackingUrl: shippingForm.tracking_url
-                                                        });
-                                                        setShowShippingModal(false);
-                                                        setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' });
-                                                    }}
-                                                    className="btn btn-primary"
-                                                    disabled={!shippingForm.courier_name || !shippingForm.tracking_number}
-                                                >
-                                                    Confirm Shipping
-                                                </button>
-                                            </div>
-                                        </div>
+                    {/* SHIPPING MODAL */}
+                    {showShippingModal && (
+                        <div style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+                            backdropFilter: 'blur(15px)', zIndex: 2000,
+                            display: 'grid', placeItems: 'center', padding: '1.5rem'
+                        }}>
+                            <div className="card animate-enter" style={{ width: '100%', maxWidth: '500px', border: '1px solid hsl(var(--primary) / 0.5)', position: 'relative' }}>
+                                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <Truck size={24} color="hsl(var(--primary))" /> Ready to Ship Order
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Courier Name (e.g. Delhivery, DTDC)</label>
+                                        <input
+                                            type="text"
+                                            value={shippingForm.courier_name}
+                                            onChange={(e) => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
+                                            placeholder="Enter courier name"
+                                            style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Tracking Number (AWB)</label>
+                                        <input
+                                            type="text"
+                                            value={shippingForm.tracking_number}
+                                            onChange={(e) => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
+                                            placeholder="Enter AWB number"
+                                            style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>Tracking URL (Optional)</label>
+                                        <input
+                                            type="url"
+                                            value={shippingForm.tracking_url}
+                                            onChange={(e) => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
+                                            placeholder="https://delhivery.com/track/..."
+                                            style={{ width: '100%', padding: '0.85rem', background: '#0a0a0a', border: '1px solid #333', borderRadius: '10px', color: 'white' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                        <button onClick={() => setShowShippingModal(false)} className="btn btn-secondary">Cancel</button>
+                                        <button
+                                            onClick={() => {
+                                                updateOrderStatus(selectedOrderForTracking.id, 'SHIPPED', {
+                                                    courierName: shippingForm.courier_name,
+                                                    trackingNumber: shippingForm.tracking_number,
+                                                    trackingUrl: shippingForm.tracking_url
+                                                });
+                                                setShowShippingModal(false);
+                                                setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' });
+                                            }}
+                                            className="btn btn-primary"
+                                            disabled={!shippingForm.courier_name || !shippingForm.tracking_number}
+                                        >
+                                            Confirm Shipping
+                                        </button>
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        </div>
+                    )}
 
-                            {/* Notification */}
+                    {/* Notification */}
 
-                            {notification && (
+                    {notification && (
 
-                                <div style={{
+                        <div style={{
 
-                                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
+                            position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
 
-                                    padding: '1rem 1.5rem', borderRadius: 'var(--radius)',
+                            padding: '1rem 1.5rem', borderRadius: 'var(--radius)',
 
-                                    background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
+                            background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
 
-                                    color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                            color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
 
-                                    animation: 'slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                            animation: 'slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
 
-                                }}>
+                        }}>
 
-                                    {notification.message}
+                            {notification.message}
 
-                                </div>
+                        </div>
 
-                            )}
+                    )}
 
 
-                            <style jsx>{`
+                    <style jsx>{`
                 @keyframes expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
                 .animate-expand { animation: expand 0.4s ease-out; overflow: hidden; }
                 .card-sub { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
@@ -1412,10 +1408,9 @@ export default function OrdersPage() {
                     table { min-width: 800px; }
                 }
             `}</style>
-                        </>
-                    )}
                 </>
             )}
         </div>
     );
 }
+
