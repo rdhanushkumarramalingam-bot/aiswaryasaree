@@ -153,12 +153,12 @@ export default function MediaLibraryPage() {
             {/* Toolbar */}
             <div className="card" style={{ padding: '1rem', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
-                    <Search className="text-muted" size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                     <input
                         type="text"
-                        placeholder="Search images..."
+                        placeholder="Search images by name..."
                         className="admin-input"
-                        style={{ paddingLeft: '3rem', width: '100%', marginBottom: 0 }}
+                        style={{ paddingLeft: '3rem' }}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />

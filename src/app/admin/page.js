@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
-import {
-    DollarSign, ShoppingBag, Users, Package, TrendingUp,
-    Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck
-} from 'lucide-react';
+import { DollarSign, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
 // Simple in-memory cache for dashboard data (30s TTL)
 let _dashCache = null;
@@ -145,7 +142,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div className="admin-grid-4" style={{ marginBottom: '3rem' }}>
                 {[
                     {
                         title: 'Total Revenue',
@@ -158,7 +155,7 @@ export default function AdminDashboard() {
                     {
                         title: 'Total Orders',
                         value: stats.orders,
-                        icon: ShoppingBag,
+                        icon: ShoppingCart,
                         gradient: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
                         color: 'hsl(222 47% 10%)',
                         sub: `${stats.todayOrders} today`,
@@ -234,7 +231,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Main Content Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+            <div className="admin-grid-2">
 
                 {/* Recent Orders */}
                 <div className="card" style={{ padding: 0 }}>

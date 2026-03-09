@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import {
-    TrendingUp, ShoppingBag, Users, Package, Trophy, Truck,
-    Calendar, Filter, RefreshCw, BarChart3, PieChart as PieChartIcon,
-    ChevronRight, ArrowUpRight, ArrowDownRight, IndianRupee, MapPin, Search
-} from 'lucide-react';
+import { TrendingUp, ShoppingCart, Users, Package, Trophy, Truck, Calendar, Filter, RefreshCw, BarChart3, PieChart as PieChartIcon, ChevronRight, ArrowUpRight, ArrowDownRight, IndianRupee, MapPin, Search } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
@@ -215,7 +211,7 @@ export default function AnalyticsHub() {
             {/* Top Stats */}
             <div className="admin-grid-4">
                 <StatCard title="Revenue" value={`₹${(data.summary.revenue || 0).toLocaleString()}`} icon={IndianRupee} color="#6366f1" />
-                <StatCard title="Orders" value={data.summary.orders || 0} icon={ShoppingBag} color="#10b981" />
+                <StatCard title="Orders" value={data.summary.orders || 0} icon={ShoppingCart} color="#10b981" />
                 <StatCard title="Customers" value={data.summary.customers || 0} icon={Users} color="#f59e0b" />
                 <StatCard title="Avg. Order" value={`₹${Math.round(data.summary.aov || 0).toLocaleString()}`} icon={TrendingUp} color="#ec4899" />
             </div>

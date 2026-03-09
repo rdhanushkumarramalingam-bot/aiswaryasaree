@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
-    Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingBag,
+    Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
     Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, EyeOff
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -782,20 +782,32 @@ export default function ProductsPage() {
             */}
 
                     {/* Toolbar */}
-                    <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="card" style={{ padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         {/* Search */}
-                        <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                            <input type="text" placeholder="Search products..." value={searchTerm}
+                        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                            <Search size={15} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                            <input
+                                type="text"
+                                placeholder="Search products by name, category or catalog ID..."
+                                value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
+                                className="admin-input"
+                                style={{ paddingLeft: '2.75rem' }}
+                            />
                         </div>
+
                         {/* Sort */}
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '0.65rem 1rem', cursor: 'pointer' }}>
-                            <option value="newest">Newest First</option>
-                            <option value="low_stock">⚠️ Low Stock First</option>
-                            <option value="high_price">Price: High to Low</option>
-                        </select>
+                        <div style={{ minWidth: '180px' }}>
+                            <select
+                                value={sortBy}
+                                onChange={e => setSortBy(e.target.value)}
+                                className="admin-input-select"
+                            >
+                                <option value="newest">Newest First</option>
+                                <option value="low_stock">⚠️ Low Stock First</option>
+                                <option value="high_price">Price: High to Low</option>
+                            </select>
+                        </div>
 
                         {/* View Toggle */}
                         <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
@@ -1177,11 +1189,11 @@ export default function ProductsPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Name *</label>
-                                        <input name="name" type="text" defaultValue={currentProduct?.name} required placeholder="e.g. Royal Kanjivaram Silk" style={inputStyle} />
+                                        <input name="name" type="text" defaultValue={currentProduct?.name} required placeholder="e.g. Royal Kanjivaram Silk" className="admin-input" />
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Category *</label>
-                                        <select name="category" defaultValue={currentProduct?.category || 'Silk Saree'} style={{ ...inputStyle, cursor: 'pointer' }}>
+                                        <select name="category" defaultValue={currentProduct?.category || 'Silk Saree'} className="admin-input-select">
                                             <option>Silk Saree</option>
                                             <option>Cotton Saree</option>
                                             <option>Designer</option>
@@ -1203,14 +1215,14 @@ export default function ProductsPage() {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
-                                            <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" style={inputStyle} />
+                                            <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" className="admin-input" />
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                            <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" style={inputStyle} />
+                                            <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" className="admin-input" />
                                         </div>
                                     </div>
-                                    <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                    <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Image *</label>
                                             <div style={{ display: 'flex', gap: '10px' }}>
@@ -1243,7 +1255,7 @@ export default function ProductsPage() {
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold</label>
-                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" style={inputStyle} />
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" className="admin-input" />
                                         </div>
                                     </div>
                                 </div>
@@ -1273,9 +1285,9 @@ export default function ProductsPage() {
                                             )}
                                             {variants.map((v, i) => (
                                                 <div key={i} className="animate-in fade-in" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
-                                                    <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
-                                                    <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
-                                                    <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
+                                                    <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
                                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                         <div
                                                             onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
@@ -1312,7 +1324,7 @@ export default function ProductsPage() {
                                         </div>
                                         <div style={{ marginTop: '1rem' }}>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold (Overall)</label>
-                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" style={inputStyle} />
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" className="admin-input" />
                                         </div>
                                     </div>
                                 </div>
@@ -1321,11 +1333,11 @@ export default function ProductsPage() {
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
                                 <textarea name="description" defaultValue={currentProduct?.description} rows={3}
-                                    style={{ ...inputStyle, resize: 'vertical' }} placeholder="Fabric, colors, design details..." />
+                                    className="admin-input" style={{ resize: 'vertical' }} placeholder="Fabric, colors, design details..." />
                             </div>
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>🏷️ Product Group / Tag</label>
-                                <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" style={inputStyle} />
+                                <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" className="admin-input" />
                             </div>
 
                             {/* Facebook Integration */}
