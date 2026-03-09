@@ -13,6 +13,7 @@ const menuItems = [
     { name: 'Broadcast', href: '/admin/broadcast', icon: Megaphone },
     { name: 'WhatsApp Funnel', href: '/admin/whatsapp', icon: MessageSquare },
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+    { name: 'Invoice Report', href: '/admin/invoices/report', icon: FileText },
     { name: 'Meta Connect', href: '/admin/facebook', icon: Facebook },
     { name: 'Schedule Post', href: '/admin/schedule', icon: Clock },
     { name: 'Shipping', href: '/admin/shipping', icon: Truck },
