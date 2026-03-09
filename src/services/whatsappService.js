@@ -417,7 +417,7 @@ export async function handleProductInquiry(to, catalogId) {
         const imgUrl = getPremiumImage(product);
         const buttons = stock > 0
             ? [
-                { id: `addcart_${product.id}`, title: '🛒 Add to Bag' },
+                { id: `addcart_${product.id}`, title: '🛒 Add to Cart' },
                 { id: 'menu_catalogue', title: '📖 Browse More' }
             ]
             : [
@@ -445,16 +445,36 @@ export async function sendMainMenu(to) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // ── Message 1: Welcome image + Text ──
-    await sendImageButtons(to, welcomeImg, welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl, [
-        { id: "menu_catalogue", title: "📖 View Catalogue" }
-    ]);
+    // ── Message 1: Welcome image + NATIVE SHOP BUTTON ──
+    // Using cta_url is the most integrated way to launch the store.
+    await sendRawMessage(to, {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "interactive",
+        interactive: {
+            type: "cta_url",
+            header: {
+                type: "image",
+                image: { link: welcomeImg }
+            },
+            body: { text: welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl + "\n\nTap below to open our store natively in the app." },
+            footer: { text: "Premium Shopping Experience" },
+            action: {
+                name: "cta_url",
+                parameters: {
+                    display_text: "🛍️ Open Store",
+                    url: shopUrl
+                }
+            }
+        }
+    });
 
-    // ── Message 2: Quick actions ──
-    await sendButtons(to, "Manage your orders or speak with us:", [
+    // ── Message 2: Quick actions with View Catalogue ──
+    await sendButtons(to, "Explore our collections & manage orders:", [
+        { id: "menu_catalogue", title: "📖 View Catalogue" },
         { id: "menu_track", title: "My Orders" },
-        { id: "menu_contact", title: "Contact Us" },
-        { id: "menu_main", title: "🏠 Main Menu" }
+        { id: "menu_contact", title: "Contact Us" }
     ]);
 }
 
@@ -607,7 +627,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         // Variable Product Logic: Change button label
         const isVariable = p.type === 'variant';
         const buttons = p.stock > 0
-            ? [{ id: `addcart_${p.id}`, title: isVariable ? "🎨 Select Option" : "🛒 Add to Bag" }]
+            ? [{ id: `addcart_${p.id}`, title: isVariable ? "🎨 Select Option" : "🛒 Add to Cart" }]
             : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
 
         const imgUrl = getPremiumImage(p);
@@ -687,7 +707,7 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
-    await sendButtons(to, `✅ *Added to Bag*\n${product.name}\nQty in Bag: ${qty}`, [
+    await sendButtons(to, `✅ *Added to Cart*\n${product.name}\nQty in Cart: ${qty}`, [
         { id: `qty_inc_${productId}`, title: "➕ Add Another" },
         { id: `qty_dec_${productId}`, title: "➖ Reduce Qty" },
         { id: "menu_cart", title: "🛒 View Cart" }
@@ -704,7 +724,7 @@ export async function handleVariantSelection(to, variantId) {
     const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
-    await sendButtons(to, `✅ *Added to Bag*\n${product.name} (${variant.name})\nQty in Bag: ${qty}`, [
+    await sendButtons(to, `✅ *Added to Cart*\n${product.name} (${variant.name})\nQty in Cart: ${qty}`, [
         { id: `vqty_inc_${variantId}`, title: "➕ Add Another" },
         { id: `vqty_dec_${variantId}`, title: "➖ Reduce Qty" },
         { id: "menu_cart", title: "🛒 View Cart" }
@@ -717,7 +737,7 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
     else query.eq('product_id', targetId).is('variant_id', null);
 
     const { data: item } = await query.single();
-    if (!item) return sendText(to, "Item not found in bag.");
+    if (!item) return sendText(to, "Item not found in cart.");
 
     let newQty = item.quantity;
     if (action === 'inc') newQty += 1;
@@ -727,7 +747,7 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
 
     if (newQty < 1) {
         await supabase.from('whatsapp_cart').delete().eq('id', item.id);
-        return sendText(to, `🗑️ Removed ${itemName} from bag.`);
+        return sendText(to, `🗑️ Removed ${itemName} from cart.`);
     } else {
         await supabase.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
 
@@ -744,9 +764,9 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
 
 export async function handleViewCart(to) {
     const cart = await getCart(to);
-    if (!cart || cart.length === 0) return sendButtons(to, "Your bag is empty.", [{ id: "menu_browse", title: "🛍️ Shop Now" }]);
+    if (!cart || cart.length === 0) return sendButtons(to, "Your cart is empty.", [{ id: "menu_browse", title: "🛍️ Shop Now" }]);
 
-    let msg = `👜 *YOUR BAG*\n\n`;
+    let msg = `🛒 *YOUR CART*\n\n`;
     let total = 0;
     cart.forEach((item, i) => {
         total += item.price * item.quantity;
@@ -758,7 +778,7 @@ export async function handleViewCart(to) {
     await sendButtons(to, msg, [
         { id: "start_checkout", title: "✅ Place Order" },
         { id: "menu_browse", title: "🛍️ Add More" },
-        { id: "edit_cart", title: "✏️ Edit Bag" }
+        { id: "edit_cart", title: "✏️ Edit Cart" }
     ]);
 }
 
@@ -775,7 +795,7 @@ export async function handleEditCart(to) {
         }))
     }];
 
-    await sendList(to, "✏️ EDIT BAG", "Select an item to change quantity or remove:", "Select Item", sections);
+    await sendList(to, "✏️ EDIT CART", "Select an item to change quantity or remove:", "Select Item", sections);
 }
 
 export async function handleCartItemOptions(to, cartItemId) {
