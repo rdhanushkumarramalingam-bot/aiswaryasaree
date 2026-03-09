@@ -12,6 +12,8 @@ export default function InvoicesPage() {
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [invoiceItems, setInvoiceItems] = useState([]);
     const [notification, setNotification] = useState(null);
+    const [invoicePage, setInvoicePage] = useState(1);
+    const INVOICES_PER_PAGE = 20;
     const [settings, setSettings] = useState({
         shop_name: 'Cast Prince',
         shop_logo: '',
@@ -56,6 +58,9 @@ export default function InvoicesPage() {
         fetchSettings();
     }, []);
 
+    // Reset page when search changes
+    useEffect(() => { setInvoicePage(1); }, [searchTerm]);
+
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         const { data } = await supabase
@@ -82,6 +87,9 @@ export default function InvoicesPage() {
         inv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inv.customer_phone?.includes(searchTerm)
     );
+
+    const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE);
+    const paginatedInvoices = filteredInvoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE);
 
     const totalRevenue = invoices.reduce((s, o) => s + (o.total_amount || 0), 0);
     const paidInvoices = invoices.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
@@ -179,7 +187,7 @@ export default function InvoicesPage() {
                             {filteredInvoices.length === 0 ? (
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
-                                filteredInvoices.map(inv => (
+                                paginatedInvoices.map(inv => (
                                     <tr key={inv.id}>
                                         <td style={{ padding: '1rem 1.5rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -210,6 +218,15 @@ export default function InvoicesPage() {
                             )}
                         </tbody>
                     </table>
+
+                    {/* Pagination */}
+                    {totalInvoicePages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
+                            <button onClick={() => setInvoicePage(p => Math.max(1, p - 1))} disabled={invoicePage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: invoicePage === 1 ? 0.4 : 1 }}>← Prev</button>
+                            <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {invoicePage} of {totalInvoicePages} &nbsp;·&nbsp; {filteredInvoices.length} invoices</span>
+                            <button onClick={() => setInvoicePage(p => Math.min(totalInvoicePages, p + 1))} disabled={invoicePage === totalInvoicePages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: invoicePage === totalInvoicePages ? 0.4 : 1 }}>Next →</button>
+                        </div>
+                    )}
                 </div>
             )}
 

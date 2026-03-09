@@ -62,6 +62,8 @@ export default function ProductsPage() {
 
     // Post-Import Image Assigner State
     const [importedProductsForImage, setImportedProductsForImage] = useState(null);
+    const [productsPage, setProductsPage] = useState(1);
+    const PRODUCTS_PER_PAGE = 10;
 
     const fetchHistory = async (product) => {
         setSelectedProductForHistory(product);
@@ -188,6 +190,10 @@ export default function ProductsPage() {
         fetchProducts();
         fetchFbConfig();
     }, [timeRange]); // Refresh when time range changes
+
+    // Reset to page 1 when search/filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { setProductsPage(1); }, [searchTerm, categoryFilter, sortBy]);
 
     if (!hasMounted) return null;
 
@@ -689,6 +695,11 @@ export default function ProductsPage() {
         return new Date(b.created_at) - new Date(a.created_at);
     });
 
+    const totalProductPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
+    const paginatedProducts = filtered.slice((productsPage - 1) * PRODUCTS_PER_PAGE, productsPage * PRODUCTS_PER_PAGE);
+
+
+
     const totalStock = products.reduce((s, p) => s + (p.stock || 0), 0);
     const totalValue = products.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
 
@@ -768,7 +779,7 @@ export default function ProductsPage() {
                         </button>
                     ))}
                 </div>
-            )} */}
+            */}
 
                     {/* Toolbar */}
                     <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -921,7 +932,7 @@ export default function ProductsPage() {
                                     <tbody>
                                         {filtered.length === 0 ? (
                                             <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
-                                        ) : filtered.map((product, idx) => (
+                                        ) : paginatedProducts.map((product, idx) => (
                                             <tr key={product.id}>
                                                 <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
                                                 <td style={{ padding: '0.75rem 1.5rem' }}>
@@ -1021,6 +1032,15 @@ export default function ProductsPage() {
                                     </tbody>
                                 </table>
                             )}
+
+                            {/* Table Pagination */}
+                            {totalProductPages > 1 && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
+                                    <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
+                                    <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
+                                    <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1035,7 +1055,7 @@ export default function ProductsPage() {
                                 <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</div>
                             ) : (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
-                                    {filtered.map(product => (
+                                    {paginatedProducts.map(product => (
                                         <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
                                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.3)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
@@ -1098,6 +1118,15 @@ export default function ProductsPage() {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Card Pagination */}
+                            {totalProductPages > 1 && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem 0', marginTop: '1rem' }}>
+                                    <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
+                                    <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
+                                    <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
                                 </div>
                             )}
                         </div>
