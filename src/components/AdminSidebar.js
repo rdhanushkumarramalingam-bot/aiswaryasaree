@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard } from 'lucide-react';
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
     { name: 'Orders', href: '/admin/orders', icon: Package },
+    { name: 'Payments', href: '/admin/payments', icon: CreditCard },
     { name: 'Customers', href: '/admin/customers', icon: Users },
     { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Broadcast', href: '/admin/broadcast', icon: Megaphone },

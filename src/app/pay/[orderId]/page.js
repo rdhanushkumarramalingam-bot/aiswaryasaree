@@ -1,454 +1,335 @@
 'use client';
 
-
-
-import { useState, useEffect } from 'react';
-
-import { useRouter } from 'next/navigation';
-
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-
-
+import Script from 'next/script';
 
 const supabase = createClient(
-
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 );
 
-
-
-export default function PaymentPage({ params }) {
-
-    const { orderId } = params;
-
+// Inner component that uses useSearchParams (must be wrapped in Suspense)
+function PaymentPageInner({ orderId }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [order, setOrder] = useState(null);
-
     const [loading, setLoading] = useState(true);
-
-    const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, processing, success, failed
-
-
+    const [paymentStatus, setPaymentStatus] = useState('pending');
+    const [activeGateway, setActiveGateway] = useState(null); // 'razorpay' | 'phonepe'
+    const [sdkReady, setSdkReady] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
+        // Handle PhonePe redirect callback
+        const status = searchParams.get('status');
+        const reason = searchParams.get('reason');
+        if (status === 'success') {
+            setPaymentStatus('success');
+        } else if (status === 'failed') {
+            setError(`Payment failed: ${reason || 'Please try again'}`);
+        }
 
         async function fetchOrder() {
-
-            const { data, error } = await supabase
-
+            const { data, fetchError } = await supabase
                 .from('orders')
-
                 .select('*, order_items(*)')
-
                 .eq('id', orderId)
-
                 .single();
 
-
-
-            if (error || !data) {
-
-                console.error('Order fetch error:', error);
-
+            if (fetchError || !data) {
                 setPaymentStatus('failed');
-
+                setError('Order not found.');
             } else {
-
                 setOrder(data);
-
-                // If already paid, show success directly
-
-                if (data.status === 'PAID') {
-
-                    setPaymentStatus('success');
-
-                }
-
+                if (data.status === 'PAID') setPaymentStatus('success');
             }
-
             setLoading(false);
-
         }
-
         fetchOrder();
+    }, [orderId, searchParams]);
 
-    }, [orderId]);
-
-
-
-    const handlePayment = async (method) => {
-
-        setPaymentStatus('processing');
-
-
-
-        // Simulate specific app deeplinks (In production, use specific URI schemes)
-
-        const upiId = '917558189732@upi';
-
-        const name = 'Cast Prince';
-
-        const amount = order.total_amount;
-
-        const note = `Order #${orderId}`;
-
-
-
-        const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&tr=${orderId}&tn=${encodeURIComponent(note)}&cu=INR`;
-
-
-
-        // Attempt to open UPI app
-
-        window.location.href = upiLink;
-
-
-
-        // Show confirmation dialog after a short delay (simulating user return)
-
-        setTimeout(() => {
-
-            const confirmed = window.confirm("Did you complete the payment in your app?");
-
-            if (confirmed) {
-
-                verifyPayment();
-
-            } else {
-
-                setPaymentStatus('pending');
-
-            }
-
-        }, 3000);
-
-    };
-
-
-
-    const verifyPayment = async () => {
+    // ────────────── Razorpay Handler ──────────────
+    const handleRazorpay = useCallback(async () => {
+        if (!sdkReady) {
+            setError('Payment system is loading. Please try again in a moment.');
+            return;
+        }
+        setActiveGateway('razorpay');
+        setError('');
 
         try {
-
-            const res = await fetch('/api/payment/success', {
-
+            const res = await fetch('/api/payment/create-order', {
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
-                body: JSON.stringify({ orderId, transactionId: `TXN_${Date.now()}` })
-
+                body: JSON.stringify({ orderId }),
             });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to initiate payment');
 
+            const options = {
+                key: data.keyId,
+                amount: data.amount,
+                currency: data.currency || 'INR',
+                name: 'Aiswarya Saree',
+                description: `Order #${orderId}`,
+                image: '/favicon.ico',
+                order_id: data.razorpayOrderId,
+                prefill: {
+                    name: order?.customer_name || '',
+                    contact: order?.customer_phone || '',
+                },
+                theme: { color: '#c2185b' },
+                handler: async function (response) {
+                    try {
+                        const verifyRes = await fetch('/api/payment/verify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                orderId,
+                            }),
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyRes.ok && verifyData.success) {
+                            setPaymentStatus('success');
+                        } else {
+                            throw new Error(verifyData.error || 'Verification failed');
+                        }
+                    } catch (err) {
+                        setError('Payment received but verification failed. Contact support with Payment ID: ' + response.razorpay_payment_id);
+                        setActiveGateway(null);
+                    }
+                },
+                modal: { ondismiss: () => setActiveGateway(null) },
+            };
 
-
-            if (res.ok) {
-
-                setPaymentStatus('success');
-
-            } else {
-
-                alert('Payment verification failed. Please try again.');
-
-                setPaymentStatus('pending');
-
-            }
-
+            const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', (resp) => {
+                setError(`Payment failed: ${resp.error.description}`);
+                setActiveGateway(null);
+            });
+            rzp.open();
         } catch (err) {
-
-            console.error(err);
-
-            setPaymentStatus('pending');
-
+            setError(err.message || 'Something went wrong. Please try again.');
+            setActiveGateway(null);
         }
+    }, [sdkReady, orderId, order]);
 
-    };
+    // ────────────── PhonePe Handler ──────────────
+    const handlePhonePe = useCallback(async () => {
+        setActiveGateway('phonepe');
+        setError('');
 
+        try {
+            const res = await fetch('/api/payment/phonepe-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'PhonePe initiation failed');
 
+            if (data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+            } else {
+                throw new Error('No redirect URL from PhonePe');
+            }
+        } catch (err) {
+            setError(err.message || 'Something went wrong. Please try again.');
+            setActiveGateway(null);
+        }
+    }, [orderId]);
 
+    // ── Loading ──
     if (loading) return (
-
-        <div className="min-h-screen flex items-center justify-center bg-black text-white">
-
-            <div className="animate-pulse">Loading Order...</div>
-
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d', color: 'white' }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 48, height: 48, border: '3px solid #c2185b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ color: '#666' }}>Loading your order...</p>
+            </div>
         </div>
-
     );
 
+    // ── Order Not Found ──
+    if (!order && paymentStatus === 'failed' && !error.includes('failed')) return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d', color: '#ef4444', fontSize: '1.2rem' }}>
+            Order not found.
+        </div>
+    );
 
+    // ── Success Screen ──
+    if (paymentStatus === 'success') return (
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0d0d0d 0%, #1a0a14 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 24, padding: '3rem 2.5rem', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}>
+                <div style={{ width: 80, height: 80, background: 'rgba(16,185,129,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '2px solid rgba(16,185,129,0.4)' }}>
+                    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h1 style={{ color: 'white', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Payment Successful! 🎉</h1>
+                <p style={{ color: '#888', marginBottom: '1.5rem' }}>Order <span style={{ color: 'white', fontFamily: 'monospace' }}>#{orderId}</span> has been confirmed.</p>
 
-    if (!order) return <div className="min-h-screen flex items-center justify-center bg-black text-red-500">Order not found.</div>;
-
-
-
-    if (paymentStatus === 'success') {
-
-        return (
-
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center animate-fade-in relative overflow-hidden">
-
-                {/* Background Glow */}
-
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-900/20 to-black pointer-events-none"></div>
-
-
-
-                <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-2xl max-w-md w-full relative z-10">
-
-                    <div className="w-20 h-20 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/50">
-
-                        <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-
+                <div style={{ background: '#111', borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', border: '1px solid #222' }}>
+                    <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Order Summary</p>
+                    {(order?.order_items || []).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid #1e1e1e' : 'none' }}>
+                            <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{item.product_name} <span style={{ color: '#555' }}>×{item.quantity}</span></span>
+                            <span style={{ color: 'white', fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
+                        </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #333' }}>
+                        <span style={{ color: '#888', fontWeight: 600 }}>Total Paid</span>
+                        <span style={{ color: '#c2185b', fontWeight: 800, fontSize: '1.1rem' }}>₹{order?.total_amount?.toLocaleString()}</span>
                     </div>
-
-                    <h1 className="text-2xl font-bold text-white mb-2">Payment Successful!</h1>
-
-                    <p className="text-gray-400 mb-6">Order <span className="text-white font-mono">#{orderId}</span> has been confirmed.</p>
-
-                    <p className="text-xs text-gray-500 mb-6 uppercase tracking-wider">Invoice sent to WhatsApp</p>
-
-                    <button
-
-                        onClick={() => window.location.href = `https://wa.me/15551678232`}
-
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '1rem', border: 'none', background: '#e0f7fa', color: '#00796b', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', marginTop: '1rem' }}
-
-                    >
-
-                        Return to WhatsApp
-
-                    </button>
-
                 </div>
 
+                <p style={{ color: '#555', fontSize: '0.82rem', marginBottom: '2rem' }}>📲 Invoice sent to your WhatsApp number</p>
+
+                <button
+                    onClick={() => router.push('/shop')}
+                    style={{ width: '100%', padding: '0.9rem', background: 'linear-gradient(135deg, #c2185b, #e91e8c)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }}
+                >
+                    Continue Shopping →
+                </button>
             </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
 
-        );
-
-    }
-
-
-
+    // ── Main Checkout Page ──
     return (
+        <>
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setSdkReady(true)} strategy="afterInteractive" />
 
-        <div className="min-h-screen bg-black py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden text-gray-200">
+            <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0d0d0d 0%, #1a0a14 100%)', padding: '2rem 1rem', fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
-            {/* Background Ambient Effects */}
-
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600/10 rounded-full blur-[100px]"></div>
-
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/5 rounded-full blur-[100px]"></div>
-
-
-
-            <div className="max-w-md mx-auto space-y-6 relative z-10">
-
-
-
-                {/* Header */}
-
-                <div className="text-center mb-8">
-
-                    <h2 className="text-3xl font-extrabold text-white tracking-tight">Checkout</h2>
-
-                    <p className="mt-2 text-sm text-red-500 uppercase tracking-widest font-semibold">Cast Prince Secure Payment</p>
-
-                </div>
-
-
-
-                {/* Amount Card */}
-
-                <div className="bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden border border-neutral-800">
-
-                    <div className="bg-gradient-to-r from-red-700 to-red-900 px-6 py-10 text-center text-white relative overflow-hidden">
-
-                        {/* Pattern Overlay */}
-
-                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-
-
-
-                        <p className="text-red-100 text-xs font-medium uppercase tracking-widest mb-1 opacity-80">Total Amount Payable</p>
-
-                        <h3 className="text-5xl font-bold mt-2 tracking-tight">₹{order.total_amount.toLocaleString()}</h3>
-
+                    {/* Header */}
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                        <h2 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Checkout</h2>
+                        <p style={{ color: '#c2185b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '0.25rem' }}>Aiswarya Saree — Secure Payment</p>
                     </div>
 
-                    <div className="px-6 py-6 bg-neutral-900">
-
-                        <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">Order Summary</h4>
-
-                        <div className="space-y-3">
-
-                            {order.order_items.map((item, i) => (
-
-                                <div key={i} className="flex justify-between items-center text-sm border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
-
-                                    <span className="text-gray-300 font-medium">{item.product_name} <span className="text-neutral-600 text-xs ml-1">x{item.quantity}</span></span>
-
-                                    <span className="text-white font-bold font-mono">₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
-
+                    {/* Order Summary Card */}
+                    <div style={{ background: '#1a1a1a', borderRadius: 20, overflow: 'hidden', border: '1px solid #2a2a2a', marginBottom: '1.5rem' }}>
+                        <div style={{ background: 'linear-gradient(135deg, #b71c1c, #c2185b)', padding: '2rem', textAlign: 'center' }}>
+                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Total Amount</p>
+                            <h3 style={{ color: 'white', fontSize: '3rem', fontWeight: 800, margin: 0 }}>₹{order?.total_amount?.toLocaleString()}</h3>
+                        </div>
+                        <div style={{ padding: '1.5rem' }}>
+                            <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Order Items</p>
+                            {(order?.order_items || []).map((item, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid #222' : 'none' }}>
+                                    <span style={{ color: '#ccc', fontSize: '0.9rem' }}>{item.product_name} <span style={{ color: '#555' }}>×{item.quantity}</span></span>
+                                    <span style={{ color: 'white', fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
                                 </div>
-
                             ))}
-
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #333' }}>
+                                <span style={{ color: '#888' }}>Customer</span>
+                                <span style={{ color: '#ccc', fontWeight: 600 }}>{order?.customer_name}</span>
+                            </div>
                         </div>
-
-                        <div className="border-t border-dashed border-neutral-700 mt-6 pt-4 flex justify-between items-center">
-
-                            <span className="text-gray-500 font-medium text-xs uppercase">Customer</span>
-
-                            <span className="text-gray-300 font-semibold">{order.customer_name}</span>
-
-                        </div>
-
                     </div>
 
+                    {/* Error */}
+                    {error && (
+                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '0.85rem 1rem', borderRadius: 12, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                            ⚠️ {error}
+                        </div>
+                    )}
+
+                    {/* Payment Buttons */}
+                    <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', textAlign: 'center' }}>Choose Payment Method</p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Razorpay Button */}
+                        <button
+                            onClick={handleRazorpay}
+                            disabled={!!activeGateway}
+                            style={{
+                                width: '100%', padding: '1rem 1.5rem', borderRadius: 16, border: '1px solid rgba(194,24,91,0.3)', cursor: activeGateway ? 'not-allowed' : 'pointer',
+                                background: activeGateway === 'razorpay' ? '#222' : 'linear-gradient(135deg, rgba(194,24,91,0.15), rgba(233,30,140,0.1))',
+                                color: 'white', fontWeight: 700, fontSize: '1rem',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#072654', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 900, color: '#3395FF', fontFamily: 'monospace' }}>R</div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <p style={{ margin: 0, fontWeight: 700 }}>Razorpay</p>
+                                    <p style={{ margin: 0, color: '#888', fontSize: '0.75rem' }}>UPI · Cards · Net Banking · Wallets</p>
+                                </div>
+                            </div>
+                            {activeGateway === 'razorpay'
+                                ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                : <span style={{ color: '#c2185b', fontSize: '1.2rem' }}>→</span>
+                            }
+                        </button>
+
+                        {/* Divider */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ flex: 1, height: 1, background: '#2a2a2a' }} />
+                            <span style={{ color: '#444', fontSize: '0.75rem' }}>OR</span>
+                            <div style={{ flex: 1, height: 1, background: '#2a2a2a' }} />
+                        </div>
+
+                        {/* PhonePe Button */}
+                        <button
+                            onClick={handlePhonePe}
+                            disabled={!!activeGateway}
+                            style={{
+                                width: '100%', padding: '1rem 1.5rem', borderRadius: 16, border: '1px solid rgba(94,23,235,0.3)', cursor: activeGateway ? 'not-allowed' : 'pointer',
+                                background: activeGateway === 'phonepe' ? '#222' : 'linear-gradient(135deg, rgba(94,23,235,0.15), rgba(124,58,237,0.1))',
+                                color: 'white', fontWeight: 700, fontSize: '1rem',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#5e17eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 900, color: 'white' }}>Pe</div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <p style={{ margin: 0, fontWeight: 700 }}>PhonePe</p>
+                                    <p style={{ margin: 0, color: '#888', fontSize: '0.75rem' }}>UPI · PhonePe Wallet · QR Pay</p>
+                                </div>
+                            </div>
+                            {activeGateway === 'phonepe'
+                                ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                : <span style={{ color: '#7c3aed', fontSize: '1.2rem' }}>→</span>
+                            }
+                        </button>
+                    </div>
+
+                    {/* Accepted Methods */}
+                    <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                            {['UPI', 'PhonePe', 'GPay', 'Paytm', 'VISA', 'Mastercard', 'Net Banking'].map(m => (
+                                <span key={m} style={{ background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#666', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.65rem' }}>{m}</span>
+                            ))}
+                        </div>
+                        <p style={{ color: '#333', fontSize: '0.7rem' }}>🔒 Secured by Razorpay & PhonePe · 256-bit SSL</p>
+                    </div>
                 </div>
-
-
-
-                {/* Payment Methods */}
-
-                <div className="space-y-4 pt-4">
-
-                    <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest ml-1 mb-2">Select Payment Method</p>
-
-
-
-                    {/* GPay */}
-
-                    <button
-
-                        onClick={() => handlePayment('gpay')}
-
-                        className="w-full group bg-neutral-900 border border-neutral-800 hover:border-blue-500 rounded-xl p-4 flex items-center justify-between transition-all hover:bg-neutral-800 active:scale-[0.98]"
-
-                    >
-
-                        <div className="flex items-center space-x-4">
-
-                            <div className="w-10 h-10 rounded-full bg-blue-900/20 flex items-center justify-center text-xl border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-
-                                G
-
-                            </div>
-
-                            <div className="text-left">
-
-                                <p className="font-bold text-white group-hover:text-blue-400 transition-colors">Google Pay</p>
-
-                                <p className="text-xs text-gray-500">Instant UPI Payment</p>
-
-                            </div>
-
-                        </div>
-
-                        <div className="w-6 h-6 rounded-full border-2 border-neutral-700 group-hover:border-blue-500 flex items-center justify-center">
-
-                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
-
-                        </div>
-
-                    </button>
-
-
-
-                    {/* PhonePe */}
-
-                    <button
-
-                        onClick={() => handlePayment('phonepe')}
-
-                        className="w-full group bg-neutral-900 border border-neutral-800 hover:border-purple-500 rounded-xl p-4 flex items-center justify-between transition-all hover:bg-neutral-800 active:scale-[0.98]"
-
-                    >
-
-                        <div className="flex items-center space-x-4">
-
-                            <div className="w-10 h-10 rounded-full bg-purple-900/20 flex items-center justify-center text-xl border border-purple-500/30 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-
-                                P
-
-                            </div>
-
-                            <div className="text-left">
-
-                                <p className="font-bold text-white group-hover:text-purple-400 transition-colors">PhonePe</p>
-
-                                <p className="text-xs text-gray-500">Instant UPI Payment</p>
-
-                            </div>
-
-                        </div>
-
-                        <div className="w-6 h-6 rounded-full border-2 border-neutral-700 group-hover:border-purple-500 flex items-center justify-center">
-
-                            <div className="w-2.5 h-2.5 rounded-full bg-purple-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(168,85,247,0.8)]" />
-
-                        </div>
-
-                    </button>
-
-
-
-                    {/* Net Banking */}
-
-                    <button
-
-                        onClick={() => handlePayment('netbanking')}
-
-                        className="w-full group bg-neutral-900 border border-neutral-800 hover:border-red-500 rounded-xl p-4 flex items-center justify-between transition-all hover:bg-neutral-800 active:scale-[0.98]"
-
-                    >
-
-                        <div className="flex items-center space-x-4">
-
-                            <div className="w-10 h-10 rounded-full bg-red-900/20 flex items-center justify-center text-xl border border-red-500/30 group-hover:bg-red-600 group-hover:text-white transition-colors">
-
-                                🏦
-
-                            </div>
-
-                            <div className="text-left">
-
-                                <p className="font-bold text-white group-hover:text-red-400 transition-colors">Net Banking</p>
-
-                                <p className="text-xs text-gray-500">All Major Banks Supported</p>
-
-                            </div>
-
-                        </div>
-
-                        <span className="text-neutral-600 group-hover:text-red-400 transition-colors text-sm font-medium">Select &rarr;</span>
-
-                    </button>
-
-
-
-                </div>
-
-
-
-                <p className="text-center text-xs text-neutral-600 mt-8">
-
-                    Secure Payment Gateway by Cast Prince<br />
-
-                    Need help? WhatsApp <span className="text-red-500">+1 555 167 8232</span>
-
-                </p>
-
             </div>
-
-        </div>
-
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </>
     );
-
 }
 
+export default function PaymentPage({ params }) {
+    return (
+        <Suspense fallback={
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d' }}>
+                <div style={{ width: 48, height: 48, border: '3px solid #c2185b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        }>
+            <PaymentPageInner orderId={params.orderId} />
+        </Suspense>
+    );
+}

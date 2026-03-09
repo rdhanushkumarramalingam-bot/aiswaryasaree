@@ -1,0 +1,104 @@
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+import { sendWhatsAppText } from '@/lib/whatsapp';
+import { NextResponse } from 'next/server';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+const PHONEPE_BASE_URL = process.env.PHONEPE_ENV === 'production'
+    ? 'https://api.phonepe.com/apis/hermes'
+    : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
+// PhonePe calls this endpoint after payment (GET redirect from browser OR POST webhook)
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    const orderId = searchParams.get('orderId');
+    const txnId = searchParams.get('txnId');
+
+    if (!orderId || !txnId) {
+        return NextResponse.redirect(new URL(`/pay/${orderId || ''}?error=missing_params`, request.url));
+    }
+
+    try {
+        const merchantId = process.env.PHONEPE_MERCHANT_ID;
+        const saltKey = process.env.PHONEPE_SALT_KEY;
+        const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+        // Verify payment status with PhonePe
+        const statusEndpoint = `/pg/v1/status/${merchantId}/${txnId}`;
+        const hashInput = statusEndpoint + saltKey;
+        const xVerify = crypto.createHash('sha256').update(hashInput).digest('hex') + '###' + saltIndex;
+
+        const statusRes = await fetch(`${PHONEPE_BASE_URL}${statusEndpoint}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-VERIFY': xVerify,
+                'X-MERCHANT-ID': merchantId,
+                'accept': 'application/json',
+            },
+        });
+
+        const statusData = await statusRes.json();
+        const paymentSuccess = statusData.success && statusData.code === 'PAYMENT_SUCCESS';
+
+        if (paymentSuccess) {
+            // Fetch order details
+            const { data: order } = await supabase
+                .from('orders')
+                .select('*, order_items(*)')
+                .eq('id', orderId)
+                .single();
+
+            // Update order as PAID
+            await supabase
+                .from('orders')
+                .update({
+                    status: 'PAID',
+                    payment_method: 'PhonePe',
+                    phonepe_transaction_id: txnId,
+                })
+                .eq('id', orderId);
+
+            // Send WhatsApp confirmation
+            if (order?.customer_phone) {
+                const itemsList = (order.order_items || [])
+                    .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
+                    .join('\n');
+
+                const message =
+                    `✅ *Order Confirmed — Aiswarya Saree* 🎉\n\n` +
+                    `Hi ${order.customer_name || 'Customer'}! Your payment via PhonePe was successful.\n\n` +
+                    `📦 *Order ID:* #${orderId}\n` +
+                    `💳 *Amount Paid:* ₹${order.total_amount?.toLocaleString()}\n` +
+                    `🛍️ *Items:*\n${itemsList}\n\n` +
+                    `📍 *Delivery Address:*\n${order.shipping_address || 'As provided'}\n\n` +
+                    `We will send your tracking details soon. Thank you for shopping with us! 🙏\n\n` +
+                    `— Aiswarya Sarees`;
+
+                await sendWhatsAppText(order.customer_phone, message);
+            }
+
+            // Redirect to thank you page
+            return NextResponse.redirect(new URL(`/pay/${orderId}?status=success`, appUrl));
+        } else {
+            // Payment failed
+            console.error('PhonePe payment failed:', statusData);
+            return NextResponse.redirect(new URL(`/pay/${orderId}?status=failed&reason=${encodeURIComponent(statusData.message || 'Payment failed')}`, appUrl));
+        }
+
+    } catch (err) {
+        console.error('PhonePe callback error:', err);
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        return NextResponse.redirect(new URL(`/pay/${orderId}?status=failed`, appUrl));
+    }
+}
+
+// Handle POST webhook from PhonePe (server-to-server notification)
+export async function POST(request) {
+    return GET(request);
+}

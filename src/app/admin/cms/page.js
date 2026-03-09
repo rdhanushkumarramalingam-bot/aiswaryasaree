@@ -403,149 +403,141 @@ export default function CMSPage() {
                         <div style={{ flex: 1, overflowY: 'auto', padding: '3rem' }} id="cms-editor-body">
                             <form id="cms-page-form" style={{ maxWidth: '900px', margin: '0 auto' }}>
 
-                                {activeTab === 'content' && (
-                                    <div className="animate-fade">
-                                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '3rem' }}>
-                                            <div>
-                                                <label style={labelStyle}>Page Heading (Big Title)</label>
-                                                <input name="title" required placeholder="What is this page about?" defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
+                                <div className="animate-fade" style={{ display: activeTab === 'content' ? 'block' : 'none' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '3rem' }}>
+                                        <div>
+                                            <label style={labelStyle}>Page Heading (Big Title)</label>
+                                            <input name="title" required placeholder="What is this page about?" defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
 
-                                                <label style={labelStyle}>Page Designer (What people see)</label>
-                                                <div style={{ background: 'hsl(var(--bg-panel)/0.6)', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
-                                                    <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>B</button>
-                                                    <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
-                                                    <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>H2</button>
-                                                    <button type="button" onClick={() => formatText('link')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Link</button>
-                                                    <button type="button" onClick={() => formatText('center')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Center Text</button>
-                                                </div>
-                                                <textarea name="content" required rows={15} placeholder="Draft your page here using the tools above..." defaultValue={currentPage?.content} style={{ ...inputStyle, borderRadius: '0 0 12px 12px', fontSize: '0.95rem', lineHeight: 1.6, minHeight: '350px', padding: '1.25rem' }} />
+                                            <label style={labelStyle}>Page Designer (What people see)</label>
+                                            <div style={{ background: 'hsl(var(--bg-panel)/0.6)', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
+                                                <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>B</button>
+                                                <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
+                                                <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>H2</button>
+                                                <button type="button" onClick={() => formatText('link')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Link</button>
+                                                <button type="button" onClick={() => formatText('center')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Center Text</button>
                                             </div>
+                                            <textarea name="content" required rows={15} placeholder="Draft your page here using the tools above..." defaultValue={currentPage?.content} style={{ ...inputStyle, borderRadius: '0 0 12px 12px', fontSize: '0.95rem', lineHeight: 1.6, minHeight: '350px', padding: '1.25rem' }} />
+                                        </div>
 
-                                            <div>
-                                                <div className="card" style={{ padding: '1.5rem', background: 'hsl(var(--bg-panel)/0.4)', borderRadius: '20px' }}>
-                                                    <label style={labelStyle}>✨ Quick Add Blocks</label>
-                                                    <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
-                                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                                                        {CONTENT_BLOCKS.map(block => (
-                                                            <button
-                                                                key={block.name}
-                                                                type="button"
-                                                                onClick={() => insertBlock(block.content)}
-                                                                style={{ padding: '0.75rem', textAlign: 'left', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
-                                                            >
-                                                                {block.name}
-                                                            </button>
-                                                        ))}
+                                        <div>
+                                            <div className="card" style={{ padding: '1.5rem', background: 'hsl(var(--bg-panel)/0.4)', borderRadius: '20px' }}>
+                                                <label style={labelStyle}>✨ Quick Add Blocks</label>
+                                                <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
+                                                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                                    {CONTENT_BLOCKS.map(block => (
+                                                        <button
+                                                            key={block.name}
+                                                            type="button"
+                                                            onClick={() => insertBlock(block.content)}
+                                                            style={{ padding: '0.75rem', textAlign: 'left', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                                                        >
+                                                            {block.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                <div style={{ marginTop: '2rem' }}>
+                                                    <label style={labelStyle}><Globe size={14} /> Link Address</label>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>/page/</span>
+                                                        <input name="slug" required defaultValue={currentPage?.slug} style={{ ...inputStyle, marginBottom: 0, padding: '0.5rem' }} />
                                                     </div>
 
-                                                    <div style={{ marginTop: '2rem' }}>
-                                                        <label style={labelStyle}><Globe size={14} /> Link Address</label>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                                                            <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>/page/</span>
-                                                            <input name="slug" required defaultValue={currentPage?.slug} style={{ ...inputStyle, marginBottom: 0, padding: '0.5rem' }} />
-                                                        </div>
-
-                                                        <label style={labelStyle}><Lock size={14} /> Visibility Control</label>
-                                                        <select name="status" defaultValue={currentPage?.status || 'draft'} style={inputStyle}>
-                                                            <option value="draft">📁 Saved Draft (Hidden)</option>
-                                                            <option value="published">🚀 Live on Website</option>
-                                                            <option value="scheduled">⏰ Schedule for Later</option>
-                                                        </select>
-                                                    </div>
+                                                    <label style={labelStyle}><Lock size={14} /> Visibility Control</label>
+                                                    <select name="status" defaultValue={currentPage?.status || 'draft'} style={inputStyle}>
+                                                        <option value="draft">📁 Saved Draft (Hidden)</option>
+                                                        <option value="published">🚀 Live on Website</option>
+                                                        <option value="scheduled">⏰ Schedule for Later</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                )}
+                                </div>
 
-                                {activeTab === 'seo' && (
-                                    <div className="animate-fade">
-                                        <div style={{ background: 'hsl(var(--bg-panel)/0.3)', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                🔍 Appearance in Google Search
-                                            </h3>
+                                <div className="animate-fade" style={{ display: activeTab === 'seo' ? 'block' : 'none' }}>
+                                    <div style={{ background: 'hsl(var(--bg-panel)/0.3)', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            🔍 Appearance in Google Search
+                                        </h3>
 
-                                            <label style={labelStyle}>Search Title (Keep it short)</label>
-                                            <input name="seo_title" placeholder="Leave empty to use page title" defaultValue={currentPage?.seo_title} style={inputStyle} />
+                                        <label style={labelStyle}>Search Title (Keep it short)</label>
+                                        <input name="seo_title" placeholder="Leave empty to use page title" defaultValue={currentPage?.seo_title} style={inputStyle} />
 
-                                            <label style={labelStyle}>Short Description (Shows in Google)</label>
-                                            <textarea name="meta_description" rows={4} placeholder="Summarize your page for Google search results..." defaultValue={currentPage?.meta_description} style={{ ...inputStyle, minHeight: '100px' }} />
+                                        <label style={labelStyle}>Short Description (Shows in Google)</label>
+                                        <textarea name="meta_description" rows={4} placeholder="Summarize your page for Google search results..." defaultValue={currentPage?.meta_description} style={{ ...inputStyle, minHeight: '100px' }} />
 
-                                            <label style={labelStyle}>Social Sharing Image (OpenGraph URL)</label>
+                                        <label style={labelStyle}>Social Sharing Image (OpenGraph URL)</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input name="og_image" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                            <button type="button" onClick={() => { setActiveImageField('og_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
+                                                <Upload size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'white', borderRadius: '14px', border: '1px solid #e2e8f0', color: '#1a202c' }}>
+                                            <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.aiswaryasaree.com/page/{currentPage?.slug || 'preview'}</div>
+                                            <div style={{ fontSize: '1.2rem', color: '#1a0dab', fontWeight: 600, marginBottom: '0.25rem' }}>{currentPage?.seo_title || currentPage?.title || 'SEO Title Preview'}</div>
+                                            <div style={{ fontSize: '0.875rem', color: '#4d5156', lineHeight: 1.4 }}>{currentPage?.meta_description || 'Page meta description will appear here in search results. Make it catchy!'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="animate-fade" style={{ display: activeTab === 'appearance' ? 'block' : 'none' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem' }}>
+                                        <div>
+                                            <label style={labelStyle}>Layout Template</label>
+                                            <select name="template" defaultValue={currentPage?.template || 'default'} style={inputStyle}>
+                                                <option value="default">Default Standard Layout</option>
+                                                <option value="home">Homepage Style (Full Width)</option>
+                                                <option value="landing">Landing Page (No Header/Footer)</option>
+                                                <option value="wide">Wide Sidebar Layout</option>
+                                            </select>
+
+                                            <label style={labelStyle}>Featured Media (Cover Image)</label>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <input name="og_image" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
-                                                <button type="button" onClick={() => { setActiveImageField('og_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
+                                                <input name="featured_image" value={featuredImageUrl} onChange={(e) => setFeaturedImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                                                <button type="button" onClick={() => { setActiveImageField('featured_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
                                                     <Upload size={16} />
                                                 </button>
                                             </div>
 
-                                            <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'white', borderRadius: '14px', border: '1px solid #e2e8f0', color: '#1a202c' }}>
-                                                <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.aiswaryasaree.com/page/{currentPage?.slug || 'preview'}</div>
-                                                <div style={{ fontSize: '1.2rem', color: '#1a0dab', fontWeight: 600, marginBottom: '0.25rem' }}>{currentPage?.seo_title || currentPage?.title || 'SEO Title Preview'}</div>
-                                                <div style={{ fontSize: '0.875rem', color: '#4d5156', lineHeight: 1.4 }}>{currentPage?.meta_description || 'Page meta description will appear here in search results. Make it catchy!'}</div>
-                                            </div>
+                                            {featuredImageUrl && (
+                                                <img src={featuredImageUrl} alt="Preview" style={{ width: '100%', borderRadius: '12px', height: '200px', objectFit: 'cover', marginTop: '1rem', border: '1px solid hsl(var(--border-subtle))' }} />
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label style={labelStyle}>Hierarchy (Parent Page)</label>
+                                            <select name="parent_id" defaultValue={currentPage?.parent_id || 'none'} style={inputStyle}>
+                                                <option value="none">No Parent (Main Level)</option>
+                                                {pages.filter(p => p.id !== currentPage?.id).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.title}</option>
+                                                ))}
+                                            </select>
+
+                                            <label style={labelStyle}>Navigation Order (Low to High)</label>
+                                            <input type="number" name="menu_order" defaultValue={currentPage?.menu_order || 0} style={inputStyle} />
                                         </div>
                                     </div>
-                                )}
+                                </div>
 
-                                {activeTab === 'appearance' && (
-                                    <div className="animate-fade">
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem' }}>
-                                            <div>
-                                                <label style={labelStyle}>Layout Template</label>
-                                                <select name="template" defaultValue={currentPage?.template || 'default'} style={inputStyle}>
-                                                    <option value="default">Default Standard Layout</option>
-                                                    <option value="home">Homepage Style (Full Width)</option>
-                                                    <option value="landing">Landing Page (No Header/Footer)</option>
-                                                    <option value="wide">Wide Sidebar Layout</option>
-                                                </select>
+                                <div className="animate-fade" style={{ display: activeTab === 'advanced' ? 'block' : 'none' }}>
+                                    <div style={{ display: 'grid', gap: '2rem' }}>
+                                        <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
+                                            <label style={{ ...labelStyle, color: '#94a3b8' }}><ImageIcon size={14} /> Global Style Override (CSS)</label>
+                                            <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#38bdf8', fontFamily: 'monospace' }} placeholder=".hero { background: pink; }" />
+                                            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Inject custom CSS scoping only for this specific page.</p>
+                                        </div>
 
-                                                <label style={labelStyle}>Featured Media (Cover Image)</label>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <input name="featured_image" value={featuredImageUrl} onChange={(e) => setFeaturedImageUrl(e.target.value)} placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
-                                                    <button type="button" onClick={() => { setActiveImageField('featured_image'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }}>
-                                                        <Upload size={16} />
-                                                    </button>
-                                                </div>
-
-                                                {featuredImageUrl && (
-                                                    <img src={featuredImageUrl} alt="Preview" style={{ width: '100%', borderRadius: '12px', height: '200px', objectFit: 'cover', marginTop: '1rem', border: '1px solid hsl(var(--border-subtle))' }} />
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label style={labelStyle}>Hierarchy (Parent Page)</label>
-                                                <select name="parent_id" defaultValue={currentPage?.parent_id || 'none'} style={inputStyle}>
-                                                    <option value="none">No Parent (Main Level)</option>
-                                                    {pages.filter(p => p.id !== currentPage?.id).map(p => (
-                                                        <option key={p.id} value={p.id}>{p.title}</option>
-                                                    ))}
-                                                </select>
-
-                                                <label style={labelStyle}>Navigation Order (Low to High)</label>
-                                                <input type="number" name="menu_order" defaultValue={currentPage?.menu_order || 0} style={inputStyle} />
-                                            </div>
+                                        <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
+                                            <label style={{ ...labelStyle, color: '#94a3b8' }}><Settings size={14} /> Logic Runtime Script (JS)</label>
+                                            <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#facc15', fontFamily: 'monospace' }} placeholder="console.log('Page loaded');" />
+                                            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Run custom JavaScript functionality when this page is visited.</p>
                                         </div>
                                     </div>
-                                )}
-
-                                {activeTab === 'advanced' && (
-                                    <div className="animate-fade">
-                                        <div style={{ display: 'grid', gap: '2rem' }}>
-                                            <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
-                                                <label style={{ ...labelStyle, color: '#94a3b8' }}><ImageIcon size={14} /> Global Style Override (CSS)</label>
-                                                <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#38bdf8', fontFamily: 'monospace' }} placeholder=".hero { background: pink; }" />
-                                                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Inject custom CSS scoping only for this specific page.</p>
-                                            </div>
-
-                                            <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
-                                                <label style={{ ...labelStyle, color: '#94a3b8' }}><Settings size={14} /> Logic Runtime Script (JS)</label>
-                                                <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#facc15', fontFamily: 'monospace' }} placeholder="console.log('Page loaded');" />
-                                                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Run custom JavaScript functionality when this page is visited.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                </div>
 
                             </form>
                         </div>
@@ -606,6 +598,6 @@ export default function CMSPage() {
                     box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

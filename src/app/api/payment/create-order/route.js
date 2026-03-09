@@ -1,0 +1,75 @@
+import Razorpay from 'razorpay';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+export async function POST(request) {
+    try {
+        const { orderId } = await request.json();
+
+        if (!orderId) {
+            return Response.json({ error: 'Missing orderId' }, { status: 400 });
+        }
+
+        // Fetch the order from Supabase
+        const { data: order, error } = await supabase
+            .from('orders')
+            .select('id, total_amount, customer_name, customer_phone')
+            .eq('id', orderId)
+            .single();
+
+        if (error || !order) {
+            return Response.json({ error: 'Order not found' }, { status: 404 });
+        }
+
+        // If no Razorpay keys yet, return placeholder response for testing
+        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+            return Response.json({
+                razorpayOrderId: `order_test_${Date.now()}`,
+                amount: order.total_amount * 100,
+                currency: 'INR',
+                keyId: 'rzp_test_placeholder',
+                orderDetails: order,
+                testMode: true
+            });
+        }
+
+        const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET,
+        });
+
+        // Create Razorpay order
+        const rzpOrder = await razorpay.orders.create({
+            amount: Math.round(order.total_amount * 100), // amount in paise
+            currency: 'INR',
+            receipt: `receipt_${orderId}`,
+            notes: {
+                orderId: orderId,
+                customerName: order.customer_name,
+                customerPhone: order.customer_phone,
+            }
+        });
+
+        // Store razorpay order ID in our DB for verification later
+        await supabase
+            .from('orders')
+            .update({ razorpay_order_id: rzpOrder.id })
+            .eq('id', orderId);
+
+        return Response.json({
+            razorpayOrderId: rzpOrder.id,
+            amount: rzpOrder.amount,
+            currency: rzpOrder.currency,
+            keyId: process.env.RAZORPAY_KEY_ID,
+            orderDetails: order,
+        });
+
+    } catch (err) {
+        console.error('Create Razorpay order error:', err);
+        return Response.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    }
+}
