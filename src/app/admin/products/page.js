@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
+import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -252,7 +253,9 @@ export default function ProductsPage() {
                         category,
                         stock,
                         type: 'simple',
-                        is_active: true
+                        is_active: true,
+                        // Always ensure a catalog ID exists or is ready to be generated
+                        product_catalog_image_id: row.catalogid || row.productcatalogimageid || row.code || ''
                     };
 
                     let savedProduct = null;
@@ -268,6 +271,14 @@ export default function ProductsPage() {
                             const oldStock = existingData.stock || 0;
                             const newStock = stock;
                             const diff = newStock - oldStock;
+
+                            // Ensure catalog ID exists
+                            if (!existingData.product_catalog_image_id && !productData.product_catalog_image_id) {
+                                productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                            } else if (!productData.product_catalog_image_id) {
+                                // Keep existing if not provided in Excel
+                                delete productData.product_catalog_image_id;
+                            }
 
                             const { data, error: updateError } = await supabase.from('products').update(productData).eq('id', id).select();
 
@@ -293,6 +304,11 @@ export default function ProductsPage() {
                             }
                         } else {
                             // ID provided but not found, ignore ID and Insert
+                            // Generate new catalog ID if not provided
+                            if (!productData.product_catalog_image_id) {
+                                productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                            }
+
                             productData.total_added = stock;
                             const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
                             if (!insertError && data?.[0]) {
@@ -312,6 +328,11 @@ export default function ProductsPage() {
                         }
                     } else {
                         // No ID, standard Insert
+                        // Generate new catalog ID if not provided
+                        if (!productData.product_catalog_image_id) {
+                            productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                        }
+
                         productData.total_added = stock;
                         const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
 
@@ -464,44 +485,13 @@ export default function ProductsPage() {
             productData.stock = Number(formData.get('stock'));
             productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
 
-            // Handle image with catalog ID generation
-            const imageUrl = formData.get('image') || '';
-            if (imageUrl && imageUrl.startsWith('blob:')) {
-                // This is a newly uploaded file, process it like ProductImageAssigner
-                try {
-                    // 1. Generate catalog ID
-                    const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                    console.log('Processing image - Generated catalog ID:', catalogId);
+            // Image URL comes from React state (set after upload/library pick)
+            const imageUrl = productImageUrl || '';
+            productData.image_url = imageUrl;
 
-                    // 2. Stamp the catalog ID onto the image
-                    console.log('Stamping image with catalog ID:', catalogId);
-                    const watermarkedBlob = await stampProductCode(imageUrl, catalogId);
-
-                    // 3. Upload to media library
-                    const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
-                    console.log('Upload successful, final URL:', finalUrl);
-
-                    // 5. Update product data with catalog ID and URL
-                    productData.image_url = finalUrl;
-                    productData.product_catalog_image_id = catalogId;
-
-                    console.log('About to save product with catalog ID:', catalogId);
-                } catch (err) {
-                    console.error('Image processing failed:', err);
-                    // Fallback to original URL but still set a catalog ID
-                    productData.image_url = imageUrl;
-                    productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                    console.log('Fallback - Generated catalog ID:', productData.product_catalog_image_id);
-                }
-            } else {
-                // Use existing URL as-is
-                productData.image_url = imageUrl;
-                // If there's an existing image but no catalog ID, generate one
-                if (imageUrl && !productData.product_catalog_image_id) {
-                    productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                    console.log('Generated catalog ID for existing image:', productData.product_catalog_image_id);
-                }
-            }
+            // Preserve existing catalog ID if editing, otherwise generate a new one
+            const existingCatalogId = currentProduct?.product_catalog_image_id || '';
+            productData.product_catalog_image_id = existingCatalogId || (imageUrl ? `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}` : '');
         } else {
             // For variants, we take price/stock/image from the first variant as "representative" for the list view
             if (variants.length > 0) {
@@ -1256,12 +1246,18 @@ export default function ProductsPage() {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
                                                             try {
-                                                                const ext = file.name.split('.').pop();
-                                                                const fileName = `products/${Date.now()}.${ext}`;
-                                                                const { error } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
-                                                                if (error) throw error;
-                                                                const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
-                                                                setProductImageUrl(publicUrl);
+                                                                // 1. Create a local blob URL to stamp
+                                                                const localUrl = URL.createObjectURL(file);
+                                                                // 2. Generate CAT code
+                                                                const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                // 3. Stamp CAT code onto image
+                                                                const watermarkedBlob = await stampProductCode(localUrl, catalogId);
+                                                                URL.revokeObjectURL(localUrl);
+                                                                // 4. Upload watermarked image via server API
+                                                                const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                                                                setProductImageUrl(finalUrl);
+                                                                // Store catalogId temporarily in state for handleSave to pick up
+                                                                setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
                                                             } catch (err) {
                                                                 alert('Upload failed: ' + (err.message || 'Unknown error'));
                                                             }
@@ -1342,12 +1338,12 @@ export default function ProductsPage() {
                                                                         const file = e.target.files?.[0];
                                                                         if (!file) return;
                                                                         try {
-                                                                            const ext = file.name.split('.').pop();
-                                                                            const fileName = `products/variant_${Date.now()}.${ext}`;
-                                                                            const { error } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
-                                                                            if (error) throw error;
-                                                                            const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
-                                                                            updateVariant(i, 'image_url', publicUrl);
+                                                                            const fd = new FormData();
+                                                                            fd.append('file', file, file.name);
+                                                                            const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                                                                            const data = await res.json();
+                                                                            if (!res.ok) throw new Error(data.error || 'Upload failed');
+                                                                            updateVariant(i, 'image_url', data.url);
                                                                         } catch (err) {
                                                                             alert('Upload failed: ' + (err.message || 'Unknown error'));
                                                                         }

@@ -21,48 +21,36 @@ export async function stampProductCode(imageUrl, code) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
 
-            // Badge dimensions
-            const padding = 10;
-            const fontSize = Math.max(20, Math.round(canvas.width * 0.035));
+            // Badge — tiny & tucked into bottom-right corner
+            const padding = 5;
+            // Keep font small: max 13px regardless of image size
+            const fontSize = Math.min(13, Math.max(10, Math.round(canvas.width * 0.018)));
             ctx.font = `bold ${fontSize}px monospace`;
 
             const textWidth = ctx.measureText(code).width;
             const badgeW = textWidth + padding * 2;
             const badgeH = fontSize + padding * 2;
 
-            // Smart positioning based on image aspect ratio
-            const aspectRatio = canvas.width / canvas.height;
-            let x, y;
-            
-            if (aspectRatio < 0.8) {
-                // Portrait image - position in bottom right but ensure it doesn't overlap content
-                x = canvas.width - badgeW - 12;
-                y = canvas.height - badgeH - 12;
-            } else {
-                // Landscape/square image - standard bottom right positioning
-                x = canvas.width - badgeW - 16;
-                y = canvas.height - badgeH - 16;
-            }
-            
-            // Ensure badge stays within image bounds
-            x = Math.max(8, Math.min(x, canvas.width - badgeW - 8));
-            y = Math.max(8, Math.min(y, canvas.height - badgeH - 8));
+            // Glue to bottom-right corner with a 6px margin
+            const margin = 6;
+            const x = canvas.width - badgeW - margin;
+            const y = canvas.height - badgeH - margin;
 
-            // Background pill
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-            roundRect(ctx, x, y, badgeW, badgeH, 8);
+            // Semi-transparent dark background pill
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            roundRect(ctx, x, y, badgeW, badgeH, 4);
             ctx.fill();
 
-            // Border
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 1.5;
-            roundRect(ctx, x, y, badgeW, badgeH, 8);
+            // Subtle white border
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.lineWidth = 0.8;
+            roundRect(ctx, x, y, badgeW, badgeH, 4);
             ctx.stroke();
 
-            // Text
+            // White text
             ctx.fillStyle = '#ffffff';
             ctx.font = `bold ${fontSize}px monospace`;
-            ctx.fillText(code, x + padding, y + fontSize + padding * 0.7);
+            ctx.fillText(code, x + padding, y + fontSize + padding * 0.65);
 
             canvas.toBlob((blob) => {
                 if (blob) resolve(blob);
@@ -108,7 +96,7 @@ export async function uploadWatermarkedImage(blob, catalogId) {
     formData.append('catalogId', catalogId); // Pass catalog ID to upload
 
     console.log('Uploading watermarked image with catalog ID:', catalogId);
-    
+
     const res = await fetch('/api/admin/upload', {
         method: 'POST',
         body: formData,
@@ -116,12 +104,12 @@ export async function uploadWatermarkedImage(blob, catalogId) {
 
     const data = await res.json();
     console.log('Upload response:', data);
-    
+
     if (!res.ok) {
         console.error('Upload failed:', data.error);
         throw new Error(data.error || 'Upload failed');
     }
-    
+
     console.log('Upload successful, URL:', data.url);
     return data.url;
 }
