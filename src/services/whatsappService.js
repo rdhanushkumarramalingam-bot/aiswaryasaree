@@ -642,7 +642,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
             if (sendResult && sendResult.error) {
                 console.error(`   ❌ WA API Error for [${p.name}]:`, sendResult.error.message || sendResult.error);
-                await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
+                await sendText(to, caption + "\n[Image failed, but you can Add to Cart]");
             }
         } catch (err) {
             console.error(`   ❌ Exception sending [${p.name}]:`, err.message);
@@ -817,13 +817,13 @@ export async function handleCartItemOptions(to, cartItemId) {
 
 export async function handleRemoveItem(to, itemId) {
     await supabase.from('whatsapp_cart').delete().eq('id', itemId);
-    await sendText(to, "✅ Item removed from bag.");
+    await sendText(to, "✅ Item removed from cart.");
     await handleViewCart(to);
 }
 
 export async function startCheckout(to) {
     const cart = await getCart(to);
-    if (!cart.length) return sendText(to, "Bag empty!");
+    if (!cart.length) return sendText(to, "Cart empty!");
 
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
     const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
@@ -1374,7 +1374,7 @@ export async function processIncomingMessage(body) {
 
             if (id === 'clear_cart') {
                 await clearCart(from);
-                return await sendText(from, "Bag cleared. Send 'Hi' to start shopping again.");
+                return await sendText(from, "Cart cleared. Send 'Hi' to start shopping again.");
             }
 
             if (id === 'edit_cart') return await handleEditCart(from);

@@ -159,14 +159,8 @@ export default function InvoicesPage() {
                             <input
                                 type="text" placeholder="Search invoices..."
                                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{
-                                    width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
-                                    background: 'hsl(var(--bg-app))',
-                                    border: '1px solid hsl(var(--border-subtle))',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
-                                    color: 'hsl(var(--text-main))', fontFamily: 'inherit'
-                                }}
+                                className="admin-input"
+                                style={{ paddingLeft: '2.75rem' }}
                             />
                         </div>
                     </div>

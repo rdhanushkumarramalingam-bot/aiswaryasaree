@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import {
-    FileText, Download, Calendar, MapPin, Tag, Filter,
-    ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw,
-    TrendingUp, DollarSign, ShoppingBag
-} from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -225,7 +221,7 @@ export default function InvoiceReportPage() {
                             <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.5rem' }}>{metrics.orderCount}</div>
                         </div>
                         <div style={{ background: 'hsl(var(--success) / 0.1)', padding: '10px', borderRadius: '10px', color: 'hsl(var(--success))' }}>
-                            <ShoppingBag size={20} />
+                            <ShoppingCart size={20} />
                         </div>
                     </div>
                 </div>
@@ -337,7 +333,7 @@ export default function InvoiceReportPage() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Invoice ID, Name..."
                                 className="admin-input"
-                                style={{ width: '100%', paddingLeft: '2.5rem' }}
+                                style={{ paddingLeft: '2.5rem' }}
                             />
                         </div>
                     </div>
@@ -406,23 +402,6 @@ export default function InvoiceReportPage() {
             </div>
 
             <style jsx>{`
-                .admin-input-select {
-                    appearance: none;
-                    background: hsl(var(--bg-card));
-                    border: 1px solid hsl(var(--border-subtle));
-                    padding: 0.75rem 1rem;
-                    border-radius: 8px;
-                    color: white;
-                    font-family: inherit;
-                    font-size: 0.9rem;
-                    outline: none;
-                    transition: all 0.2s;
-                    cursor: pointer;
-                }
-                .admin-input-select:focus {
-                    border-color: hsl(var(--primary));
-                    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-                }
                 .shadow-premium {
                     box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
                 }

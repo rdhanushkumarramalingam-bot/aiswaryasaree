@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Megaphone, Users, Send, CheckCircle2, Loader2, Search,
     Package, Tag, Check, ChevronDown, ChevronUp,
-    UserCheck, ShoppingBag, Filter, MessageSquare, Trash2
+    UserCheck, ShoppingCart, Filter, MessageSquare, Trash2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 

@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
     Search, ShoppingCart, User, LogOut, ChevronLeft,
     CheckCircle, MessageCircle, Package, Tag, ArrowRight,
-    Home, ShoppingBag, Clock, MapPin, Phone, ChevronDown, Truck, Menu, Loader2
+    Home, Clock, MapPin, Phone, ChevronDown, Truck, Menu, Loader2
 } from 'lucide-react';
 import styles from './shop.module.css';
 
@@ -641,7 +641,7 @@ function ShopContent() {
                             title="Shopping Cart"
                         >
                             <div className={styles.cartIconWrapper}>
-                                <ShoppingBag size={22} />
+                                <ShoppingCart size={22} />
                                 {cartCount > 0 && <span className={styles.cartCountBadge}>{cartCount}</span>}
                             </div>
                         </div>

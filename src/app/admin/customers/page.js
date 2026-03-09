@@ -839,167 +839,80 @@ function CustomersPage() {
 
 
                                     {/* Customer List */}
-
                                     <div className="card" style={{ padding: 0 }}>
-
                                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
-
                                             <div style={{ position: 'relative', maxWidth: '400px' }}>
-
                                                 <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-
                                                 <input
-
                                                     type="text" placeholder="Search by name or phone..."
-
                                                     value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-
-                                                    style={{
-
-                                                        width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
-
-                                                        background: 'hsl(var(--bg-app))',
-
-                                                        border: '1px solid hsl(var(--border-subtle))',
-
-                                                        borderRadius: 'var(--radius-sm)',
-
-                                                        fontSize: '0.9rem', outline: 'none', transition: 'border 0.2s',
-
-                                                        color: 'hsl(var(--text-main))', fontFamily: 'inherit'
-
-                                                    }}
-
+                                                    className="admin-input"
+                                                    style={{ paddingLeft: '2.75rem' }}
                                                 />
-
                                             </div>
-
                                         </div>
 
-
-
                                         <table style={{ margin: 0 }}>
-
                                             <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-
                                                 <tr>
-
                                                     <th>Customer</th>
-
                                                     <th>Phone</th>
-
                                                     <th style={{ textAlign: 'center' }}>Orders</th>
-
                                                     <th style={{ textAlign: 'right' }}>Total Spent</th>
-
                                                     <th style={{ textAlign: 'center' }}>Tier</th>
-
                                                     <th style={{ textAlign: 'left' }}>Last Order</th>
-
                                                     <th style={{ textAlign: 'right' }}>Actions</th>
-
                                                 </tr>
-
                                             </thead>
-
                                             <tbody>
-
                                                 {filteredCustomers.length === 0 ? (
-
                                                     <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No customers found.</td></tr>
-
                                                 ) : (
-
                                                     filteredCustomers.map((customer, i) => {
-
                                                         const tier = getTierBadge(customer.totalSpent);
-
                                                         return (
-
                                                             <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>
-
                                                                 <td style={{ padding: '1rem 1.5rem' }}>
-
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-
                                                                         <div style={{
-
                                                                             width: '40px', height: '40px', borderRadius: '50%',
-
                                                                             background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-
                                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-
                                                                             fontWeight: 700, fontSize: '0.9rem', color: 'white',
-
                                                                             boxShadow: '0 2px 8px hsl(var(--primary) / 0.3)'
-
                                                                         }}>
-
                                                                             {customer.name.charAt(0).toUpperCase()}
-
                                                                         </div>
-
                                                                         <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
-
                                                                     </div>
-
                                                                 </td>
-
                                                                 <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>{customer.phone}</td>
-
                                                                 <td style={{ textAlign: 'center', fontWeight: 600 }}>{customer.totalOrders}</td>
-
                                                                 <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{customer.totalSpent.toLocaleString()}</td>
-
                                                                 <td style={{ textAlign: 'center' }}>
-
                                                                     <span className={tier.className} style={tier.style}>{tier.label}</span>
-
                                                                 </td>
-
                                                                 <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-
                                                                     {new Date(customer.lastOrder).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-
                                                                 </td>
-
                                                                 <td style={{ textAlign: 'right' }}>
-
                                                                     <a href={`https://wa.me/${customer.phone}`} target="_self"
-
                                                                         onClick={(e) => e.stopPropagation()}
-
                                                                         className="btn"
-
                                                                         style={{
-
                                                                             padding: '0.4rem 0.8rem', fontSize: '0.75rem',
-
                                                                             background: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))',
-
                                                                             border: '1px solid hsl(var(--success) / 0.2)',
-
                                                                             display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-
                                                                         }}>
-
                                                                         <MessageCircle size={14} /> Chat
-
                                                                     </a>
-
                                                                 </td>
-
                                                             </tr>
-
                                                         );
-
                                                     })
-
                                                 )}
-
                                             </tbody>
-
                                         </table>
                                     </div>
                                 </>
@@ -1010,7 +923,7 @@ function CustomersPage() {
             )}
         </div>
     );
-};
+}
 
 export default CustomersPage;
 

@@ -406,6 +406,20 @@ tr:hover td {
   margin-bottom: 2.5rem;
 }
 
+.admin-grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.admin-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
 .admin-grid-products {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -420,6 +434,43 @@ tr:hover td {
 .admin-search-input-wrapper {
   position: relative;
   max-width: 400px;
+}
+
+.admin-input {
+  background: hsl(var(--bg-app));
+  border: 1px solid hsl(var(--border-subtle));
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.admin-input:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+.admin-input-select {
+  appearance: none;
+  background: hsl(var(--bg-card));
+  border: 1px solid hsl(var(--border-subtle));
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.admin-input-select:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
 }
 
 /* ── Hydration Safe Container ── */
@@ -465,8 +516,17 @@ tr:hover td {
   background: hsl(var(--primary) / 0.4);
 }
 
+@media (max-width: 1024px) {
+  .admin-grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
 @media (max-width: 768px) {
-  .admin-grid-3 {
+
+  .admin-grid-4,
+  .admin-grid-3,
+  .admin-grid-2 {
     grid-template-columns: 1fr !important;
   }
 

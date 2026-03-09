@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, ArrowLeft, Home, ShoppingBag, MessageCircle, Clock, Calendar, User, Share2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Home, ShoppingCart, MessageCircle, Clock, Calendar, User, Share2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CMSPageView() {
@@ -72,7 +72,7 @@ export default function CMSPageView() {
                 <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '3rem', lineHeight: 1.6 }}>The content you are looking for has been moved, archived, or is being updated by our team.</p>
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', background: '#000', color: '#fff', padding: '1rem 2rem', borderRadius: '50px', textDecoration: 'none', fontWeight: 700, fontSize: '0.95rem' }}>
-                        Return to Collections <ShoppingBag size={18} />
+                        Return to Collections <ShoppingCart size={18} />
                     </Link>
                 </div>
             </div>
@@ -116,7 +116,7 @@ export default function CMSPageView() {
                 </Link>
                 <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                     <Link href="/shop" style={{ textDecoration: 'none', color: '#111', fontSize: '0.9rem', fontWeight: 700 }}>Shop Collection</Link>
-                    <Link href="/cart" style={{ textDecoration: 'none', color: '#111', fontSize: '0.9rem', fontWeight: 700 }}>My Suitcase</Link>
+                    <Link href="/cart" style={{ textDecoration: 'none', color: '#111', fontSize: '0.9rem', fontWeight: 700 }}>My Cart</Link>
                     <button style={{ background: '#000', color: '#fff', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '50px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
                         Contact Us
                     </button>
