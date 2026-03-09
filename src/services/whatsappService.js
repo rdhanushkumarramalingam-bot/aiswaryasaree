@@ -665,7 +665,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     } else {
         await sendButtons(to, `✅ That's all ${totalCount} saree${totalCount > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
             { id: "menu_catalogue", title: "📖 More Types" },
-            { id: "menu_cart", title: "👜 View Bag" },
+            { id: "menu_cart", title: "🛒 View Cart" },
             { id: "menu_shop_web", title: "🛍️ Visit Web Store" }
         ]);
     }
@@ -707,7 +707,7 @@ export async function handleAddToCart(to, productIdRaw) {
     await sendButtons(to, `✅ *Added to Bag*\n${product.name}\nQty in Bag: ${qty}`, [
         { id: `qty_inc_${productId}`, title: "➕ Add Another" },
         { id: `qty_dec_${productId}`, title: "➖ Reduce Qty" },
-        { id: "menu_cart", title: "👜 View Bag" }
+        { id: "menu_cart", title: "🛒 View Cart" }
     ]);
 }
 
@@ -724,7 +724,7 @@ export async function handleVariantSelection(to, variantId) {
     await sendButtons(to, `✅ *Added to Bag*\n${product.name} (${variant.name})\nQty in Bag: ${qty}`, [
         { id: `vqty_inc_${variantId}`, title: "➕ Add Another" },
         { id: `vqty_dec_${variantId}`, title: "➖ Reduce Qty" },
-        { id: "menu_cart", title: "👜 View Bag" }
+        { id: "menu_cart", title: "🛒 View Cart" }
     ]);
 }
 
@@ -754,7 +754,7 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
         await sendButtons(to, `✅ *Quantity Updated*\n${itemName}\nNew Qty: ${newQty}`, [
             { id: incId, title: "➕ Add Another" },
             { id: decId, title: "➖ Reduce Qty" },
-            { id: "menu_cart", title: "👜 View Bag" }
+            { id: "menu_cart", title: "🛒 View Cart" }
         ]);
     }
 }
@@ -773,7 +773,7 @@ export async function handleViewCart(to) {
     msg += `\n💎 *Total: ₹${total.toLocaleString()}*`;
 
     await sendButtons(to, msg, [
-        { id: "start_checkout", title: "✅ Checkout" },
+        { id: "start_checkout", title: "✅ Place Order" },
         { id: "menu_browse", title: "🛍️ Add More" },
         { id: "edit_cart", title: "✏️ Edit Bag" }
     ]);
