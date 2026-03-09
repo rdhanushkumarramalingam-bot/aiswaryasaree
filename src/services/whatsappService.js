@@ -106,7 +106,10 @@ export async function sendRawMessage(to, payload) {
             body: JSON.stringify(payload)
         });
         const data = await response.json();
-        if (data.error) console.error('❌ WA API Error:', JSON.stringify(data.error));
+        if (data.error) {
+            console.error('❌ WA API Error:', JSON.stringify(data.error));
+            console.error('Payload attempted:', JSON.stringify(payload));
+        }
         return data;
     } catch (error) { console.error('❌ Network Error:', error); }
 }
@@ -442,36 +445,16 @@ export async function sendMainMenu(to) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://aiswaryasaree.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // ── Message 1: Welcome image + NATIVE SHOP BUTTON ──
-    // Using cta_url is the most integrated way to launch the store.
-    await sendRawMessage(to, {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "interactive",
-        interactive: {
-            type: "cta_url",
-            header: {
-                type: "image",
-                image: { link: welcomeImg }
-            },
-            body: { text: welcomeMsg + "\n\nTap below to open our store natively in the app." },
-            footer: { text: "Premium Shopping Experience" },
-            action: {
-                name: "cta_url",
-                parameters: {
-                    display_text: "🛍️ Open Store",
-                    url: shopUrl
-                }
-            }
-        }
-    });
+    // ── Message 1: Welcome image + Text ──
+    await sendImageButtons(to, welcomeImg, welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl, [
+        { id: "menu_catalogue", title: "📖 View Catalogue" }
+    ]);
 
-    // ── Message 2: Quick actions with View Catalogue ──
-    await sendButtons(to, "Explore our collections & manage orders:", [
-        { id: "menu_catalogue", title: "📖 View Catalogue" },
+    // ── Message 2: Quick actions ──
+    await sendButtons(to, "Manage your orders or speak with us:", [
         { id: "menu_track", title: "My Orders" },
-        { id: "menu_contact", title: "Contact Us" }
+        { id: "menu_contact", title: "Contact Us" },
+        { id: "menu_main", title: "🏠 Main Menu" }
     ]);
 }
 
