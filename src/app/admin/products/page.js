@@ -1213,32 +1213,61 @@ export default function ProductsPage() {
                                     <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Image *</label>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <div
-                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
-                                                    style={{
-                                                        width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden',
-                                                        background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))'
-                                                    }}
-                                                >
-                                                    {productImageUrl ? <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={20} className="text-muted" style={{ margin: '12px' }} />}
-                                                </div>
-                                                <div
-                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
-                                                    style={{
-                                                        flex: 1, height: '45px', borderRadius: '8px',
-                                                        background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))',
-                                                        display: 'flex', alignItems: 'center', padding: '0 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem'
-                                                    }}
-                                                >
-                                                    {productImageUrl ? (
-                                                        <span style={{ color: 'hsl(var(--primary))', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productImageUrl}</span>
-                                                    ) : 'Select Image from Library...'}
-                                                </div>
 
-                                                <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem' }} title="Open Media Library">
-                                                    <Upload size={16} />
+                                            {/* Image preview */}
+                                            {productImageUrl && (
+                                                <div style={{ marginBottom: '8px', position: 'relative', width: '80px', height: '100px' }}>
+                                                    <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                    <button type="button" onClick={() => setProductImageUrl('')} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>✕</button>
+                                                </div>
+                                            )}
+
+                                            {/* Two option buttons */}
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                {/* Option 1: Media Library */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
+                                                    style={{
+                                                        flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
+                                                        background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--primary) / 0.5)',
+                                                        color: 'hsl(var(--primary))', fontSize: '0.82rem', fontWeight: 600,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <ImageIcon size={15} /> From Library
                                                 </button>
+
+                                                {/* Option 2: Upload from device */}
+                                                <label
+                                                    style={{
+                                                        flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
+                                                        background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--border-subtle))',
+                                                        color: 'hsl(var(--text-muted))', fontSize: '0.82rem', fontWeight: 600,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <Upload size={15} /> Upload File
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        style={{ display: 'none' }}
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            try {
+                                                                const ext = file.name.split('.').pop();
+                                                                const fileName = `products/${Date.now()}.${ext}`;
+                                                                const { error } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
+                                                                if (error) throw error;
+                                                                const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
+                                                                setProductImageUrl(publicUrl);
+                                                            } catch (err) {
+                                                                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                                                            }
+                                                        }}
+                                                    />
+                                                </label>
                                             </div>
                                         </div>
                                         <div>
@@ -1267,7 +1296,7 @@ export default function ProductsPage() {
                                                     <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Color/Option</div>
                                                     <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price (₹)</div>
                                                     <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stock</div>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL</div>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image</div>
                                                     <div style={{ width: '20px' }}></div>
                                                 </div>
                                             )}
@@ -1276,26 +1305,56 @@ export default function ProductsPage() {
                                                     <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} style={{ ...inputStyle, padding: '0.5rem' }} />
                                                     <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
                                                     <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} style={{ ...inputStyle, padding: '0.5rem' }} />
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        <div
-                                                            onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
-                                                            style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))', flexShrink: 0 }}
-                                                        >
-                                                            {v.image_url ? <img src={v.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={14} className="text-muted" style={{ margin: '9px' }} />}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        {/* Thumbnail preview */}
+                                                        {v.image_url && (
+                                                            <div style={{ position: 'relative', width: '32px', height: '40px', flexShrink: 0 }}>
+                                                                <img src={v.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '5px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                                <button type="button" onClick={() => updateVariant(i, 'image_url', '')} style={{ position: 'absolute', top: '-5px', right: '-5px', width: '14px', height: '14px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>✕</button>
+                                                            </div>
+                                                        )}
+                                                        {/* Two buttons */}
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
+                                                                style={{
+                                                                    flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
+                                                                    background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--primary) / 0.5)',
+                                                                    color: 'hsl(var(--primary))', fontSize: '0.7rem', fontWeight: 600,
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                                                                }}
+                                                            >
+                                                                <ImageIcon size={11} /> Library
+                                                            </button>
+                                                            <label style={{
+                                                                flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
+                                                                background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--border-subtle))',
+                                                                color: 'hsl(var(--text-muted))', fontSize: '0.7rem', fontWeight: 600,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                                                            }}>
+                                                                <Upload size={11} /> Upload
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    style={{ display: 'none' }}
+                                                                    onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (!file) return;
+                                                                        try {
+                                                                            const ext = file.name.split('.').pop();
+                                                                            const fileName = `products/variant_${Date.now()}.${ext}`;
+                                                                            const { error } = await supabase.storage.from('media').upload(fileName, file, { upsert: true });
+                                                                            if (error) throw error;
+                                                                            const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
+                                                                            updateVariant(i, 'image_url', publicUrl);
+                                                                        } catch (err) {
+                                                                            alert('Upload failed: ' + (err.message || 'Unknown error'));
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </label>
                                                         </div>
-                                                        <div
-                                                            onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
-                                                            style={{
-                                                                flex: 1, height: '32px', borderRadius: '6px',
-                                                                background: 'hsl(var(--bg-app))', cursor: 'pointer', border: '1px solid hsl(var(--border-subtle))',
-                                                                display: 'flex', alignItems: 'center', padding: '0 0.75rem', color: 'hsl(var(--text-muted))', fontSize: '0.75rem'
-                                                            }}
-                                                        >
-                                                            {v.image_url ? (
-                                                                <span style={{ color: 'hsl(var(--primary))', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.image_url}</span>
-                                                            ) : 'Select...'}
-                                                        </div>
-
                                                     </div>
                                                     <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                                                         onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.2)'}
