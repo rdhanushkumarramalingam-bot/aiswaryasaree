@@ -21,6 +21,13 @@ function PaymentPageInner({ orderId }) {
     const [activeGateway, setActiveGateway] = useState(null); // 'razorpay' | 'phonepe'
     const [sdkReady, setSdkReady] = useState(false);
     const [error, setError] = useState('');
+    const [settings, setSettings] = useState({
+        razorpay_enabled: true,
+        razorpay_title: 'Pay with Razorpay',
+        phonepe_enabled: true,
+        phonepe_title: 'Pay with PhonePe',
+        default_gateway: 'razorpay'
+    });
 
     useEffect(() => {
         // Handle PhonePe redirect callback
@@ -30,6 +37,28 @@ function PaymentPageInner({ orderId }) {
             setPaymentStatus('success');
         } else if (status === 'failed') {
             setError(`Payment failed: ${reason || 'Please try again'}`);
+        }
+
+        async function fetchSettings() {
+            try {
+                const { data, error: sError } = await supabase
+                    .from('app_settings')
+                    .select('key, value')
+                    .in('key', ['razorpay_enabled', 'razorpay_title', 'phonepe_enabled', 'phonepe_title', 'default_gateway']);
+
+                if (!sError && data) {
+                    const sMap = {};
+                    data.forEach(item => { sMap[item.key] = item.value; });
+                    setSettings(prev => ({
+                        ...prev,
+                        razorpay_enabled: sMap.razorpay_enabled !== 'false',
+                        razorpay_title: sMap.razorpay_title || 'Pay with Razorpay',
+                        phonepe_enabled: sMap.phonepe_enabled !== 'false',
+                        phonepe_title: sMap.phonepe_title || 'Pay with PhonePe',
+                        default_gateway: sMap.default_gateway || 'razorpay'
+                    }));
+                }
+            } catch (e) { console.error('Error fetching settings:', e); }
         }
 
         async function fetchOrder() {
@@ -48,6 +77,7 @@ function PaymentPageInner({ orderId }) {
             }
             setLoading(false);
         }
+        fetchSettings();
         fetchOrder();
     }, [orderId, searchParams]);
 
@@ -247,62 +277,47 @@ function PaymentPageInner({ orderId }) {
                     <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', textAlign: 'center' }}>Choose Payment Method</p>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {/* Razorpay Button */}
-                        <button
-                            onClick={handleRazorpay}
-                            disabled={!!activeGateway}
-                            style={{
-                                width: '100%', padding: '1rem 1.5rem', borderRadius: 16, border: '1px solid rgba(194,24,91,0.3)', cursor: activeGateway ? 'not-allowed' : 'pointer',
-                                background: activeGateway === 'razorpay' ? '#222' : 'linear-gradient(135deg, rgba(194,24,91,0.15), rgba(233,30,140,0.1))',
-                                color: 'white', fontWeight: 700, fontSize: '1rem',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#072654', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 900, color: '#3395FF', fontFamily: 'monospace' }}>R</div>
-                                <div style={{ textAlign: 'left' }}>
-                                    <p style={{ margin: 0, fontWeight: 700 }}>Razorpay</p>
-                                    <p style={{ margin: 0, color: '#888', fontSize: '0.75rem' }}>UPI · Cards · Net Banking · Wallets</p>
-                                </div>
-                            </div>
-                            {activeGateway === 'razorpay'
-                                ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                                : <span style={{ color: '#c2185b', fontSize: '1.2rem' }}>→</span>
-                            }
-                        </button>
+                        {[
+                            { id: 'razorpay', enabled: settings.razorpay_enabled, title: settings.razorpay_title, handler: handleRazorpay, color: '#3395FF', bg: '#072654', char: 'R', subtitle: 'Cards, UPI, NetBanking' },
+                            { id: 'phonepe', enabled: settings.phonepe_enabled, title: settings.phonepe_title, handler: handlePhonePe, color: '#5e17eb', bg: '#white', char: 'Pe', subtitle: 'Direct UPI & PhonePe App' }
+                        ]
+                            .filter(g => g.enabled)
+                            .sort((a, b) => a.id === settings.default_gateway ? -1 : 1)
+                            .map((g) => (
+                                <button
+                                    key={g.id}
+                                    onClick={g.handler}
+                                    disabled={!!activeGateway}
+                                    style={{
+                                        width: '100%', padding: '1.25rem', borderRadius: 16, border: '1px solid #2a2a2a', cursor: activeGateway ? 'not-allowed' : 'pointer', transition: '0.2s', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                                        background: activeGateway === g.id ? '#111' : '#1a1a1a',
+                                        boxShadow: (activeGateway === g.id || (activeGateway === null && g.id === settings.default_gateway)) ? '0 10px 20px rgba(0,0,0,0.4)' : '0 10px 20px rgba(0,0,0,0.2)',
+                                        border: (activeGateway === null && g.id === settings.default_gateway) ? `1px solid ${g.id === 'razorpay' ? '#3395FF' : '#5e17eb'}55` : '1px solid #2a2a2a'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                        <div style={{ width: 44, height: 44, background: g.id === 'phonepe' ? '#5e17eb' : g.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: g.id === 'phonepe' ? 'white' : g.color, fontWeight: 900, fontSize: '1.2rem' }}>{g.char}</div>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'white' }}>{g.title}</p>
+                                            <p style={{ margin: 0, fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{g.subtitle}</p>
+                                        </div>
+                                        <div style={{ color: g.id === 'phonepe' ? '#5e17eb' : g.color }}>
+                                            {activeGateway === g.id ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : '→'}
+                                        </div>
+                                    </div>
+                                    {g.id === settings.default_gateway && !activeGateway && (
+                                        <div style={{ position: 'absolute', top: 0, right: 0, background: g.id === 'razorpay' ? '#3395FF' : '#5e17eb', color: 'white', fontSize: '0.6rem', padding: '2px 8px', borderRadius: '0 0 0 8px', fontWeight: 800 }}>RECOMMENDED</div>
+                                    )}
+                                </button>
+                            ))
+                        }
 
-                        {/* Divider */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div style={{ flex: 1, height: 1, background: '#2a2a2a' }} />
-                            <span style={{ color: '#444', fontSize: '0.75rem' }}>OR</span>
-                            <div style={{ flex: 1, height: 1, background: '#2a2a2a' }} />
-                        </div>
-
-                        {/* PhonePe Button */}
-                        <button
-                            onClick={handlePhonePe}
-                            disabled={!!activeGateway}
-                            style={{
-                                width: '100%', padding: '1rem 1.5rem', borderRadius: 16, border: '1px solid rgba(94,23,235,0.3)', cursor: activeGateway ? 'not-allowed' : 'pointer',
-                                background: activeGateway === 'phonepe' ? '#222' : 'linear-gradient(135deg, rgba(94,23,235,0.15), rgba(124,58,237,0.1))',
-                                color: 'white', fontWeight: 700, fontSize: '1rem',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#5e17eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 900, color: 'white' }}>Pe</div>
-                                <div style={{ textAlign: 'left' }}>
-                                    <p style={{ margin: 0, fontWeight: 700 }}>PhonePe</p>
-                                    <p style={{ margin: 0, color: '#888', fontSize: '0.75rem' }}>UPI · PhonePe Wallet · QR Pay</p>
-                                </div>
+                        {/* If both disabled */}
+                        {!settings.razorpay_enabled && !settings.phonepe_enabled && (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#666', border: '1px dashed #333', borderRadius: 16 }}>
+                                No online payment methods available at the moment.
                             </div>
-                            {activeGateway === 'phonepe'
-                                ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                                : <span style={{ color: '#7c3aed', fontSize: '1.2rem' }}>→</span>
-                            }
-                        </button>
+                        )}
                     </div>
 
                     {/* Accepted Methods */}
@@ -315,8 +330,8 @@ function PaymentPageInner({ orderId }) {
                         <p style={{ color: '#333', fontSize: '0.7rem' }}>🔒 Secured by Razorpay & PhonePe · 256-bit SSL</p>
                     </div>
                 </div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </>
     );
 }

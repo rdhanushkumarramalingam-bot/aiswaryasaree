@@ -1,6 +1,8 @@
 import Razorpay from 'razorpay';
 import { createClient } from '@supabase/supabase-js';
 
+import { getGatewaySettings } from '@/lib/settings';
+
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -9,6 +11,7 @@ const supabase = createClient(
 export async function POST(request) {
     try {
         const { orderId } = await request.json();
+        const settings = await getGatewaySettings();
 
         if (!orderId) {
             return Response.json({ error: 'Missing orderId' }, { status: 400 });
@@ -26,7 +29,7 @@ export async function POST(request) {
         }
 
         // If no Razorpay keys yet, return placeholder response for testing
-        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        if (!settings.razorpay_key_id || !settings.razorpay_key_secret) {
             return Response.json({
                 razorpayOrderId: `order_test_${Date.now()}`,
                 amount: order.total_amount * 100,
@@ -38,8 +41,8 @@ export async function POST(request) {
         }
 
         const razorpay = new Razorpay({
-            key_id: process.env.RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET,
+            key_id: settings.razorpay_key_id,
+            key_secret: settings.razorpay_key_secret,
         });
 
         // Create Razorpay order

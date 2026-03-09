@@ -3,14 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { NextResponse } from 'next/server';
 
+import { getGatewaySettings } from '@/lib/settings';
+
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
-
-const PHONEPE_BASE_URL = process.env.PHONEPE_ENV === 'production'
-    ? 'https://api.phonepe.com/apis/hermes'
-    : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
 
 // PhonePe calls this endpoint after payment (GET redirect from browser OR POST webhook)
 export async function GET(request) {
@@ -23,10 +21,17 @@ export async function GET(request) {
     }
 
     try {
-        const merchantId = process.env.PHONEPE_MERCHANT_ID;
-        const saltKey = process.env.PHONEPE_SALT_KEY;
-        const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+        const settings = await getGatewaySettings();
+        const merchantId = settings.phonepe_merchant_id;
+        const saltKey = settings.phonepe_salt_key;
+        const saltIndex = settings.phonepe_salt_index || '1';
+        const phonepeEnv = settings.phonepe_env || 'sandbox';
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+        // PhonePe endpoints
+        const PHONEPE_BASE_URL = phonepeEnv === 'production'
+            ? 'https://api.phonepe.com/apis/hermes'
+            : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
 
         // Verify payment status with PhonePe
         const statusEndpoint = `/pg/v1/status/${merchantId}/${txnId}`;
@@ -60,7 +65,7 @@ export async function GET(request) {
                 .update({
                     status: 'PAID',
                     payment_method: 'PhonePe',
-                    phonepe_transaction_id: txnId,
+                    transaction_id: txnId,
                 })
                 .eq('id', orderId);
 
@@ -76,7 +81,7 @@ export async function GET(request) {
                     `📦 *Order ID:* #${orderId}\n` +
                     `💳 *Amount Paid:* ₹${order.total_amount?.toLocaleString()}\n` +
                     `🛍️ *Items:*\n${itemsList}\n\n` +
-                    `📍 *Delivery Address:*\n${order.shipping_address || 'As provided'}\n\n` +
+                    `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
                     `We will send your tracking details soon. Thank you for shopping with us! 🙏\n\n` +
                     `— Aiswarya Sarees`;
 

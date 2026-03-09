@@ -8,7 +8,7 @@ const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
     { name: 'Orders', href: '/admin/orders', icon: Package },
-    { name: 'Payments', href: '/admin/payments', icon: CreditCard },
+    { name: 'Payment Gateway', href: '/admin/payments', icon: CreditCard },
     { name: 'Customers', href: '/admin/customers', icon: Users },
     { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Broadcast', href: '/admin/broadcast', icon: Megaphone },

@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabaseClient';
 import {
     CreditCard, Search, Filter, RefreshCw, Loader2,
     CheckCircle, XCircle, Clock, IndianRupee, TrendingUp,
-    Download, Eye, Smartphone, Globe, ChevronDown
+    Download, Eye, Smartphone, Globe, ChevronDown, Settings,
+    Shield, Key, Link as LinkIcon, Save, AlertCircle, CheckCircle2, Store
 } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -24,7 +25,8 @@ const METHOD_ICONS = {
     WhatsApp: { color: '#25d366', label: 'WhatsApp', icon: '💬' },
 };
 
-export default function PaymentsPage() {
+export default function PaymentGatewayPage() {
+    const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'integration'
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -34,18 +36,34 @@ export default function PaymentsPage() {
     const [selectedPayment, setSelectedPayment] = useState(null);
     const [stats, setStats] = useState({ total: 0, paid: 0, pending: 0, failed: 0, revenue: 0 });
 
+    const [gatewaySettings, setGatewaySettings] = useState({
+        razorpay_key_id: '',
+        razorpay_key_secret: '',
+        razorpay_enabled: 'true',
+        razorpay_title: 'Pay with Razorpay',
+        razorpay_logo: '',
+        phonepe_merchant_id: '',
+        phonepe_salt_key: '',
+        phonepe_salt_index: '1',
+        phonepe_env: 'sandbox',
+        phonepe_enabled: 'true',
+        phonepe_title: 'Pay with PhonePe',
+        phonepe_logo: '',
+        default_gateway: 'razorpay'
+    });
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [notification, setNotification] = useState(null);
+
     const fetchPayments = async () => {
         setLoading(true);
         try {
             let query = supabase
                 .from('orders')
-                .select('id, customer_name, customer_phone, total_amount, status, payment_method, created_at, razorpay_payment_id, phonepe_transaction_id, shipping_address, order_items(*)')
+                .select('id, customer_name, customer_phone, total_amount, status, payment_method, created_at, razorpay_payment_id, transaction_id, delivery_address, order_items(*)')
                 .order('created_at', { ascending: false });
 
-            // Date filter
             if (dateFilter === 'today') {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                const today = new Date(); today.setHours(0, 0, 0, 0);
                 query = query.gte('created_at', today.toISOString());
             } else if (dateFilter === 'week') {
                 const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -61,24 +79,62 @@ export default function PaymentsPage() {
             const list = data || [];
             setPayments(list);
 
-            // Compute stats
             const paid = list.filter(o => o.status === 'PAID' || o.status === 'PLACED');
             const pending = list.filter(o => o.status === 'PENDING');
             const failed = list.filter(o => o.status === 'FAILED' || o.status === 'CANCELLED');
             const revenue = paid.reduce((s, o) => s + (o.total_amount || 0), 0);
             setStats({ total: list.length, paid: paid.length, pending: pending.length, failed: failed.length, revenue });
+        } catch (err) { console.error('Error fetching payments:', err); }
+        finally { setLoading(false); }
+    };
 
+    const fetchGatewaySettings = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('app_settings')
+                .select('*')
+                .in('key', [
+                    'razorpay_key_id', 'razorpay_key_secret', 'razorpay_enabled', 'razorpay_title', 'razorpay_logo',
+                    'phonepe_merchant_id', 'phonepe_salt_key',
+                    'phonepe_salt_index', 'phonepe_env', 'phonepe_enabled', 'phonepe_title', 'phonepe_logo',
+                    'default_gateway'
+                ]);
+
+            if (error) throw error;
+            const settingsMap = { ...gatewaySettings };
+            data.forEach(item => { settingsMap[item.key] = item.value; });
+            setGatewaySettings(settingsMap);
+        } catch (err) { console.error('Error fetching gateway settings:', err); }
+    };
+
+    useEffect(() => {
+        fetchPayments();
+        fetchGatewaySettings();
+    }, [dateFilter]);
+
+    const handleSaveSettings = async () => {
+        setSavingSettings(true);
+        try {
+            const updates = Object.entries(gatewaySettings).map(([key, value]) => ({
+                key,
+                value: value?.toString() || '',
+                updated_at: new Date().toISOString()
+            }));
+
+            const { error } = await supabase.from('app_settings').upsert(updates);
+            if (error) throw error;
+
+            setNotification({ message: 'Gateway integration updated successfully!', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            console.error('Error fetching payments:', err);
+            setNotification({ message: 'Error saving: ' + err.message, type: 'error' });
         } finally {
-            setLoading(false);
+            setSavingSettings(false);
         }
     };
 
-    useEffect(() => { fetchPayments(); }, [dateFilter]);
-
     const filtered = payments.filter(p => {
-        const matchSearch = !search || [p.customer_name, p.customer_phone, p.id, p.razorpay_payment_id, p.phonepe_transaction_id]
+        const matchSearch = !search || [p.customer_name, p.customer_phone, p.id, p.razorpay_payment_id, p.transaction_id]
             .some(v => v?.toLowerCase().includes(search.toLowerCase()));
         const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
         const matchMethod = methodFilter === 'ALL' || p.payment_method === methodFilter;
@@ -91,7 +147,7 @@ export default function PaymentsPage() {
             p.id, p.customer_name, p.customer_phone,
             p.total_amount, p.status, p.payment_method || 'N/A',
             new Date(p.created_at).toLocaleDateString('en-IN'),
-            p.razorpay_payment_id || p.phonepe_transaction_id || 'N/A'
+            p.razorpay_payment_id || p.transaction_id || 'N/A'
         ]));
         const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -100,14 +156,9 @@ export default function PaymentsPage() {
         a.href = url; a.download = `payments_${Date.now()}.csv`; a.click();
     };
 
-    const statCards = [
-        { label: 'Total Revenue', value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee, color: 'var(--primary)', bg: 'hsl(var(--primary) / 0.12)' },
-        { label: 'Paid Orders', value: stats.paid, icon: CheckCircle, color: 'hsl(var(--success))', bg: 'hsl(var(--success) / 0.12)' },
-        { label: 'Pending', value: stats.pending, icon: Clock, color: 'hsl(var(--accent))', bg: 'hsl(var(--accent) / 0.12)' },
-        { label: 'Failed / Cancelled', value: stats.failed, icon: XCircle, color: 'hsl(var(--danger))', bg: 'hsl(var(--danger) / 0.12)' },
-    ];
-
-    const sStyle = { width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' };
+    // Shared Styles
+    const sStyle = { padding: '0.6rem 0.85rem', borderRadius: 10, background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' };
+    const labelStyle = { fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', marginBottom: '0.5rem' };
 
     return (
         <div className="animate-enter" style={{ padding: '1.5rem', maxWidth: 1400, margin: '0 auto' }}>
@@ -117,184 +168,362 @@ export default function PaymentsPage() {
                 <div>
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '2rem', fontWeight: 800, margin: 0 }}>
                         <CreditCard size={30} color="hsl(var(--primary))" />
-                        Payments
+                        Payment Gateway Integration
                     </h1>
                     <p style={{ color: 'hsl(var(--text-muted))', margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
-                        All transactions — Razorpay, PhonePe, COD & WhatsApp orders
+                        Manage transactions and configure your Razorpay & PhonePe accounts.
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={fetchPayments} className="btn btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
-                        <RefreshCw size={15} /> Refresh
-                    </button>
-                    <button onClick={exportCSV} className="btn btn-primary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
-                        <Download size={15} /> Export CSV
-                    </button>
+                {activeTab === 'transactions' && (
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button onClick={fetchPayments} className="btn btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.85rem' }}>
+                            <RefreshCw size={15} /> Refresh
+                        </button>
+                        <button onClick={exportCSV} className="btn btn-primary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+                            <Download size={15} /> Export CSV
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))', color: 'white', padding: '1rem 2rem', borderRadius: 12, display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, zIndex: 1000, boxShadow: '0 10px 30px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s ease-out' }}>
+                    {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                    {notification.message}
                 </div>
+            )}
+
+            {/* Tabs Navigation */}
+            <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid hsl(var(--border-subtle))', marginBottom: '2rem' }}>
+                <button
+                    onClick={() => setActiveTab('transactions')}
+                    style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: activeTab === 'transactions' ? '2px solid hsl(var(--primary))' : 'none', color: activeTab === 'transactions' ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))', fontWeight: 700, cursor: 'pointer', transition: '0.2s', fontSize: '0.9rem' }}
+                >
+                    <Smartphone size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                    Transactions History
+                </button>
+                <button
+                    onClick={() => setActiveTab('integration')}
+                    style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: activeTab === 'integration' ? '2px solid hsl(var(--primary))' : 'none', color: activeTab === 'integration' ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))', fontWeight: 700, cursor: 'pointer', transition: '0.2s', fontSize: '0.9rem' }}
+                >
+                    <Settings size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                    Gateway Credentials
+                </button>
             </div>
 
-            {/* Stat Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                {statCards.map((s, i) => (
-                    <div key={i} className="card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <s.icon size={22} color={s.color} />
+            {/* TAB: Transactions History */}
+            {activeTab === 'transactions' && (
+                <div style={{ animation: 'fadeEnter 0.3s' }}>
+                    {/* Stat Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                        {[
+                            { label: 'Total Revenue', value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee, color: 'var(--primary)', bg: 'hsl(var(--primary) / 0.12)' },
+                            { label: 'Paid Orders', value: stats.paid, icon: CheckCircle, color: 'hsl(var(--success))', bg: 'hsl(var(--success) / 0.12)' },
+                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'hsl(var(--accent))', bg: 'hsl(var(--accent) / 0.12)' },
+                            { label: 'Failed / Cancelled', value: stats.failed, icon: XCircle, color: 'hsl(var(--danger))', bg: 'hsl(var(--danger) / 0.12)' },
+                        ].map((s, i) => (
+                            <div key={i} className="card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid hsl(var(--border-subtle))' }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <s.icon size={22} color={s.color} />
+                                </div>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
+                                    <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.value}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Filters */}
+                    <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', border: '1px solid hsl(var(--border-subtle))' }}>
+                        <div style={{ position: 'relative', flex: '2 1 220px' }}>
+                            <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                            <input
+                                placeholder="Search by name, phone, order ID, txn ID..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="admin-input"
+                                style={{ paddingLeft: '2.5rem' }}
+                            />
                         </div>
-                        <div>
-                            <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
-                            <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.value}</p>
-                        </div>
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 120px' }}>
+                            <option value="ALL">All Status</option>
+                            <option value="PAID">Paid</option>
+                            <option value="PLACED">Placed</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                        <select value={methodFilter} onChange={e => setMethodFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 130px' }}>
+                            <option value="ALL">All Methods</option>
+                            <option value="Razorpay">Razorpay</option>
+                            <option value="PhonePe">PhonePe</option>
+                            <option value="UPI">UPI</option>
+                            <option value="COD">COD</option>
+                            <option value="WhatsApp">WhatsApp</option>
+                        </select>
+                        <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 120px' }}>
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">Last 7 Days</option>
+                            <option value="month">Last 30 Days</option>
+                        </select>
                     </div>
-                ))}
-            </div>
 
-            {/* Filters */}
-            <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* Search */}
-                <div style={{ position: 'relative', flex: '2 1 220px' }}>
-                    <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                    <input
-                        placeholder="Search by name, phone, order ID, txn ID..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="admin-input"
-                        style={{ paddingLeft: '2.5rem' }}
-                    />
-                </div>
-                {/* Status */}
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 120px' }}>
-                    <option value="ALL">All Status</option>
-                    <option value="PAID">Paid</option>
-                    <option value="PLACED">Placed</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                </select>
-                {/* Method */}
-                <select value={methodFilter} onChange={e => setMethodFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 130px' }}>
-                    <option value="ALL">All Methods</option>
-                    <option value="Razorpay">Razorpay</option>
-                    <option value="PhonePe">PhonePe</option>
-                    <option value="UPI">UPI</option>
-                    <option value="COD">COD</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                </select>
-                {/* Date Range */}
-                <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{ ...sStyle, flex: '1 1 120px' }}>
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                </select>
-            </div>
-
-            {/* Payments Table */}
-            <div className="card shadow-premium" style={{ overflow: 'hidden' }}>
-                {loading ? (
-                    <div style={{ padding: '5rem', textAlign: 'center' }}>
-                        <Loader2 size={36} className="animate-spin" style={{ color: 'hsl(var(--primary))', margin: '0 auto 1rem' }} />
-                        <p style={{ color: 'hsl(var(--text-muted))' }}>Loading payments...</p>
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <div style={{ padding: '5rem', textAlign: 'center' }}>
-                        <CreditCard size={48} style={{ color: 'hsl(var(--text-muted))', margin: '0 auto 1rem', display: 'block', opacity: 0.4 }} />
-                        <p style={{ color: 'hsl(var(--text-muted))' }}>No payments found</p>
-                    </div>
-                ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead style={{ background: 'hsl(var(--bg-panel) / 0.8)' }}>
-                                <tr>
-                                    {['Order', 'Customer', 'Amount', 'Status', 'Method', 'Transaction ID', 'Date', 'Actions'].map(h => (
-                                        <th key={h} style={{ textAlign: 'left', padding: '1rem 1.25rem', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--text-muted))', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map((p, idx) => {
-                                    const statusMeta = STATUS_COLORS[p.status] || STATUS_COLORS.PENDING;
-                                    const methodMeta = METHOD_ICONS[p.payment_method] || { color: '#888', label: p.payment_method || 'N/A', icon: '💳' };
-                                    const txnId = p.razorpay_payment_id || p.phonepe_transaction_id || '-';
-
-                                    return (
-                                        <tr key={p.id}
-                                            style={{ borderBottom: '1px solid hsl(var(--border-subtle))', transition: 'background 0.15s', cursor: 'default' }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--bg-panel) / 0.4)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            {/* Order ID */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <code style={{ background: 'hsl(var(--bg-app))', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>
-                                                    #{String(p.id).slice(0, 8)}
-                                                </code>
-                                            </td>
-
-                                            {/* Customer */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.customer_name || 'Unknown'}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.customer_phone}</div>
-                                            </td>
-
-                                            {/* Amount */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <span style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>₹{p.total_amount?.toLocaleString()}</span>
-                                            </td>
-
-                                            {/* Status */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <span style={{ background: statusMeta.bg, color: statusMeta.color, border: `1px solid ${statusMeta.border}`, padding: '0.3rem 0.8rem', borderRadius: 30, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                                                    {statusMeta.label}
-                                                </span>
-                                            </td>
-
-                                            {/* Method */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <span>{methodMeta.icon}</span>
-                                                    <span style={{ color: methodMeta.color, fontWeight: 700, fontSize: '0.82rem' }}>{methodMeta.label}</span>
-                                                </div>
-                                            </td>
-
-                                            {/* Transaction ID */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <code style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', background: 'hsl(var(--bg-app))', padding: '0.2rem 0.4rem', borderRadius: 5 }}>
-                                                    {txnId.length > 16 ? txnId.slice(0, 16) + '...' : txnId}
-                                                </code>
-                                            </td>
-
-                                            {/* Date */}
-                                            <td style={{ padding: '1rem 1.25rem', color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                                                {new Date(p.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                <div style={{ fontSize: '0.7rem' }}>{new Date(p.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td style={{ padding: '1rem 1.25rem' }}>
-                                                <button
-                                                    onClick={() => setSelectedPayment(p)}
-                                                    className="btn-icon primary"
-                                                    title="View Details"
-                                                    style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid hsl(var(--border-subtle))', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--text-muted))' }}
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
-                                            </td>
+                    {/* Payments Table */}
+                    <div className="card" style={{ overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))' }}>
+                        {loading ? (
+                            <div style={{ padding: '5rem', textAlign: 'center' }}>
+                                <Loader2 size={36} className="animate-spin" style={{ color: 'hsl(var(--primary))', margin: '0 auto 1rem' }} />
+                                <p style={{ color: 'hsl(var(--text-muted))' }}>Loading payments...</p>
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div style={{ padding: '5rem', textAlign: 'center' }}>
+                                <CreditCard size={48} style={{ color: 'hsl(var(--text-muted))', margin: '0 auto 1rem', display: 'block', opacity: 0.4 }} />
+                                <p style={{ color: 'hsl(var(--text-muted))' }}>No payments found</p>
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead style={{ background: 'hsl(var(--bg-panel) / 0.8)' }}>
+                                        <tr>
+                                            {['Order', 'Customer', 'Amount', 'Status', 'Method', 'Transaction ID', 'Date', 'Actions'].map(h => (
+                                                <th key={h} style={{ textAlign: 'left', padding: '1rem 1.25rem', fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--text-muted))', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                                            ))}
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((p) => {
+                                            const statusMeta = STATUS_COLORS[p.status] || STATUS_COLORS.PENDING;
+                                            const methodMeta = METHOD_ICONS[p.payment_method] || { color: '#888', label: p.payment_method || 'N/A', icon: '💳' };
+                                            return (
+                                                <tr key={p.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><code style={{ background: 'hsl(var(--bg-app))', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>#{String(p.id).slice(0, 8)}</code></td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.customer_name || 'Unknown'}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.customer_phone}</div>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><span style={{ fontWeight: 800, fontSize: '1rem' }}>₹{p.total_amount?.toLocaleString()}</span></td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><span style={{ background: statusMeta.bg, color: statusMeta.color, padding: '0.3rem 0.8rem', borderRadius: 30, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>{statusMeta.label}</span></td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: methodMeta.color, fontWeight: 700, fontSize: '0.8rem' }}>{methodMeta.icon} {methodMeta.label}</div></td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><code style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>{p.transaction_id || p.razorpay_payment_id || '-'}</code></td>
+                                                    <td style={{ padding: '1rem 1.25rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{new Date(p.created_at).toLocaleDateString('en-IN')}</td>
+                                                    <td style={{ padding: '1rem 1.25rem' }}><button onClick={() => setSelectedPayment(p)} className="btn-icon primary"><Eye size={16} /></button></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
+            )}
 
-                {/* Footer count */}
-                {!loading && filtered.length > 0 && (
-                    <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
-                        <span>Showing <strong style={{ color: 'hsl(var(--text-main))' }}>{filtered.length}</strong> of {payments.length} transactions</span>
-                        <span>Total filtered: <strong style={{ color: 'hsl(var(--primary))' }}>₹{filtered.reduce((s, p) => s + (p.total_amount || 0), 0).toLocaleString()}</strong></span>
+            {/* TAB: Gateway Configuration */}
+            {activeTab === 'integration' && (
+                <div style={{ animation: 'fadeEnter 0.3s' }}>
+                    <div style={{ marginBottom: '2rem', background: 'hsl(var(--bg-card))', padding: '1.5rem', borderRadius: 20, border: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Default Gateway</h3>
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Which gateway should be highlighted by default?</p>
+                        </div>
+                        <select
+                            value={gatewaySettings.default_gateway}
+                            onChange={(e) => setGatewaySettings(prev => ({ ...prev, default_gateway: e.target.value }))}
+                            style={{ ...sStyle, width: 'auto', minWidth: 200 }}
+                        >
+                            <option value="razorpay">Razorpay</option>
+                            <option value="phonepe">PhonePe</option>
+                        </select>
                     </div>
-                )}
-            </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+
+                        {/* Razorpay Config */}
+                        <div className="card" style={{ padding: '2rem', border: '1px solid hsl(var(--border-subtle))' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '1rem' }}>
+                                <div style={{ width: 40, height: 40, background: '#072654', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3395FF', fontWeight: 900 }}>R</div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Razorpay Integration</h3>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Accept Cards, UPI, Net Banking & Wallets</p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(51,149,255,0.05)', padding: '1rem', borderRadius: 12, border: '1px solid rgba(51,149,255,0.1)' }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Enable Razorpay</p>
+                                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Accept cards and UPI via Razorpay</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setGatewaySettings(prev => ({ ...prev, razorpay_enabled: prev.razorpay_enabled === 'true' ? 'false' : 'true' }))}
+                                        style={{ width: 44, height: 24, borderRadius: 20, background: gatewaySettings.razorpay_enabled === 'true' ? '#3395FF' : '#333', border: 'none', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 3, left: gatewaySettings.razorpay_enabled === 'true' ? 22 : 4, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: '0.3s' }} />
+                                    </button>
+                                </div>
+
+                                <div className="field-group">
+                                    <label style={labelStyle}>Display Name</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.razorpay_title}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, razorpay_title: e.target.value }))}
+                                        style={sStyle}
+                                    />
+                                </div>
+
+                                <div className="field-group">
+                                    <label style={labelStyle}>Logo URL (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.razorpay_logo}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, razorpay_logo: e.target.value }))}
+                                        placeholder="https://..."
+                                        style={sStyle}
+                                    />
+                                </div>
+                                <div className="field-group">
+                                    <label style={labelStyle}><Key size={14} /> Razorpay Key ID</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.razorpay_key_id}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, razorpay_key_id: e.target.value }))}
+                                        placeholder="rzp_test_..."
+                                        style={sStyle}
+                                    />
+                                    <p style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>Get this from Razorpay Dashboard → Settings → API Keys</p>
+                                </div>
+                                <div className="field-group">
+                                    <label style={labelStyle}><Shield size={14} /> Razorpay Key Secret</label>
+                                    <input
+                                        type="password"
+                                        value={gatewaySettings.razorpay_key_secret}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, razorpay_key_secret: e.target.value }))}
+                                        placeholder="••••••••••••••••"
+                                        style={sStyle}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* PhonePe Config */}
+                        <div className="card" style={{ padding: '2rem', border: '1px solid hsl(var(--border-subtle))' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '1rem' }}>
+                                <div style={{ width: 40, height: 40, background: '#5e17eb', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 900 }}>Pe</div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>PhonePe Business</h3>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Accept Direct PhonePe & UPI Payments</p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(94,23,235,0.05)', padding: '1rem', borderRadius: 12, border: '1px solid rgba(94,23,235,0.1)' }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Enable PhonePe</p>
+                                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Accept direct PhonePe & UPI payments</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setGatewaySettings(prev => ({ ...prev, phonepe_enabled: prev.phonepe_enabled === 'true' ? 'false' : 'true' }))}
+                                        style={{ width: 44, height: 24, borderRadius: 20, background: gatewaySettings.phonepe_enabled === 'true' ? '#5e17eb' : '#333', border: 'none', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 3, left: gatewaySettings.phonepe_enabled === 'true' ? 22 : 4, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: '0.3s' }} />
+                                    </button>
+                                </div>
+
+                                <div className="field-group">
+                                    <label style={labelStyle}>Display Name</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.phonepe_title}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_title: e.target.value }))}
+                                        style={sStyle}
+                                    />
+                                </div>
+
+                                <div className="field-group">
+                                    <label style={labelStyle}>Logo URL (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.phonepe_logo}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_logo: e.target.value }))}
+                                        placeholder="https://..."
+                                        style={sStyle}
+                                    />
+                                </div>
+                                <div className="field-group">
+                                    <label style={labelStyle}><Store size={14} /> Merchant ID</label>
+                                    <input
+                                        type="text"
+                                        value={gatewaySettings.phonepe_merchant_id}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_merchant_id: e.target.value }))}
+                                        placeholder="PGMD..."
+                                        style={sStyle}
+                                    />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '4fr 1fr', gap: '1rem' }}>
+                                    <div className="field-group">
+                                        <label style={labelStyle}><Key size={14} /> Salt Key</label>
+                                        <input
+                                            type="password"
+                                            value={gatewaySettings.phonepe_salt_key}
+                                            onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_salt_key: e.target.value }))}
+                                            placeholder="••••••••••••••••"
+                                            style={sStyle}
+                                        />
+                                    </div>
+                                    <div className="field-group">
+                                        <label style={labelStyle}>Index</label>
+                                        <input
+                                            type="text"
+                                            value={gatewaySettings.phonepe_salt_index}
+                                            onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_salt_index: e.target.value }))}
+                                            style={{ ...sStyle, textAlign: 'center' }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="field-group">
+                                    <label style={labelStyle}><Globe size={14} /> Environment</label>
+                                    <select
+                                        value={gatewaySettings.phonepe_env}
+                                        onChange={(e) => setGatewaySettings(prev => ({ ...prev, phonepe_env: e.target.value }))}
+                                        style={sStyle}
+                                    >
+                                        <option value="sandbox">Sandbox (Testing)</option>
+                                        <option value="production">Production (Real Payments)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
+                        <button
+                            onClick={handleSaveSettings}
+                            disabled={savingSettings}
+                            style={{ padding: '1rem 3rem', background: 'hsl(var(--primary))', color: 'white', border: 'none', borderRadius: 14, fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', boxShadow: '0 10px 30px hsl(var(--primary) / 0.3)' }}
+                        >
+                            {savingSettings ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                            Update Gateway Integration
+                        </button>
+                    </div>
+
+                    <div style={{ marginTop: '2rem', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', padding: '1.25rem', borderRadius: 16 }}>
+                        <h4 style={{ margin: '0 0 0.5rem', color: '#f59e0b', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <AlertCircle size={18} /> Important Note
+                        </h4>
+                        <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#888', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            <li>These keys are used directly for payment processing. Ensure they are correct before going live.</li>
+                            <li>For Razorpay, find your keys in **Settings &gt; API Keys** on the Razorpay dashboard.</li>
+                            <li>For PhonePe, your Merchant ID and Salt details are provided by the PhonePe onboarding team.</li>
+                            <li>Make sure your website URL is correctly configured in your gateway dashboard.</li>
+                        </ul>
+                    </div>
+                </div>
+            )}
 
             {/* Detail Modal */}
             {selectedPayment && (
@@ -313,27 +542,15 @@ export default function PaymentsPage() {
                             ['Status', selectedPayment.status],
                             ['Payment Method', selectedPayment.payment_method || 'N/A'],
                             ['Razorpay ID', selectedPayment.razorpay_payment_id || '-'],
-                            ['PhonePe Txn ID', selectedPayment.phonepe_transaction_id || '-'],
+                            ['Transaction ID', selectedPayment.transaction_id || '-'],
                             ['Date', new Date(selectedPayment.created_at).toLocaleString('en-IN')],
-                            ['Shipping Address', selectedPayment.shipping_address || 'N/A'],
+                            ['Shipping Address', selectedPayment.delivery_address || 'N/A'],
                         ].map(([label, value]) => (
                             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
                                 <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem' }}>{label}</span>
                                 <span style={{ fontWeight: 600, fontSize: '0.85rem', maxWidth: '60%', textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
                             </div>
                         ))}
-
-                        {selectedPayment.order_items?.length > 0 && (
-                            <div style={{ marginTop: '1rem' }}>
-                                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Items Ordered</p>
-                                {selectedPayment.order_items.map((item, i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', fontSize: '0.85rem' }}>
-                                        <span>{item.product_name} ×{item.quantity}</span>
-                                        <span style={{ fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -341,7 +558,8 @@ export default function PaymentsPage() {
             <style jsx>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .animate-spin { animation: spin 1s linear infinite; }
-                .shadow-premium { box-shadow: 0 20px 60px -15px rgba(0,0,0,0.1); }
+                @keyframes fadeEnter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>
         </div>
     );

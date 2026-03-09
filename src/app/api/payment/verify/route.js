@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 
+import { getGatewaySettings } from '@/lib/settings';
+
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -16,13 +18,15 @@ export async function POST(request) {
             orderId,
         } = await request.json();
 
+        const settings = await getGatewaySettings();
+
         // --- Signature Verification ---
         // This is the most important security step.
         // We generate our own signature and compare it with Razorpay's signature.
-        if (process.env.RAZORPAY_KEY_SECRET) {
+        if (settings.razorpay_key_secret) {
             const body = `${razorpay_order_id}|${razorpay_payment_id}`;
             const expectedSignature = crypto
-                .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+                .createHmac('sha256', settings.razorpay_key_secret)
                 .update(body)
                 .digest('hex');
 
@@ -69,7 +73,7 @@ export async function POST(request) {
                 `📦 *Order ID:* #${orderId}\n` +
                 `💳 *Amount Paid:* ₹${order.total_amount?.toLocaleString()}\n` +
                 `🛍️ *Items:*\n${itemsList}\n\n` +
-                `📍 *Delivery Address:*\n${order.shipping_address || 'As provided'}\n\n` +
+                `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
                 `We will send your tracking details soon. Thank you for shopping with us! 🙏\n\n` +
                 `— Aiswarya Sarees`;
 

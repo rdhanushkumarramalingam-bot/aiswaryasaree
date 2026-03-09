@@ -1,44 +1,31 @@
-
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
-dotenv.config({ path: '.env.local' });
+const path = require('path');
+
+// Load env from .env.local
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 async function checkSchema() {
-    console.log('Checking database schema...');
+    console.log('Checking orders table schema...');
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .limit(1);
 
-    // Check products table columns
-    const { data: cols, error: colError } = await supabase.rpc('debug_get_columns', { table_name: 'products' });
-    if (colError) {
-        console.log('RPC debug_get_columns failed. Trying common select.');
-        const { data: prodData, error: prodError } = await supabase.from('products').select('*').limit(1);
-        if (prodError) {
-            console.error('Error fetching products:', prodError);
-        } else {
-            console.log('Product columns:', Object.keys(prodData[0] || {}));
-        }
+    if (error) {
+        console.error('Error fetching orders:', error);
+    } else if (data && data.length > 0) {
+        const columns = Object.keys(data[0]);
+        const fs = require('fs');
+        fs.writeFileSync('schema_output.txt', JSON.stringify(columns, null, 2));
+        console.log('Schema saved to schema_output.txt');
     } else {
-        console.log('Columns in products:', cols.map(c => c.column_name));
-    }
-
-    // Check product_history table
-    const { data: histData, error: histError } = await supabase.from('product_history').select('*').limit(1);
-    if (histError) {
-        console.error('Error fetching product_history:', histError);
-    } else {
-        console.log('product_history table exists. Columns:', Object.keys(histData[0] || {}));
-    }
-
-    // Check if total_sold column exists
-    const { data: prodData, error: prodError } = await supabase.from('products').select('total_sold, alert_threshold').limit(1);
-    if (prodError) {
-        console.error('Error fetching inventory columns:', prodError);
-    } else {
-        console.log('Inventory columns exist.');
+        console.log('No orders found to inspect schema.');
     }
 }
 

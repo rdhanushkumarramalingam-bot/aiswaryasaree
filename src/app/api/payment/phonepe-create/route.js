@@ -1,19 +1,17 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
+import { getGatewaySettings } from '@/lib/settings';
+
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// PhonePe endpoints
-const PHONEPE_BASE_URL = process.env.PHONEPE_ENV === 'production'
-    ? 'https://api.phonepe.com/apis/hermes'
-    : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-
 export async function POST(request) {
     try {
         const { orderId } = await request.json();
+        const settings = await getGatewaySettings();
 
         if (!orderId) {
             return Response.json({ error: 'Missing orderId' }, { status: 400 });
@@ -30,13 +28,19 @@ export async function POST(request) {
             return Response.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const merchantId = process.env.PHONEPE_MERCHANT_ID;
-        const saltKey = process.env.PHONEPE_SALT_KEY;
-        const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+        const merchantId = settings.phonepe_merchant_id;
+        const saltKey = settings.phonepe_salt_key;
+        const saltIndex = settings.phonepe_salt_index || '1';
+        const phonepeEnv = settings.phonepe_env || 'sandbox';
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+        // PhonePe endpoints
+        const PHONEPE_BASE_URL = phonepeEnv === 'production'
+            ? 'https://api.phonepe.com/apis/hermes'
+            : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
         if (!merchantId || !saltKey) {
-            return Response.json({ error: 'PhonePe credentials not configured in .env.local' }, { status: 500 });
+            return Response.json({ error: 'PhonePe credentials not configured. Please set them in Payment Gateway settings.' }, { status: 500 });
         }
 
         const transactionId = `TXN_${orderId}_${Date.now()}`;
@@ -89,7 +93,7 @@ export async function POST(request) {
         // Store transaction ID in our DB for tracking
         await supabase
             .from('orders')
-            .update({ phonepe_transaction_id: transactionId })
+            .update({ transaction_id: transactionId })
             .eq('id', orderId);
 
         // Return the redirect URL to the client
