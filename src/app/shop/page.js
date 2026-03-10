@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import {
     Search, ShoppingCart, User, LogOut, ChevronLeft,
-    CheckCircle, MessageCircle, Package, Tag, ArrowRight,
-    Home, Clock, MapPin, Phone, ChevronDown, Truck, Menu, Loader2
+    CheckCircle, MessageCircle, Package, Tag, ArrowRight, X,
+    Home, Clock, MapPin, Phone, ChevronDown, Truck, Menu, Loader2,
+    Filter, Grid, List, ArrowUpDown
 } from 'lucide-react';
 import styles from './shop.module.css';
 
@@ -49,6 +50,12 @@ function ShopContent() {
     const [trackingLoading, setTrackingLoading] = useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
+    const [selectedBrand, setSelectedBrand] = useState('All');
+    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
+    const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
+    const [sortBy, setSortBy] = useState('default'); // default | price-asc | price-desc | newness
+    const [gridView, setGridView] = useState(true); // true for grid, false for list
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -61,23 +68,62 @@ function ShopContent() {
         paymentMethod: 'COD'
     });
 
+    const [showInStockOnly, setShowInStockOnly] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     const [businessState, setBusinessState] = useState('Tamil Nadu');
 
     // ── DERIVED STATE ──
     const filteredProducts = useMemo(() => {
-        let filtered = products;
+        let filtered = [...products];
+
+        // 1. Category Filter
         if (selectedCategory !== 'All') {
             filtered = filtered.filter(p => p.category === selectedCategory);
         }
+
+        // 1b. Brand Filter
+        if (selectedBrand !== 'All') {
+            filtered = filtered.filter(p => p.product_group === selectedBrand);
+        }
+
+        // 1c. Size Filter (Mocking check or variant check)
+        if (selectedSize !== 'All') {
+            // For now, if price/name contains size or if product has it. 
+            // In a real scenario, we'd check variants.
+            // Since most sarees are Free Size, we'll keep it simple: matches if 'Free Size' or if name matches.
+            filtered = filtered.filter(p => p.name.toLowerCase().includes(selectedSize.toLowerCase()) || selectedSize === 'Free Size');
+        }
+
+        // 2. Search Query
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(p =>
                 p.name.toLowerCase().includes(query) ||
-                (p.description || '').toLowerCase().includes(query)
+                (p.description || '').toLowerCase().includes(query) ||
+                (p.product_group || '').toLowerCase().includes(query)
             );
         }
+
+        // 3. Price Filter
+        filtered = filtered.filter(p => (p.price || 0) >= priceRange.min && (p.price || 0) <= priceRange.max);
+
+        // 4. Stock Filter
+        if (showInStockOnly) {
+            filtered = filtered.filter(p => p.stock > 0);
+        }
+
+        // 5. Sorting
+        if (sortBy === 'price-asc') {
+            filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+        } else if (sortBy === 'price-desc') {
+            filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+        } else if (sortBy === 'newness') {
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+
         return filtered;
-    }, [products, selectedCategory, searchQuery]);
+    }, [products, selectedCategory, searchQuery, priceRange, sortBy, selectedBrand, showInStockOnly]);
 
     const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
     const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -549,6 +595,28 @@ function ShopContent() {
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_self');
     }
 
+    function applyPriceFilter() {
+        setPriceRange({ ...tempPriceRange });
+    }
+
+    function clearAllFilters() {
+        setSelectedCategory('All');
+        setSelectedBrand('All');
+        setSelectedSize('All');
+        setSearchQuery('');
+        setPriceRange({ min: 0, max: 25000 });
+        setTempPriceRange({ min: 0, max: 25000 });
+        setSortBy('default');
+        setShowInStockOnly(false);
+    }
+
+    const availableBrands = useMemo(() => {
+        const b = ['All', ...new Set(products.map(p => p.product_group).filter(Boolean))];
+        return b.length > 1 ? b : ['All', 'Aiswarya', 'Mahaa', 'Premium Silk', 'Handloom'];
+    }, [products]);
+
+    const availableSizes = ['All', 'S', 'M', 'L', 'XL', 'Free Size'];
+
     if (!hasMounted) return null;
 
     return (
@@ -689,74 +757,347 @@ function ShopContent() {
 
             <main className={styles.main}>
                 {view === 'shop' && (
-                    <>
-                        <div className={styles.hero}>
-                            <div className={styles.heroContent}>
-                                <div className={styles.heroTag}>✨ Collection 2026</div>
-                                <h1 className={styles.heroTitle}>Elegance in Every Drape</h1>
-                                <p className={styles.heroSubtitle}>Authentic Silk and Cotton sarees for every occasion.</p>
-                            </div>
-                        </div>
+                    <div className={styles.shopContainer}>
+                        {/* Sidebar Overlay for Mobile */}
+                        {isSidebarOpen && <div className={styles.sidebarOverlay} onClick={() => setIsSidebarOpen(false)} />}
 
-                        <div className={styles.filterBar}>
-                            <div className={styles.searchBox}>
-                                <span className={styles.searchIcon}>🔍</span>
-                                <input
-                                    type="text"
-                                    placeholder="Search sarees..."
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                    className={styles.searchInput}
-                                />
+                        {/* Sidebar */}
+                        <aside className={`${styles.shopSidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+                            <div className={styles.sidebarHeader}>
+                                <h2 className={styles.sidebarMainTitle}>Filters</h2>
+                                <button className={styles.closeSidebarBtn} onClick={() => setIsSidebarOpen(false)}><X size={20} /></button>
                             </div>
-                            <div className={styles.categoryScroll}>
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setSelectedCategory(cat)}
-                                        className={`${styles.catChip} ${selectedCategory === cat ? styles.catChipActive : ''}`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
 
-                        {loading ? (
-                            <div className={styles.loadingGrid}>
-                                {[...Array(6)].map((_, i) => <div key={i} className={styles.skeleton} />)}
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Search</h3>
+                                <div className={styles.sidebarSearch}>
+                                    <Search size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Find a saree..."
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
                             </div>
-                        ) : (
-                            <div className={styles.productsGrid}>
-                                {filteredProducts.map(product => (
-                                    <div key={product.id} className={styles.productCard}>
-                                        <div className={styles.productImageWrap} onClick={() => openProductModal(product)}>
-                                            <img
-                                                src={product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'}
-                                                alt={product.name}
-                                                className={styles.productImage}
-                                                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                                            />
-                                            {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
-                                            {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
-                                        </div>
-                                        <div className={styles.productInfo}>
-                                            <div className={styles.productCategory}>{product.category}</div>
-                                            <h3 className={styles.productName} onClick={() => openProductModal(product)}>{product.name}</h3>
-                                            <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Collections</h3>
+                                <ul className={styles.categoryList}>
+                                    {categories.map(cat => (
+                                        <li
+                                            key={cat}
+                                            onClick={() => {
+                                                setSelectedCategory(cat);
+                                                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                                            }}
+                                            className={`${styles.categoryLink} ${selectedCategory === cat ? styles.categoryLinkActive : ''}`}
+                                        >
+                                            {cat}
+                                            {cat !== 'All' && (
+                                                <span className={styles.categoryCount}>
+                                                    {products.filter(p => p.category === cat).length}
+                                                </span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Brand</h3>
+                                <ul className={styles.categoryList}>
+                                    {availableBrands.map(brand => (
+                                        <li
+                                            key={brand}
+                                            onClick={() => setSelectedBrand(brand)}
+                                            className={`${styles.categoryLink} ${selectedBrand === brand ? styles.categoryLinkActive : ''}`}
+                                        >
+                                            {brand}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Size</h3>
+                                <div className={styles.sizeChips}>
+                                    {availableSizes.map(size => (
+                                        <button
+                                            key={size}
+                                            onClick={() => setSelectedSize(size)}
+                                            className={`${styles.sizeChip} ${selectedSize === size ? styles.sizeChipActive : ''}`}
+                                        >
+                                            {size}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Filter by Price</h3>
+                                <div className={styles.sidebarPriceFilter}>
+                                    <div className={styles.priceBrackets}>
+                                        {[
+                                            { label: 'Under ₹2,000', min: 0, max: 2000 },
+                                            { label: '₹2,000 - ₹5,000', min: 2000, max: 5000 },
+                                            { label: '₹5,000 - ₹10,000', min: 5000, max: 10000 },
+                                            { label: 'Above ₹10,000', min: 10000, max: 50000 },
+                                        ].map(bracket => (
                                             <button
-                                                onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
-                                                disabled={product.stock === 0}
-                                                className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
+                                                key={bracket.label}
+                                                className={`${styles.priceBracket} ${priceRange.min === bracket.min && priceRange.max === bracket.max ? styles.priceBracketActive : ''}`}
+                                                onClick={() => {
+                                                    setPriceRange({ min: bracket.min, max: bracket.max });
+                                                    setTempPriceRange({ min: bracket.min, max: bracket.max });
+                                                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                                                }}
                                             >
-                                                {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
+                                                {bracket.label}
                                             </button>
+                                        ))}
+                                    </div>
+
+                                    <div className={styles.customPriceLabel}>Custom Range:</div>
+                                    <div className={styles.priceInputsSidebar}>
+                                        <div className={styles.priceField}>
+                                            <span>₹</span>
+                                            <input
+                                                type="number"
+                                                value={tempPriceRange.min}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
+                                            />
+                                        </div>
+                                        <span className={styles.separator}>—</span>
+                                        <div className={styles.priceField}>
+                                            <span>₹</span>
+                                            <input
+                                                type="number"
+                                                value={tempPriceRange.max}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
+                                            />
                                         </div>
                                     </div>
-                                ))}
+                                    <button onClick={() => { applyPriceFilter(); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={styles.sidebarFilterBtn}>
+                                        APPLY CUSTOM
+                                    </button>
+                                </div>
                             </div>
-                        )}
-                    </>
+
+                            <div className={styles.sidebarSection}>
+                                <h3 className={styles.sidebarTitle}>Availability</h3>
+                                <label className={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={showInStockOnly}
+                                        onChange={(e) => setShowInStockOnly(e.target.checked)}
+                                    />
+                                    <span>In Stock Only</span>
+                                </label>
+                            </div>
+
+                            {(selectedCategory !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 25000) && (
+                                <button onClick={clearAllFilters} className={styles.sidebarClearBtn}>
+                                    RESET ALL FILTERS
+                                </button>
+                            )}
+                        </aside>
+
+                        {/* Main Content */}
+                        <div className={styles.shopContentArea}>
+                            <div className={styles.instrumentationBar}>
+                                <div className={styles.instrumentLeft}>
+                                    <span className={styles.resultCount}>
+                                        Showing 1–{filteredProducts.length} of {products.length} results
+                                    </span>
+                                </div>
+
+                                <div className={styles.instrumentRight}>
+                                    <div className={styles.viewToggles}>
+                                        <button
+                                            onClick={() => setGridView(true)}
+                                            className={`${styles.viewBtn} ${gridView ? styles.viewBtnActive : ''}`}
+                                            title="Grid View"
+                                        >
+                                            <Grid size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => setGridView(false)}
+                                            className={`${styles.viewBtn} ${!gridView ? styles.viewBtnActive : ''}`}
+                                            title="List View"
+                                        >
+                                            <List size={18} />
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            if (window.innerWidth < 1024) {
+                                                setIsSidebarOpen(true);
+                                            } else {
+                                                setIsFilterPanelOpen(!isFilterPanelOpen);
+                                            }
+                                        }}
+                                        className={`${styles.filterToggleBtn} ${isFilterPanelOpen ? styles.filterToggleActive : ''}`}
+                                    >
+                                        <Filter size={16} />
+                                        Filters
+                                    </button>
+
+                                    <div className={styles.sortWrapper}>
+                                        <ArrowUpDown size={14} className={styles.sortIcon} />
+                                        <select
+                                            value={sortBy}
+                                            onChange={e => setSortBy(e.target.value)}
+                                            className={styles.sortSelect}
+                                        >
+                                            <option value="default">Default sorting</option>
+                                            <option value="newness">Sort by latest</option>
+                                            <option value="price-asc">Price: Low to High</option>
+                                            <option value="price-desc">Price: High to Low</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Expandable Filter Panel */}
+                            {isFilterPanelOpen && (
+                                <div className={styles.expandableFilters}>
+                                    <div className={styles.filterGrid}>
+                                        <div className={styles.filterColumn}>
+                                            <h4>Filter by Price</h4>
+                                            <div className={styles.priceBrackets}>
+                                                {[
+                                                    { label: 'Under ₹2,000', min: 0, max: 2000 },
+                                                    { label: '₹2,000 - ₹5,000', min: 2000, max: 5000 },
+                                                    { label: '₹5,000 - ₹10,000', min: 5000, max: 10000 },
+                                                    { label: 'Above ₹10,000', min: 10000, max: 50000 },
+                                                ].map(bracket => (
+                                                    <button
+                                                        key={bracket.label}
+                                                        className={`${styles.priceBracket} ${priceRange.min === bracket.min && priceRange.max === bracket.max ? styles.priceBracketActive : ''}`}
+                                                        onClick={() => {
+                                                            setPriceRange({ min: bracket.min, max: bracket.max });
+                                                            setTempPriceRange({ min: bracket.min, max: bracket.max });
+                                                        }}
+                                                    >
+                                                        {bracket.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.filterColumn}>
+                                            <h4>Brand</h4>
+                                            <div className={styles.brandGrid}>
+                                                {availableBrands.map(brand => (
+                                                    <button
+                                                        key={brand}
+                                                        onClick={() => setSelectedBrand(brand)}
+                                                        className={`${styles.brandBadge} ${selectedBrand === brand ? styles.brandBadgeActive : ''}`}
+                                                    >
+                                                        {brand}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.filterColumn}>
+                                            <h4>Size</h4>
+                                            <div className={styles.sizeChipsSmall}>
+                                                {availableSizes.map(size => (
+                                                    <button
+                                                        key={size}
+                                                        onClick={() => setSelectedSize(size)}
+                                                        className={`${styles.sizeChip} ${selectedSize === size ? styles.sizeChipActive : ''}`}
+                                                    >
+                                                        {size}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={styles.filterPanelActions}>
+                                        <button onClick={clearAllFilters} className={styles.clearAllBtn}>RESET ALL</button>
+                                        <button onClick={() => setIsFilterPanelOpen(false)} className={styles.doneBtn}>DONE</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Active Filters Display */}
+                            {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedSize !== 'All' || (priceRange.min > 0 || priceRange.max < 25000)) && (
+                                <div className={styles.activeFiltersRow}>
+                                    {selectedCategory !== 'All' && (
+                                        <span className={styles.filterTag}>
+                                            {selectedCategory} <X size={12} onClick={() => setSelectedCategory('All')} />
+                                        </span>
+                                    )}
+                                    {selectedBrand !== 'All' && (
+                                        <span className={styles.filterTag}>
+                                            {selectedBrand} <X size={12} onClick={() => setSelectedBrand('All')} />
+                                        </span>
+                                    )}
+                                    {selectedSize !== 'All' && (
+                                        <span className={styles.filterTag}>
+                                            {selectedSize} <X size={12} onClick={() => setSelectedSize('All')} />
+                                        </span>
+                                    )}
+                                    {(priceRange.min > 0 || priceRange.max < 25000) && (
+                                        <span className={styles.filterTag}>
+                                            ₹{priceRange.min} - ₹{priceRange.max} <X size={12} onClick={() => { setPriceRange({ min: 0, max: 25000 }); setTempPriceRange({ min: 0, max: 25000 }); }} />
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {loading ? (
+                                <div className={styles.loadingGrid}>
+                                    {[...Array(6)].map((_, i) => <div key={i} className={styles.skeleton} />)}
+                                </div>
+                            ) : filteredProducts.length === 0 ? (
+                                <div className={styles.noResults}>
+                                    <Search size={48} />
+                                    <h3>No products found</h3>
+                                    <p>Try adjusting your filters or search terms.</p>
+                                    <button onClick={clearAllFilters} className={styles.resetSearchBtn}>
+                                        Reset All Filters
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className={gridView ? styles.productsGrid : styles.productsList}>
+                                    {filteredProducts.map(product => (
+                                        <div key={product.id} className={gridView ? styles.productCard : styles.productCardList}>
+                                            <div className={styles.productImageWrap} onClick={() => openProductModal(product)}>
+                                                <img
+                                                    src={product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'}
+                                                    alt={product.name}
+                                                    className={styles.productImage}
+                                                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                                                />
+                                                {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
+                                                {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
+                                            </div>
+                                            <div className={styles.productInfo}>
+                                                <div className={styles.productCategory}>{product.category}</div>
+                                                <h3 className={styles.productName} onClick={() => openProductModal(product)}>
+                                                    {product.name}
+                                                </h3>
+                                                {!gridView && <p className={styles.productDescription}>{product.description?.slice(0, 150)}...</p>}
+                                                <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+                                                <button
+                                                    onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
+                                                    disabled={product.stock === 0}
+                                                    className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
+                                                >
+                                                    {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
 
                 {view === 'cart' && (
