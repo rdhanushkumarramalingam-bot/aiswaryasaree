@@ -1159,11 +1159,16 @@ export async function processIncomingMessage(body) {
 
         // --- 0. CUSTOMER SYNC ---
         const { data: customer } = await supabase.from('customers').select('*').eq('phone', from).single();
+
         if (!customer) {
             const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
             await supabase.from('customers').insert({ phone: from, name: profileName, role: 'user' });
             console.log(`[WA] New customer created: ${from} (${profileName})`);
+
+            // Welcome message for new account
+            await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
         }
+
         // -------------------------
         const text = message.text?.body?.toLowerCase().trim();
 

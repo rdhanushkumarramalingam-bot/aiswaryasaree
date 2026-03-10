@@ -244,15 +244,23 @@ export default function UnifiedLoginPage() {
 
                                 {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
 
+
                                 <button type="submit" disabled={loading} style={{
                                     width: '100%', padding: '1.1rem', background: 'linear-gradient(135deg, #25d366, #128c7e)', color: '#fff',
                                     border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer', marginBottom: '1.5rem'
                                 }}>
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : <>Send OTP via WhatsApp <ArrowRight size={18} /></>}
                                 </button>
+
+                                <div style={{ textAlign: 'center', padding: '0 1rem' }}>
+                                    <p style={{ fontSize: '0.8rem', color: '#666', lineHeight: 1.5 }}>
+                                        New customer? Send any message to our WhatsApp and your account will be created automatically! 🌸
+                                    </p>
+                                </div>
                             </form>
+
                         ) : (
                             <form onSubmit={handleVerifyOTP}>
                                 <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
