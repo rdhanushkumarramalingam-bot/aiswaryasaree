@@ -18,35 +18,29 @@ export async function POST(req) {
         const cleanPhone = phone.replace(/\D/g, '');
         const fullPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
 
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
 
-        // Store OTP in database
-        const { error: dbError } = await supabase.from('otp_verifications').insert({
+        // Set Static OTP as requested
+        const otp = "758369";
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry for safety
+
+        // Store OTP in database (optional but good for tracking)
+        await supabase.from('otp_verifications').insert({
             phone: fullPhone,
             otp_code: otp,
             expires_at: expiresAt,
             is_used: false
         });
 
-        if (dbError) {
-            console.error('[AUTH] DB Error storing OTP:', dbError);
-            return NextResponse.json({ error: 'System error. Please try later.' }, { status: 500 });
-        }
 
-        // Send OTP via WhatsApp
-        const waMsg = `💮 *Your Cast Prince Login Code*\n\nYour verification code is: *${otp}*\n\nThis code expires in 5 minutes. Please do not share it with anyone.`;
-        const waResult = await sendText(fullPhone, waMsg);
+        // Disable WhatsApp sending to avoid expired token errors
+        // const waMsg = `💮 *Your Cast Prince Login Code*\n\nYour verification code is: *${otp}*\n\nPlease enter this on the website to continue.`;
+        // const waResult = await sendText(fullPhone, waMsg);
 
-        if (waResult?.error) {
-            console.error('[AUTH] WhatsApp API Error:', waResult.error);
-            return NextResponse.json({ error: 'Failed to send OTP via WhatsApp' }, { status: 500 });
-        }
+        console.log(`[AUTH] Static OTP session (WhatsApp skipped): ${otp} for ${fullPhone}`);
 
-        console.log(`[AUTH] OTP sent to ${fullPhone}: ${otp}`);
+        return NextResponse.json({ success: true, message: 'OTP ready (Static: 758369)' });
 
-        return NextResponse.json({ success: true, message: 'OTP sent successfully to your WhatsApp' });
+
 
     } catch (error) {
         console.error('OTP Send Error:', error);

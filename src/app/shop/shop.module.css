@@ -862,6 +862,11 @@
     border-color: rgba(255, 255, 255, 0.15);
 }
 
+.sortSelect option {
+    background-color: #0a0e1a;
+    color: #fff;
+}
+
 /* ── EXPANDABLE FILTERS ───────────────────────────────────────────────────── */
 .expandableFilters {
     background: rgba(255, 255, 255, 0.03);
@@ -1455,8 +1460,329 @@
 }
 
 .qtyBtn:disabled {
-    opacity: 0.3;
+    opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* ── MAHA DESIGN (LIGHT THEME) ───────────────────────────────────────────── */
+.mahaContainer {
+    background: #0a0e1a;
+    color: #f0f4ff;
+    padding: 2rem 1rem;
+    min-height: 80vh;
+}
+
+.mahaTableHead {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 140px 120px;
+    padding: 1rem 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.07);
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.mahaCartItem {
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 140px 120px;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mahaCartItemImg {
+    width: 60px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.mahaCartItemName {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #fff;
+}
+
+.mahaCartItemPrice,
+.mahaCartItemSubtotal {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.mahaQtyControl {
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    width: fit-content;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.mahaQtyBtn {
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: #fff;
+    transition: background 0.2s;
+}
+
+.mahaQtyBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mahaQtyValue {
+    width: 40px;
+    text-align: center;
+    font-weight: 600;
+    color: #fff;
+}
+
+.mahaRemoveBtn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: color 0.2s;
+}
+
+.mahaRemoveBtn:hover {
+    color: #ff4d4d;
+}
+
+.mahaSummaryCard {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 2.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+}
+
+.mahaSummaryTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.07);
+    padding-bottom: 1rem;
+    color: #fff;
+}
+
+.mahaSummaryLine {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.mahaCheckoutBtn {
+    display: block;
+    width: 100%;
+    padding: 1.2rem;
+    background: #25a366;
+    color: #fff;
+    border: none;
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 6px;
+}
+
+.mahaCheckoutBtn:hover {
+    background: #1a8a4e;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(37, 163, 102, 0.3);
+}
+
+.mahaContinueBtn {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    border-radius: 6px;
+}
+
+.mahaContinueBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #fff;
+}
+
+/* ── UPDATED CART BUTTONS ── */
+.mahaCouponInput {
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    width: 200px;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.mahaCouponBtn {
+    background: none;
+    border: none;
+    color: #25a366;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+}
+
+.mahaCouponBtn:hover {
+    color: #fff;
+}
+
+.mahaUpdateBtn {
+    padding: 0.8rem 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.2);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    cursor: not-allowed;
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.mahaUpdateBtnActive {
+    background: #fff;
+    border-color: #fff;
+    color: #000;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.mahaUpdateBtnActive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.3);
+}
+
+/* ── HOVER ADD TO CART (SHOP GRID) ──────────────────────────────────────── */
+.productImageWrap {
+    position: relative;
+    overflow: hidden;
+}
+
+.hoverAddToCart {
+    position: absolute;
+    bottom: -60px;
+    left: 0;
+    right: 0;
+    background: rgba(37, 163, 102, 0.9);
+    color: #fff;
+    padding: 12px;
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.productCard:hover .hoverAddToCart {
+    bottom: 0;
+}
+
+/* ── CHECKOUT FIELDS MAHA STYLE ──────────────────────────────────────────── */
+.mahaCheckoutLayout {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 4rem;
+}
+
+.mahaFormSection h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 2rem;
+}
+
+.mahaFormGroup {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mahaFormGroup label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.5rem;
+}
+
+.mahaFormInput,
+.mahaFormSelect {
+    width: 100%;
+    padding: 0.75rem 0;
+    border: none;
+    font-size: 1rem;
+    color: #fff;
+    background: transparent;
+    outline: none;
+}
+
+.mahaFormSelect option {
+    background-color: #0a0e1a;
+    color: #fff;
+}
+
+.mahaFormInput::placeholder {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.mahaPaymentBox {
+    margin-top: 3rem;
+    padding: 2rem;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+.mahaPaymentTitle {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.razorpayLogo {
+    height: 24px;
+}
+
+.mahaPaymentDesc {
+    font-size: 0.85rem;
+    color: #777;
+    line-height: 1.6;
 }
 
 .qtyValue {
@@ -3502,5 +3828,154 @@
 
     to {
         transform: rotate(360deg);
+    }
+}/* -- NEW CUSTOM CHECKOUT --------------------------------------------- */
+.customCheckoutContainer {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.customCheckoutLayout {
+    display: grid;
+    grid-template-columns: 1.4fr 0.9fr;
+    gap: 2rem;
+}
+
+.checkoutCard {
+    background: #111520;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.checkoutCardTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: #fff;
+}
+
+.checkoutFormGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.checkoutFormGrid3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.checkoutFormGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.checkoutFormGroupFull {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.checkoutFormGroup label, .checkoutFormGroupFull label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.checkoutInput, .checkoutSelect {
+    background: #181d2c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    outline: none;
+    width: 100%;
+}
+
+.checkoutInput:focus, .checkoutSelect:focus {
+    border-color: #25a366;
+    background: #1a2030;
+}
+
+.paymentOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.paymentRadio {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+.paymentRadio input {
+    accent-color: #25a366;
+    width: 16px;
+    height: 16px;
+}
+
+.summaryLineRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.taxBox {
+    background: #181d2c;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.taxBox .summaryLineRow {
+    margin-bottom: 1rem;
+}
+.taxBox .summaryLineRow:last-child {
+    margin-bottom: 0;
+}
+
+.placeOrderBtnPrimary {
+    width: 100%;
+    padding: 1rem;
+    background: #25a366;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 1.5rem;
+}
+
+.placeOrderBtnPrimary:hover {
+    background: #1a8a4e;
+    transform: translateY(-2px);
+}
+@media (max-width: 900px) {
+    .customCheckoutLayout {
+        grid-template-columns: 1fr;
+    }
+    .checkoutFormGrid, .checkoutFormGrid3 {
+        grid-template-columns: 1fr;
     }
 }

@@ -251,7 +251,9 @@ export default function UnifiedLoginPage() {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                                     cursor: 'pointer', marginBottom: '1.5rem'
                                 }}>
-                                    {loading ? <Loader2 className="animate-spin" size={20} /> : <>Send OTP via WhatsApp <ArrowRight size={18} /></>}
+
+                                    {loading ? <Loader2 className="animate-spin" size={20} /> : <>Login with Phone <ArrowRight size={18} /></>}
+
                                 </button>
 
                                 <div style={{ textAlign: 'center', padding: '0 1rem' }}>

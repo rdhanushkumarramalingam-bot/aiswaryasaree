@@ -16,27 +16,19 @@ export async function POST(req) {
         const cleanPhone = phone.replace(/\D/g, '');
         const fullPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
 
-        // Get Latest OTP for this phone
-        const { data: otpEntry, error: otpError } = await supabase
-            .from('otp_verifications')
-            .select('*')
-            .eq('phone', fullPhone)
-            .eq('is_used', false)
-            .gte('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
 
-        if (otpError || !otpEntry) {
-            return NextResponse.json({ error: 'Verification code not found or expired' }, { status: 400 });
-        }
-
-        if (otpEntry.otp_code !== otp) {
+        // Verify against Static OTP
+        const STATIC_OTP = "758369";
+        if (otp !== STATIC_OTP) {
             return NextResponse.json({ error: 'Invalid verification code' }, { status: 400 });
         }
 
-        // Mark OTP as used
-        await supabase.from('otp_verifications').update({ is_used: true }).eq('id', otpEntry.id);
+        // Optional: Mark any unused OTP entries for this phone as used
+        await supabase.from('otp_verifications')
+            .update({ is_used: true })
+            .eq('phone', fullPhone)
+            .eq('is_used', false);
+
 
         // Get or Create Customer
         let { data: customer } = await supabase.from('customers').select('*').eq('phone', fullPhone).single();

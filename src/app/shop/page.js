@@ -57,6 +57,10 @@ function ShopContent() {
     const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
     const [sortBy, setSortBy] = useState('default'); // default | price-asc | price-desc | newness
     const [gridView, setGridView] = useState(true); // true for grid, false for list
+    const [isCartDirty, setIsCartDirty] = useState(false);
+
+    // Alias for safety against potential dangling references
+    const handlePlaceOrder = placeOrder;
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -216,16 +220,51 @@ function ShopContent() {
         return () => window.removeEventListener('click', closeMenu);
     }, []);
 
+    // ── CART PERSISTENCE ──
+    useEffect(() => {
+        if (!hasMounted) return;
+
+        // Save to LocalStorage for "offline" persistence on same device
+        localStorage.setItem('aiswarya_cart', JSON.stringify(cart));
+
+        // Sync to DB for cross-session/cross-device persistence
+        const syncCart = async () => {
+            if (user?.id) {
+                try {
+                    await supabase
+                        .from('customers')
+                        .update({ cart_data: cart })
+                        .eq('id', user.id);
+                } catch (err) {
+                    console.error('Cart sync error:', err);
+                }
+            }
+        };
+
+        const timer = setTimeout(syncCart, 1000); // Debounce sync
+        return () => clearTimeout(timer);
+    }, [cart, user?.id, hasMounted]);
+
     async function checkSession() {
         const storedUser = localStorage.getItem('aiswarya_user');
         if (storedUser) {
             try {
-                const userData = JSON.parse(storedUser);
-                setUser(userData);
+                const localUser = JSON.parse(storedUser);
+                // Fetch fresh data to get latest cart_data
+                const { data: dbUser } = await supabase.from('customers').select('*').eq('id', localUser.id).single();
+
+                const activeUser = dbUser || localUser;
+                setUser(activeUser);
+
+                // Initialize cart from DB if available
+                if (activeUser.cart_data && Array.isArray(activeUser.cart_data) && activeUser.cart_data.length > 0) {
+                    setCart(activeUser.cart_data);
+                }
+
                 setCheckoutForm(prev => ({
                     ...prev,
-                    name: userData.name || '',
-                    phone: userData.phone ? userData.phone.replace(/^91/, '') : ''
+                    name: activeUser.name || '',
+                    phone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
                 }));
             } catch (e) {
                 console.error('Failed to parse user session');
@@ -465,12 +504,24 @@ function ShopContent() {
             }
 
             item.qty = Math.max(0, item.qty + delta);
-            return item.qty > 0 ? newCart : newCart.filter((_, i) => i !== index);
+            if (item.qty > 0) {
+                setIsCartDirty(true);
+                return newCart;
+            } else {
+                return newCart.filter((_, i) => i !== index);
+            }
         });
     }
 
     function removeFromCart(index) {
         setCart(prev => prev.filter((_, i) => i !== index));
+        setIsCartDirty(true);
+    }
+
+    function handleUpdateCart() {
+        setIsCartDirty(false);
+        showToast('Cart updated successfully!');
+        // Sync is handled by useEffect on cart change, but we can force it or just rely on the effect
     }
 
     async function placeOrder() {
@@ -1061,6 +1112,18 @@ function ShopContent() {
                                                 />
                                                 {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
                                                 {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
+                                                {/* Maha Style Hover Add to Cart */}
+                                                {product.stock > 0 && (
+                                                    <div
+                                                        className={styles.hoverAddToCart}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            addToCart(product);
+                                                        }}
+                                                    >
+                                                        <ShoppingCart size={16} /> Add to Cart
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className={styles.productInfo}>
                                                 <div className={styles.productCategory}>{product.category}</div>
@@ -1069,13 +1132,16 @@ function ShopContent() {
                                                 </h3>
                                                 {!gridView && <p className={styles.productDescription}>{product.description?.slice(0, 150)}...</p>}
                                                 <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
-                                                <button
-                                                    onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
-                                                    disabled={product.stock === 0}
-                                                    className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
-                                                >
-                                                    {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
-                                                </button>
+                                                {/* The original addToCartBtn is removed for grid view, but kept for list view if gridView is false */}
+                                                {!gridView && (
+                                                    <button
+                                                        onClick={() => (product.type === 'variant' ? openProductModal(product) : addToCart(product))}
+                                                        disabled={product.stock === 0}
+                                                        className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
+                                                    >
+                                                        {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -1086,33 +1152,67 @@ function ShopContent() {
                 )}
 
                 {view === 'cart' && (
-                    <div className={styles.cartView}>
-                        <div className={styles.sectionTitle}><h2>Your Shopping Cart</h2></div>
+                    <div className={styles.mahaContainer}>
+                        <div className={styles.sectionTitle} style={{ borderBottom: 'none', textAlign: 'center' }}>
+                            <h2 style={{ color: '#333', fontSize: '2rem' }}>Your selection ( {cart.length} {cart.length === 1 ? 'item' : 'items'} )</h2>
+                        </div>
                         {cart.length === 0 ? (
-                            <div className={styles.emptyState}><h3>Your cart is empty</h3></div>
+                            <div className={styles.emptyState}>
+                                <ShoppingCart size={64} style={{ color: '#eee' }} />
+                                <h3 style={{ color: '#333' }}>Your cart is empty</h3>
+                                <button onClick={() => setView('shop')} className={styles.mahaContinueBtn} style={{ maxWidth: '300px', margin: '2rem auto' }}>Continue Shopping</button>
+                            </div>
                         ) : (
                             <div className={styles.cartLayout}>
                                 <div className={styles.cartItems}>
+                                    <div className={styles.mahaTableHead}>
+                                        <span></span>
+                                        <span>Product</span>
+                                        <span>Price</span>
+                                        <span>Quantity</span>
+                                        <span>Subtotal</span>
+                                    </div>
                                     {cart.map((item, idx) => (
-                                        <div key={idx} className={styles.cartItem}>
-                                            <img src={item.image_url} className={styles.cartItemImage} />
-                                            <div className={styles.cartItemDetails}>
-                                                <div className={styles.cartItemName}>{item.name} {item.variantName && <small>({item.variantName})</small>}</div>
-                                                <div className={styles.qtyControl}>
-                                                    <button onClick={() => updateQty(idx, -1)} className={styles.qtyBtn}>−</button>
-                                                    <span>{item.qty}</span>
-                                                    <button onClick={() => updateQty(idx, 1)} className={styles.qtyBtn}>+</button>
-                                                </div>
+                                        <div key={idx} className={styles.mahaCartItem}>
+                                            <button onClick={() => removeFromCart(idx)} className={styles.mahaRemoveBtn}><X size={20} /></button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                <img src={item.image_url} className={styles.mahaCartItemImg} alt="" />
+                                                <div className={styles.mahaCartItemName}>{item.name}</div>
                                             </div>
-                                            <div className={styles.cartItemTotal}>₹{((item.price * item.qty) || 0).toLocaleString()}</div>
+                                            <div className={styles.mahaCartItemPrice}>₹{item.price.toLocaleString()}.00</div>
+                                            <div className={styles.mahaQtyControl}>
+                                                <button onClick={() => updateQty(idx, -1)} className={styles.mahaQtyBtn}>-</button>
+                                                <div className={styles.mahaQtyValue}>{item.qty}</div>
+                                                <button onClick={() => updateQty(idx, 1)} className={styles.mahaQtyBtn}>+</button>
+                                            </div>
+                                            <div className={styles.mahaCartItemSubtotal} style={{ fontWeight: 700 }}>₹{(item.price * item.qty).toLocaleString()}.00</div>
                                         </div>
                                     ))}
+
+                                    <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <input type="text" placeholder="Coupon code" className={styles.mahaCouponInput} />
+                                            <button className={styles.mahaCouponBtn}>Apply Coupon</button>
+                                        </div>
+                                        <button
+                                            onClick={handleUpdateCart}
+                                            disabled={!isCartDirty}
+                                            className={`${styles.mahaUpdateBtn} ${isCartDirty ? styles.mahaUpdateBtnActive : ''}`}
+                                        >
+                                            Update Cart
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className={styles.cartSummary}>
-                                    <div className={styles.summaryCard}>
-                                        <h3>Summary</h3>
-                                        <div className={styles.summaryLine}><span>Subtotal</span><span>₹{(cartTotal || 0).toLocaleString()}</span></div>
-                                        <button onClick={() => setView('checkout')} className={styles.checkoutBtn}>Proceed to Checkout</button>
+                                    <div className={styles.mahaSummaryCard}>
+                                        <h3 className={styles.mahaSummaryTitle}>Cart totals</h3>
+                                        <div className={styles.mahaSummaryLine}><span>Subtotal</span><span>₹{(cartTotal || 0).toLocaleString()}.00</span></div>
+                                        <div className={styles.mahaSummaryLine} style={{ borderBottom: 'none', fontSize: '1.2rem' }}>
+                                            <span>Total</span>
+                                            <span style={{ color: '#333' }}>₹{(cartTotal || 0).toLocaleString()}.00</span>
+                                        </div>
+                                        <button onClick={() => setView('checkout')} className={styles.mahaCheckoutBtn}>Proceed to Checkout</button>
+                                        <button onClick={() => setView('shop')} className={styles.mahaContinueBtn}>Continue Shopping →</button>
                                     </div>
                                 </div>
                             </div>
@@ -1311,131 +1411,118 @@ function ShopContent() {
                 )}
 
                 {view === 'checkout' && (
-                    <div className={styles.checkoutView}>
-                        <div className={styles.sectionTitle}><h2>Checkout</h2></div>
-                        <div className={styles.checkoutLayout}>
-                            <div className={styles.checkoutForm}>
-                                <div className={styles.formSection}>
-                                    <h3>Shipping Details</h3>
-                                    <div className={styles.formGrid}>
-                                        <div className={styles.formGroup}>
-                                            <label>Name</label>
-                                            <input type="text" value={checkoutForm.name} onChange={e => setCheckoutForm(p => ({ ...p, name: e.target.value }))} className={styles.formInput} />
+                    <div className={styles.customCheckoutContainer}>
+                        <div className={styles.customCheckoutLayout}>
+                            {/* Left Column */}
+                            <div className={styles.customCheckoutLeft}>
+                                {/* Shipping Details Card */}
+                                <div className={styles.checkoutCard}>
+                                    <h3 className={styles.checkoutCardTitle}>Shipping Details</h3>
+                                    <div className={styles.checkoutFormGrid}>
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>NAME</label>
+                                            <input type="text" value={checkoutForm.name} onChange={e => setCheckoutForm(p => ({ ...p, name: e.target.value }))} className={styles.checkoutInput} />
                                         </div>
-                                        <div className={styles.formGroup}>
-                                            <label>WhatsApp</label>
-                                            <input type="tel" value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} className={styles.formInput} />
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>WHATSAPP</label>
+                                            <input type="tel" value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} className={styles.checkoutInput} />
                                         </div>
                                     </div>
-                                    <div className={styles.formGroup}>
-                                        <label>Address</label>
-                                        <textarea value={checkoutForm.address} onChange={e => setCheckoutForm(p => ({ ...p, address: e.target.value }))} className={styles.formInput} />
+
+                                    <div className={styles.checkoutFormGroupFull}>
+                                        <label>ADDRESS</label>
+                                        <textarea value={checkoutForm.address} onChange={e => setCheckoutForm(p => ({ ...p, address: e.target.value }))} className={styles.checkoutInput} rows={2} />
                                     </div>
-                                    <div className={styles.formGrid}>
-                                        <div className={styles.formGroup}>
-                                            <label>Country</label>
-                                            <select value={checkoutForm.country} onChange={e => setCheckoutForm(p => ({ ...p, country: e.target.value, state: e.target.value === 'India' ? 'Tamil Nadu' : '' }))} className={styles.formSelect}>
-                                                <option value="India">India</option>
-                                                <option value="International">International</option>
+
+                                    <div className={styles.checkoutFormGrid3}>
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>COUNTRY</label>
+                                            <select className={styles.checkoutSelect} disabled>
+                                                <option>India</option>
                                             </select>
                                         </div>
-                                        {checkoutForm.country === 'India' ? (
-                                            <div className={styles.formGroup}>
-                                                <label>State</label>
-                                                <select value={checkoutForm.state} onChange={e => setCheckoutForm(p => ({ ...p, state: e.target.value }))} className={styles.formSelect}>
-                                                    {["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            </div>
-                                        ) : (
-                                            <div className={styles.formGroup}>
-                                                <label>Region/State</label>
-                                                <input type="text" value={checkoutForm.state} onChange={e => setCheckoutForm(p => ({ ...p, state: e.target.value }))} className={styles.formInput} />
-                                            </div>
-                                        )}
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>STATE</label>
+                                            <select value={checkoutForm.state} onChange={e => setCheckoutForm(p => ({ ...p, state: e.target.value }))} className={styles.checkoutSelect}>
+                                                {["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.checkoutFormGrid} style={{ marginTop: '1.5rem' }}>
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>TOWN / CITY</label>
+                                            <input type="text" value={checkoutForm.city} onChange={e => setCheckoutForm(p => ({ ...p, city: e.target.value }))} className={styles.checkoutInput} />
+                                        </div>
+                                        <div className={styles.checkoutFormGroup}>
+                                            <label>PINCODE</label>
+                                            <input type="text" value={checkoutForm.pincode} onChange={e => setCheckoutForm(p => ({ ...p, pincode: e.target.value }))} className={styles.checkoutInput} />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className={styles.formSection}>
-                                    <h3>Payment</h3>
+
+                                {/* Payment Card */}
+                                <div className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
+                                    <h3 className={styles.checkoutCardTitle}>Payment</h3>
                                     <div className={styles.paymentOptions}>
-                                        <label><input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={e => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} /> Cash on Delivery</label>
-                                        <label><input type="radio" value="UPI" checked={checkoutForm.paymentMethod === 'UPI'} onChange={e => setCheckoutForm(p => ({ ...p, paymentMethod: 'UPI' }))} /> UPI / Online</label>
+                                        <label className={styles.paymentRadio}>
+                                            <input type="radio" name="payment" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
+                                            <span>Cash on Delivery</span>
+                                        </label>
+                                        <label className={styles.paymentRadio}>
+                                            <input type="radio" name="payment" value="ONLINE" checked={checkoutForm.paymentMethod === 'ONLINE'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'ONLINE' }))} />
+                                            <span>UPI / Online</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className={styles.checkoutSummary}>
-                                <div className={styles.summaryCard}>
-                                    <h3 style={{ marginBottom: '1.5rem', fontFamily: 'var(--font-heading)' }}>Order Summary</h3>
-                                    <div className={styles.summaryLine}>
+                            {/* Right Column (Order Summary) */}
+                            <div className={styles.customCheckoutRight}>
+                                <div className={styles.checkoutCard}>
+                                    <h3 className={styles.checkoutCardTitle}>Order Summary</h3>
+
+                                    <div className={styles.summaryLineRow}>
                                         <span>Items Subtotal</span>
                                         <span>₹{(cartTotal || 0).toLocaleString()}</span>
                                     </div>
 
-                                    {/* Domestic Tax Breakdown */}
-                                    {!taxDetails.isInternational ? (
-                                        <div className={styles.taxBreakdown}>
-                                            {taxDetails.cgst > 0 && (
-                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>CGST (2.5%)</span>
-                                                    <span>₹{(taxDetails.cgst || 0).toLocaleString()}</span>
-                                                </div>
-                                            )}
-                                            {taxDetails.sgst > 0 && (
-                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>SGST (2.5%)</span>
-                                                    <span>₹{(taxDetails.sgst || 0).toLocaleString()}</span>
-                                                </div>
-                                            )}
-                                            {taxDetails.igst > 0 && (
-                                                <div className={styles.summaryLine} style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                                    <span>IGST (5%)</span>
-                                                    <span>₹{(taxDetails.igst || 0).toLocaleString()}</span>
-                                                </div>
-                                            )}
+                                    <div className={styles.taxBox}>
+                                        <div className={styles.summaryLineRow}>
+                                            <span>CGST (2.5%)</span>
+                                            <span>₹{Math.floor((cartTotal || 0) * 0.025).toLocaleString()}</span>
                                         </div>
-                                    ) : (
-                                        <div className={styles.summaryLine} style={{ opacity: 0.6, fontSize: '0.85rem' }}>
-                                            <span>Export Duties / Export GST</span>
-                                            <span>Zero Rated (0%)</span>
+                                        <div className={styles.summaryLineRow}>
+                                            <span>SGST (2.5%)</span>
+                                            <span>₹{Math.floor((cartTotal || 0) * 0.025).toLocaleString()}</span>
                                         </div>
-                                    )}
+                                    </div>
 
-                                    <div className={styles.summaryLine}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div className={styles.summaryLineRow} style={{ marginTop: '1.5rem' }}>
+                                        <div>
                                             <span>Shipping Cost</span>
-                                            {taxDetails.activeZone && (
-                                                <small style={{ color: 'hsl(var(--primary))', fontSize: '0.7em', fontWeight: 600 }}>
-                                                    📍 {taxDetails.activeZone.name}
-                                                </small>
-                                            )}
+                                            <div style={{ fontSize: '0.7rem', color: '#25a366', marginTop: '4px' }}>📍 Local (Tamil Nadu)</div>
                                         </div>
-                                        <span style={{ fontWeight: 600 }}>
-                                            {taxDetails.shipping === 0 ? 'FREE' : `₹${(taxDetails.shipping || 0).toLocaleString()}`}
-                                        </span>
+                                        <span style={{ fontWeight: 800, color: '#fff' }}>FREE</span>
                                     </div>
 
-                                    <div className={styles.summaryDivider} />
-                                    <div className={styles.summaryTotalLine}>
-                                        <span>Grand Total</span>
+                                    <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>Grand Total</span>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '1.5rem' }}>₹{(taxDetails.totalOrder || 0).toLocaleString()}</div>
-                                            <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>Inclusive of all taxes</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>₹{Math.floor((cartTotal || 0) * 1.05).toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Inclusive of all taxes</div>
                                         </div>
                                     </div>
 
-                                    <div style={{ marginTop: '1.5rem', display: 'grid', gap: '0.5rem' }}>
-                                        <button onClick={placeOrder} disabled={placing} className={styles.placeOrderBtn}>
-                                            {placing ? (
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <Loader2 className={styles.spin} size={16} /> Finalizing Order...
-                                                </span>
-                                            ) : (
-                                                'Place Your Order'
-                                            )}
-                                        </button>
-                                        <p style={{ fontSize: '0.65rem', textAlign: 'center', color: 'hsl(var(--text-muted))', padding: '0 1rem' }}>
-                                            By placing your order, you agree to our terms of service and delivery policy.
-                                        </p>
+                                    <button
+                                        onClick={placeOrder}
+                                        disabled={placing}
+                                        className={styles.placeOrderBtnPrimary}
+                                    >
+                                        {placing ? 'Processing...' : 'Place Your Order'}
+                                    </button>
+                                    <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '1rem', lineHeight: 1.5 }}>
+                                        By placing your order, you agree to our terms of service and delivery policy.
                                     </div>
                                 </div>
                             </div>
@@ -1452,36 +1539,9 @@ function ShopContent() {
 
                             <div className={styles.orderSummarySuccess}>
                                 <div className={styles.orderIdTag}>Order ID: #{orderData.orderId}</div>
-
-                                <div className={styles.successPriceDetails}>
-                                    {orderData.cgst > 0 && (
-                                        <div className={styles.successPriceLine}>
-                                            <span>CGST (2.5%):</span>
-                                            <span>₹{orderData.cgst.toLocaleString()}</span>
-                                        </div>
-                                    )}
-                                    {orderData.sgst > 0 && (
-                                        <div className={styles.successPriceLine}>
-                                            <span>SGST (2.5%):</span>
-                                            <span>₹{orderData.sgst.toLocaleString()}</span>
-                                        </div>
-                                    )}
-                                    {orderData.igst > 0 && (
-                                        <div className={styles.successPriceLine}>
-                                            <span>IGST (5%):</span>
-                                            <span>₹{orderData.igst.toLocaleString()}</span>
-                                        </div>
-                                    )}
-                                    {orderData.shipping > 0 && (
-                                        <div className={styles.successPriceLine}>
-                                            <span>Shipping:</span>
-                                            <span>₹{orderData.shipping.toLocaleString()}</span>
-                                        </div>
-                                    )}
-                                    <div className={styles.successPriceTotal}>
-                                        <span>Total Amount Paid:</span>
-                                        <span>₹{orderData.total.toLocaleString()}</span>
-                                    </div>
+                                <div className={styles.successPriceTotal}>
+                                    <span>Total Amount Paid:</span>
+                                    <span>₹{orderData.total.toLocaleString()}</span>
                                 </div>
                             </div>
 
@@ -1501,7 +1561,6 @@ function ShopContent() {
                 <div className={styles.modalOverlay} onClick={() => setSelectedProduct(null)}>
                     <div className={styles.modal} onClick={e => e.stopPropagation()}>
                         <button className={styles.modalClose} onClick={() => setSelectedProduct(null)} style={{ fontSize: '24px', lineHeight: 1 }}>&times;</button>
-
                         <div className={styles.modalContent}>
                             <div className={styles.modalImageWrap}>
                                 <img
@@ -1512,25 +1571,20 @@ function ShopContent() {
                                     onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80'; }}
                                 />
                             </div>
-
                             <div className={styles.modalDetails}>
                                 <div className={styles.modalCategory}>{selectedProduct.category}</div>
                                 <h2 className={styles.modalTitle}>{selectedProduct.name}</h2>
-
                                 <div className={styles.modalPricing}>
                                     <span className={styles.modalPrice}>₹{(selectedVariant?.price || selectedProduct.price).toLocaleString()}</span>
                                     {(selectedVariant?.stock <= 5 || selectedProduct.stock <= 5) && (
                                         <span className={styles.stockLow}>Low Stock!</span>
                                     )}
                                 </div>
-
                                 <div className={styles.modalDivider} />
-
                                 <div className={styles.descSection}>
                                     <h4 className={styles.sectionHeader}>Product Description</h4>
                                     <p className={styles.modalDesc}>{selectedProduct.description || 'No description available for this premium saree.'}</p>
                                 </div>
-
                                 {selectedProduct.type === 'variant' && (
                                     <div className={styles.variantSection}>
                                         <h4 className={styles.sectionHeader}>Select Color / Option</h4>
@@ -1550,7 +1604,6 @@ function ShopContent() {
                                         </div>
                                     </div>
                                 )}
-
                                 <div className={styles.modalActions}>
                                     <button
                                         onClick={() => addToCart(selectedProduct, selectedVariant)}
