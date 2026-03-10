@@ -1,0 +1,346 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin } from 'lucide-react';
+import { useShop } from '@/context/ShopContext';
+import ProductCard from '@/components/ProductCard';
+import styles from './shop.module.css';
+
+export default function ShopPage() {
+    const { products, loading, addToCart } = useShop();
+
+    // ── LOCAL UI STATE ──
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [selectedBrand, setSelectedBrand] = useState('All');
+    const [selectedType, setSelectedType] = useState('All');
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
+    const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
+    const [sortBy, setSortBy] = useState('default');
+    const [gridView, setGridView] = useState(true);
+    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [showInStockOnly, setShowInStockOnly] = useState(false);
+
+    // ── OPTIONS ──
+    const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
+    const availableBrands = useMemo(() => ['All', ...new Set(products.map(p => p.product_group).filter(Boolean))], [products]);
+    const availableSareeTypes = ['All', 'Pure Silk', 'Soft Silk', 'Cotton', 'Georgette', 'Banarasi', 'Handloom', 'Chiffon', 'Net'];
+
+    // ── FILTERED DATA ──
+    const filteredProducts = useMemo(() => {
+        let filtered = [...products];
+
+        if (selectedCategory !== 'All') filtered = filtered.filter(p => p.category === selectedCategory);
+        if (selectedBrand !== 'All') filtered = filtered.filter(p => p.product_group === selectedBrand);
+
+        if (selectedType !== 'All') {
+            const typeLower = selectedType.toLowerCase();
+            filtered = filtered.filter(p =>
+                (p.name || '').toLowerCase().includes(typeLower) ||
+                (p.description || '').toLowerCase().includes(typeLower) ||
+                (p.category || '').toLowerCase().includes(typeLower)
+            );
+        }
+
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(p =>
+                (p.name || '').toLowerCase().includes(query) ||
+                (p.description || '').toLowerCase().includes(query)
+            );
+        }
+
+        filtered = filtered.filter(p => (p.price || 0) >= priceRange.min && (p.price || 0) <= priceRange.max);
+        if (showInStockOnly) filtered = filtered.filter(p => p.stock > 0);
+
+        if (sortBy === 'price-asc') filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+        else if (sortBy === 'price-desc') filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+        else if (sortBy === 'newness') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        return filtered;
+    }, [products, selectedCategory, selectedBrand, selectedType, searchQuery, priceRange, showInStockOnly, sortBy]);
+
+    const clearAllFilters = () => {
+        setSelectedCategory('All');
+        setSelectedBrand('All');
+        setSelectedType('All');
+        setSearchQuery('');
+        setPriceRange({ min: 0, max: 25000 });
+        setTempPriceRange({ min: 0, max: 25000 });
+        setSortBy('default');
+        setShowInStockOnly(false);
+        setIsFilterPanelOpen(false);
+    };
+
+    const applyPriceFilter = () => {
+        setPriceRange(tempPriceRange);
+    };
+
+    return (
+        <div className={styles.shopContainer}>
+            {/* Sidebar Overlay for Mobile */}
+            {isSidebarOpen && <div className={styles.sidebarOverlay} onClick={() => setIsSidebarOpen(false)} />}
+
+            {/* Sidebar */}
+            <aside className={`${styles.shopSidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+
+                <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>COLLECTIONS</h3>
+                    <div className={styles.categoryScrollWrap}>
+                        <ul className={styles.categoryList}>
+                            {categories.map(cat => (
+                                <li
+                                    key={cat}
+                                    onClick={() => {
+                                        setSelectedCategory(cat);
+                                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                                    }}
+                                    className={`${styles.categoryLink} ${selectedCategory === cat ? styles.categoryLinkActive : ''}`}
+                                >
+                                    {cat}
+                                    {cat !== 'All' && (
+                                        <span className={styles.categoryCount}>
+                                            {products.filter(p => p.category === cat).length}
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>BRAND</h3>
+                    <div className={styles.categoryScrollWrap} style={{ maxHeight: '150px' }}>
+                        <ul className={styles.categoryList}>
+                            {availableBrands.map(brand => (
+                                <li
+                                    key={brand}
+                                    onClick={() => setSelectedBrand(brand)}
+                                    className={`${styles.categoryLink} ${selectedBrand === brand ? styles.categoryLinkActive : ''}`}
+                                >
+                                    {brand}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>AVAILABILITY</h3>
+                    <label className={styles.checkboxLabel}>
+                        <input
+                            type="checkbox"
+                            checked={showInStockOnly}
+                            onChange={(e) => setShowInStockOnly(e.target.checked)}
+                        />
+                        <span>In Stock Only</span>
+                    </label>
+                </div>
+
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 25000) && (
+                    <button onClick={clearAllFilters} className={styles.sidebarClearBtn}>
+                        RESET ALL FILTERS
+                    </button>
+                )}
+            </aside>
+
+            {/* Main Content Area */}
+            <div className={styles.shopContentArea}>
+                <div className={styles.shopGridHeader}>
+                    <h1 className={styles.pageMainTitle}>Shop</h1>
+                </div>
+
+                <div className={styles.instrumentationBar}>
+                    <div className={styles.instrumentLeft}>
+                        <div className={styles.toolbarSearch}>
+                            <Search size={16} />
+                            <input
+                                type="text"
+                                placeholder={`Showing 1–${filteredProducts.length} of ${products.length} results`}
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.instrumentRight}>
+                        <div className={styles.viewToggles}>
+                            <button
+                                onClick={() => setGridView(true)}
+                                className={`${styles.viewBtn} ${gridView ? styles.active : ''}`}
+                                title="Grid View"
+                            >
+                                <Grid size={18} />
+                            </button>
+                            <button
+                                onClick={() => setGridView(false)}
+                                className={`${styles.viewBtn} ${!gridView ? styles.active : ''}`}
+                                title="List View"
+                            >
+                                <List size={18} />
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                if (window.innerWidth < 1024) {
+                                    setIsSidebarOpen(true);
+                                } else {
+                                    setIsFilterPanelOpen(!isFilterPanelOpen);
+                                }
+                            }}
+                            className={`${styles.filterToggleBtn} ${isFilterPanelOpen ? styles.filterPanelOpen : ''}`}
+                        >
+                            <Filter size={18} /> Filters
+                        </button>
+
+                        <div className={styles.sortWrapper}>
+                            <ArrowUpDown size={16} className={styles.sortIcon} />
+                            <select
+                                value={sortBy}
+                                onChange={e => setSortBy(e.target.value)}
+                                className={styles.sortSelect}
+                            >
+                                <option value="default">Default sorting</option>
+                                <option value="newness">Sort by latest</option>
+                                <option value="price-asc">Price: Low to High</option>
+                                <option value="price-desc">Price: High to Low</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expandable Filter Panel */}
+                {isFilterPanelOpen && (
+                    <div className={styles.filterExpandedPanel}>
+                        <div className={styles.filterGrid}>
+                            <div className={styles.filterGroup}>
+                                <h4>FILTER BY PRICE</h4>
+                                <div className={styles.pricePresets}>
+                                    {[
+                                        { label: 'Under ₹2,000', min: 0, max: 2000 },
+                                        { label: '₹2,000 - ₹5,000', min: 2000, max: 5000 },
+                                        { label: '₹5,000 - ₹10,000', min: 5000, max: 10000 },
+                                        { label: 'Above ₹10,000', min: 10000, max: 1000000 },
+                                    ].map(bracket => (
+                                        <button
+                                            key={bracket.label}
+                                            className={priceRange.min === bracket.min && priceRange.max === bracket.max ? styles.activeBracket : ''}
+                                            onClick={() => {
+                                                setPriceRange({ min: bracket.min, max: bracket.max });
+                                                setTempPriceRange({ min: bracket.min, max: bracket.max });
+                                            }}
+                                        >
+                                            {bracket.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className={styles.customPriceRange}>
+                                    <h5>CUSTOM RANGE:</h5>
+                                    <div className={styles.priceInputsWrapper}>
+                                        <div className={styles.priceInputItem}>
+                                            <span>₹</span>
+                                            <input
+                                                type="number"
+                                                value={tempPriceRange.min}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
+                                            />
+                                        </div>
+                                        <div className={styles.priceSeparator} />
+                                        <div className={styles.priceInputItem}>
+                                            <span>₹</span>
+                                            <input
+                                                type="number"
+                                                value={tempPriceRange.max}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button className={styles.applyCustomBtn} onClick={applyPriceFilter}>APPLY CUSTOM</button>
+                                </div>
+                            </div>
+
+                            <div className={styles.filterGroup}>
+                                <h4>BRAND</h4>
+                                <div className={styles.tagFilters}>
+                                    {availableBrands.map(brand => (
+                                        <button
+                                            key={brand}
+                                            className={`${styles.filterTag} ${selectedBrand === brand ? styles.tagActive : ''}`}
+                                            onClick={() => setSelectedBrand(brand)}
+                                        >
+                                            {brand}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className={styles.filterGroup}>
+                                <h4>TYPE OF SAREE</h4>
+                                <div className={styles.tagFilters}>
+                                    {availableSareeTypes.map(type => (
+                                        <button
+                                            key={type}
+                                            className={`${styles.filterTag} ${selectedType === type ? styles.tagActive : ''}`}
+                                            onClick={() => setSelectedType(type)}
+                                        >
+                                            {type}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.filterPanelActions}>
+                            <button className={styles.resetAllBtn} onClick={clearAllFilters}>RESET ALL</button>
+                            <button className={styles.doneBtn} onClick={() => setIsFilterPanelOpen(false)}>DONE</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Active Filter Badges */}
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 25000)) && (
+                    <div className={styles.activeFiltersRow}>
+                        {selectedCategory !== 'All' && (
+                            <span className={styles.activeFilterTag}>
+                                {selectedCategory} <X size={12} onClick={() => setSelectedCategory('All')} />
+                            </span>
+                        )}
+                        {selectedBrand !== 'All' && (
+                            <span className={styles.activeFilterTag}>
+                                {selectedBrand} <X size={12} onClick={() => setSelectedBrand('All')} />
+                            </span>
+                        )}
+                        {selectedType !== 'All' && (
+                            <span className={styles.activeFilterTag}>
+                                {selectedType} <X size={12} onClick={() => setSelectedType('All')} />
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className={styles.loadingGrid}>
+                        {[...Array(6)].map((_, i) => <div key={i} className={styles.skeleton} />)}
+                    </div>
+                ) : filteredProducts.length === 0 ? (
+                    <div className={styles.noResults}>
+                        <Search size={48} />
+                        <h3>No products found</h3>
+                        <p>Try adjusting your filters or search terms.</p>
+                        <button onClick={clearAllFilters} className={styles.resetSearchBtn}>Reset All Filters</button>
+                    </div>
+                ) : (
+                    <div className={gridView ? styles.productsGrid : styles.productsList}>
+                        {filteredProducts.map(product => (
+                            <ProductCard key={product.id} product={product} gridView={gridView} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

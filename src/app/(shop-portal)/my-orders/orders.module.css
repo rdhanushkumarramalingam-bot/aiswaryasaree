@@ -1,0 +1,301 @@
+.ordersContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 4rem 2rem 5rem;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    padding: 2.5rem 3rem;
+    background: linear-gradient(135deg, rgba(37, 163, 102, 0.08), rgba(10, 14, 26, 0.4));
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.sectionTitle h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.sectionTitle p {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.searchBox {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchBox svg {
+    position: absolute;
+    left: 1rem;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.searchBox input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 0.75rem 1rem 0.75rem 2.75rem;
+    color: #fff;
+    font-size: 0.9rem;
+    outline: none;
+    width: 250px;
+}
+
+.orderGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2.5rem;
+}
+
+.orderCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.orderCard:hover {
+    transform: translateY(-8px);
+    border-color: rgba(37, 163, 102, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.orderHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.orderMeta {
+    display: flex;
+    flex-direction: column;
+}
+
+.orderId {
+    font-weight: 800;
+    color: #fff;
+    font-size: 1.15rem;
+    margin-bottom: 0.25rem;
+}
+
+.orderDate {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.statusBadge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.4rem 0.8rem;
+    border-radius: 50px;
+}
+
+.statusPLACED {
+    background: rgba(34, 197, 94, 0.1);
+    color: #2ecc71;
+}
+
+.statusCONFIRMED {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3498db;
+}
+
+.statusSHIPPED {
+    background: rgba(168, 85, 247, 0.1);
+    color: #9b59b6;
+}
+
+.statusDELIVERED {
+    background: rgba(16, 185, 129, 0.15);
+    color: #1abc9c;
+}
+
+.statusCANCELLED {
+    background: rgba(239, 68, 68, 0.1);
+    color: #e74c3c;
+}
+
+.orderContent {
+    flex: 1;
+}
+
+.itemsList {
+    margin-bottom: 2rem;
+}
+
+.orderItem {
+    margin-bottom: 1.25rem;
+}
+
+.itemName {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.25rem;
+}
+
+.itemName strong {
+    font-size: 0.95rem;
+    color: #fff;
+}
+
+.variantTag {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 400;
+}
+
+.itemMeta {
+    font-size: 0.8rem;
+    color: rgba(37, 163, 102, 0.8);
+}
+
+.orderDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+}
+
+.detailItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.detailItem span {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.orderActions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.trackBtn {
+    background: #25a366;
+    color: #fff;
+    text-decoration: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.trackBtn:hover {
+    background: #2db875;
+    transform: translateX(4px);
+}
+
+.supportLink {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.supportLink:hover {
+    color: #25d366;
+}
+
+.loadingState {
+    text-align: center;
+    padding: 5rem 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.spin {
+    animation: spin 2s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loginPrompt {
+    padding: 12rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.loginPrompt h3 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.75rem;
+}
+
+.loginPrompt p {
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 2.5rem;
+}
+
+.emptyOrders {
+    text-align: center;
+    padding: 10rem 0;
+    color: rgba(255, 255, 255, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.btnPrimary {
+    display: inline-block;
+    background: #25a366;
+    color: #fff;
+    text-decoration: none;
+    padding: 1rem 3.5rem;
+    border-radius: 50px;
+    font-weight: 800;
+    transition: all 0.2s;
+}
+
+.btnPrimary:hover {
+    background: #2db875;
+    transform: translateY(-2px);
+}

@@ -2,9 +2,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Phone, Lock, User, ShieldCheck, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { useShop } from '@/context/ShopContext';
 
 export default function UnifiedLoginPage() {
     const router = useRouter();
+    const { setUser } = useShop();
     const [role, setRole] = useState('admin'); // 'user' or 'admin'
 
     // Admin Login State
@@ -35,6 +37,7 @@ export default function UnifiedLoginPage() {
                 // Save to LocalStorage (No Cookies)
                 localStorage.setItem('aiswarya_admin', 'true');
                 localStorage.setItem('aiswarya_user', JSON.stringify(data));
+                setUser(data);
                 router.push('/admin');
             } else {
                 setError(data.error || 'Invalid username or password');
@@ -80,6 +83,7 @@ export default function UnifiedLoginPage() {
             if (res.ok) {
                 // Save to LocalStorage (No Cookies)
                 localStorage.setItem('aiswarya_user', JSON.stringify(data.customer));
+                setUser(data.customer);
                 router.push('/shop');
             } else {
                 setError(data.error || 'Invalid OTP');

@@ -1,11 +1,11 @@
 'use client';
 
-import { CartProvider } from '@/lib/cartContext';
+import { ShopProvider } from '@/context/ShopContext';
 
 export function Providers({ children }) {
     return (
-        <CartProvider>
+        <ShopProvider>
             {children}
-        </CartProvider>
+        </ShopProvider>
     );
 }

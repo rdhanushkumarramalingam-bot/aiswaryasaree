@@ -1,0 +1,642 @@
+.shopContainer {
+    display: flex;
+    gap: 2.5rem;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* ── SIDEBAR ── */
+.shopSidebar {
+    width: 280px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 1.5rem;
+    height: calc(100vh - 120px);
+    position: sticky;
+    top: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.shopSidebar::-webkit-scrollbar {
+    width: 0px;
+}
+
+.sidebarSection {
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebarTitle {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #fff;
+    margin-bottom: 1.25rem;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+.categoryScrollWrap {
+    padding-right: 5px;
+}
+
+.categoryList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.categoryLink {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.categoryLink:hover,
+.categoryLinkActive {
+    background: rgba(37, 163, 102, 0.15);
+    color: #25a366;
+    padding-left: 1rem;
+}
+
+.categoryCount {
+    font-size: 0.75rem;
+    opacity: 0.5;
+}
+
+.sidebarSearch {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sidebarSearch svg {
+    position: absolute;
+    left: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.sidebarSearch input {
+    width: 100%;
+    padding: 0.7rem 1rem 0.7rem 2.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.sidebarSearch input:focus {
+    border-color: rgba(37, 163, 102, 0.4);
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.checkboxLabel:hover {
+    color: #fff;
+}
+
+.checkboxLabel input {
+    accent-color: #25a366;
+    width: 16px;
+    height: 16px;
+}
+
+.sidebarClearBtn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    padding: 0.75rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+}
+
+.sidebarClearBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── MAIN CONTENT ── */
+.shopContentArea {
+    flex: 1;
+}
+
+.shopGridHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.pageMainTitle {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.resultCount {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.instrumentationBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.instrumentLeft {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.toolbarSearch {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 300px;
+}
+
+.toolbarSearch svg {
+    position: absolute;
+    left: 1rem;
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+}
+
+.toolbarSearch input {
+    width: 100%;
+    padding: 0.7rem 1rem 0.7rem 2.85rem;
+    background: rgba(255, 255, 255, 0.03);
+    background-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toolbarSearch input:focus {
+    border-color: rgba(37, 163, 102, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px rgba(37, 163, 102, 0.1);
+}
+
+.toolbarSearch input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 400;
+}
+
+.viewBtn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.viewBtn.active {
+    background: rgba(37, 163, 102, 0.15);
+    color: #25a366;
+    border-color: rgba(37, 163, 102, 0.3);
+}
+
+.instrumentRight {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.viewToggles {
+    display: flex;
+    gap: 10px;
+}
+
+.filterToggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.6rem 1.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filterToggleBtn:hover,
+.filterPanelOpen {
+    background: rgba(37, 163, 102, 0.12);
+    border-color: rgba(37, 163, 102, 0.3);
+    color: #25a366;
+}
+
+.sortWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sortIcon {
+    position: absolute;
+    left: 1rem;
+    color: #25a366;
+    pointer-events: none;
+}
+
+.sortSelect {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    padding: 0.7rem 1.25rem 0.7rem 2.75rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.sortSelect option {
+    background: #0a0e1a;
+    color: #fff;
+}
+
+.sortSelect:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── FILTER PANEL ── */
+.filterExpandedPanel {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 3rem;
+    backdrop-filter: blur(20px);
+    animation: slideDown 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.filterGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 4rem;
+}
+
+.filterGroup h4 {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.1em;
+}
+
+.pricePresets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 2rem;
+}
+
+.pricePresets button {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pricePresets button:hover,
+.activeBracket {
+    background: rgba(37, 163, 102, 0.15) !important;
+    border-color: #25a366 !important;
+    color: #25a366 !important;
+}
+
+.customPriceRange h5 {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 1rem;
+}
+
+.priceInputsWrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+.priceInputItem {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.priceInputItem span {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.priceInputItem input {
+    background: none;
+    border: none;
+    color: #fff;
+    width: 100%;
+    outline: none;
+    font-size: 0.9rem;
+}
+
+.priceSeparator {
+    width: 10px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.applyCustomBtn {
+    width: 100%;
+    padding: 0.6rem;
+    background: #25a366;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.applyCustomBtn:hover {
+    background: #2db875;
+}
+
+.tagFilters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filterTag {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.6rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tagActive {
+    background: rgba(37, 163, 102, 0.15) !important;
+    border-color: #25a366 !important;
+    color: #25a366 !important;
+}
+
+.filterPanelActions {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 2rem;
+}
+
+.resetAllBtn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.resetAllBtn:hover {
+    color: #fff;
+}
+
+.doneBtn {
+    padding: 0.8rem 2.5rem;
+    background: #25a366;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(37, 163, 102, 0.3);
+}
+
+/* ── ACTIVE FILTER ROW ── */
+.activeFiltersRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 2rem;
+}
+
+.activeFilterTag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.4rem 0.8rem;
+    background: rgba(37, 163, 102, 0.1);
+    border: 1px solid rgba(37, 163, 102, 0.2);
+    color: #25a366;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.activeFilterTag svg {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.shop-module__jUlAea__shopContentArea {
+    padding-right: 2.5rem;
+}
+
+.activeFilterTag svg:hover {
+    transform: scale(1.2);
+}
+
+/* ── PRODUCT GRID ── */
+.productsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 2.5rem;
+}
+
+.productsList {
+    display: flex;
+    flex-direction: column;
+}
+
+.noResults {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.noResults h3 {
+    margin: 1.5rem 0 0.5rem;
+    color: #fff;
+}
+
+.resetSearchBtn {
+    margin-top: 2rem;
+    padding: 0.8rem 2rem;
+    background: rgba(37, 163, 102, 0.15);
+    border: 1px solid #25a366;
+    color: #25a366;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ── SKELETON ── */
+.loadingGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 2.5rem;
+}
+
+.skeleton {
+    aspect-ratio: 1/1.2;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0.5;
+    }
+}
+
+/* ── MOBILE ── */
+.sidebarOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+}
+
+@media (max-width: 1200px) {
+    .filterGrid {
+        gap: 2rem;
+    }
+}
+
+@media (max-width: 1024px) {
+    .shopSidebar {
+        position: fixed;
+        left: -320px;
+        top: 0;
+        bottom: 0;
+        height: 100vh;
+        width: 300px;
+        border-radius: 0;
+        z-index: 1001;
+    }
+
+    .sidebarOpen {
+        left: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .shopGridHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .filterGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .instrumentationBar {
+        padding: 0.75rem;
+    }
+}

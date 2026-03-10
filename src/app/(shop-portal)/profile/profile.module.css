@@ -1,0 +1,196 @@
+.profileContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 4rem 2rem 5rem;
+}
+
+.profileHeader {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    padding: 2.5rem 3rem;
+    background: linear-gradient(135deg, rgba(37, 163, 102, 0.08), rgba(10, 14, 26, 0.4));
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.avatarLarge {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 800;
+}
+
+.headerInfo h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.userPhone {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.profileLayout {
+    display: flex;
+    gap: 3rem;
+}
+
+.profileSection {
+    flex: 2;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 3rem;
+}
+
+.sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 2.5rem;
+    letter-spacing: -0.01em;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.formGrid3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.formGroup,
+.formGroupFull {
+    display: flex;
+    flex-direction: column;
+}
+
+.formGroup label,
+.formGroupFull label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 0.85rem;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.formGroup input,
+.formGroupFull textarea {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.formGroup input:focus,
+.formGroupFull textarea:focus {
+    border-color: rgba(37, 163, 102, 0.4);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.saveBtn {
+    margin-top: 3rem;
+    background: #25a366;
+    color: #fff;
+    border: none;
+    padding: 1rem 3rem;
+    border-radius: 50px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.saveBtn:hover:not(:disabled) {
+    background: #2db875;
+    transform: translateY(-2px);
+}
+
+.profileSidebar {
+    flex: 1;
+}
+
+.sidebarCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+}
+
+.sidebarCard h4 {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.sidebarCard p {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+.supportBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #25d366;
+    color: #fff;
+    text-decoration: none;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.loginPrompt {
+    padding: 10rem 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.promptContent {
+    text-align: center;
+    max-width: 400px;
+}
+
+.btnPrimary {
+    background: #25a366;
+    color: #fff;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .profileLayout {
+        flex-direction: column;
+    }
+}

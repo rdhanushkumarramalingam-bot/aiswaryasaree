@@ -1,0 +1,50 @@
+.shopApp {
+    min-height: 100vh;
+    background: #0a0e1a;
+    color: #f0f4ff;
+    font-family: 'Roboto', sans-serif;
+    position: relative;
+}
+
+.main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+}
+
+.toast {
+    position: fixed;
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.85rem 1.75rem;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    z-index: 9999;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    white-space: nowrap;
+}
+
+.toastSuccess {
+    background: linear-gradient(135deg, #1a7a4a, #25a366);
+    color: #fff;
+}
+
+.toastError {
+    background: linear-gradient(135deg, #8b1a1a, #c0392b);
+    color: #fff;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}

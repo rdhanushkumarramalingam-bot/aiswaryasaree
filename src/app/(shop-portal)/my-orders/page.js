@@ -1,0 +1,138 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search } from 'lucide-react';
+import { useShop } from '@/context/ShopContext';
+import Link from 'next/link';
+import styles from './orders.module.css';
+
+export default function MyOrdersPage() {
+    const { user, supabase } = useShop();
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (user?.phone) {
+            fetchUserOrders();
+        }
+    }, [user]);
+
+    async function fetchUserOrders() {
+        setLoading(true);
+        try {
+            const { data } = await supabase
+                .from('orders')
+                .select('*, order_items(*)')
+                .eq('customer_phone', user.phone)
+                .order('created_at', { ascending: false });
+
+            if (data) setOrders(data);
+        } catch (err) {
+            console.error('Fetch Orders Error:', err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (!user) {
+        return (
+            <div className={styles.loginPrompt}>
+                <Package size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />
+                <h3>Login to View Orders</h3>
+                <p>Track your saree orders and history by logging in.</p>
+                <Link href="/login" className={styles.btnPrimary}>Login Now</Link>
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.ordersContainer}>
+            <div className={styles.sectionHeader}>
+                <div className={styles.sectionTitle}>
+                    <h2>Order History</h2>
+                    <p>Total {orders.length} orders placed</p>
+                </div>
+                <div className={styles.filterBar}>
+                    <div className={styles.searchBox}>
+                        <Search size={18} />
+                        <input type="text" placeholder="Search order ID..." />
+                    </div>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className={styles.loadingState}>
+                    <Package className={styles.spin} />
+                    <p>Fetching your order history...</p>
+                </div>
+            ) : orders.length === 0 ? (
+                <div className={styles.emptyOrders}>
+                    <Package size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />
+                    <h3>No orders found</h3>
+                    <p>You haven't placed any orders with this phone number yet.</p>
+                    <Link href="/shop" className={styles.btnPrimary}>Explore Sarees</Link>
+                </div>
+            ) : (
+                <div className={styles.orderGrid}>
+                    {orders.map(order => (
+                        <div key={order.id} className={styles.orderCard}>
+                            <div className={styles.orderHeader}>
+                                <div className={styles.orderMeta}>
+                                    <span className={styles.orderId}>Order #{order.id}</span>
+                                    <span className={styles.orderDate}>{new Date(order.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
+                                    {order.status}
+                                </span>
+                            </div>
+
+                            <div className={styles.orderContent}>
+                                <div className={styles.itemsList}>
+                                    {order.order_items?.map(item => (
+                                        <div key={item.id} className={styles.orderItem}>
+                                            <div className={styles.itemName}>
+                                                <strong>{item.product_name}</strong>
+                                                {item.variant_name && <span className={styles.variantTag}>{item.variant_name}</span>}
+                                            </div>
+                                            <div className={styles.itemMeta}>
+                                                Qty: {item.quantity} × ₹{item.price_at_time.toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className={styles.orderDetails}>
+                                    <div className={styles.detailItem}>
+                                        <Tag size={16} />
+                                        <span>Total: ₹{order.total_amount?.toLocaleString()}.00</span>
+                                    </div>
+                                    <div className={styles.detailItem}>
+                                        <MapPin size={16} />
+                                        <span>{order.delivery_address || 'Address not listed'}</span>
+                                    </div>
+                                    <div className={styles.detailItem}>
+                                        <Clock size={16} />
+                                        <span>Placed at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={styles.orderActions}>
+                                <Link href={`/track-order?id=${order.id}`} className={styles.trackBtn}>
+                                    Track Status <ChevronRight size={16} />
+                                </Link>
+                                <a
+                                    href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732'}?text=Hi, query about Order %23${order.id}`}
+                                    className={styles.supportLink}
+                                    target="_blank"
+                                >
+                                    <MessageCircle size={16} /> Support
+                                </a>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
