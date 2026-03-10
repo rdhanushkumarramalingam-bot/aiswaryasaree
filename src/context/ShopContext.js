@@ -20,6 +20,7 @@ export function ShopProvider({ children }) {
     const [businessState, setBusinessState] = useState('Tamil Nadu');
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
+    const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
@@ -43,7 +44,7 @@ export function ShopProvider({ children }) {
 
     // ── CART PERSISTENCE ──
     useEffect(() => {
-        if (!hasMounted) return;
+        if (!hasMounted || !isCartLoaded) return; // Wait until we've loaded the real cart
         localStorage.setItem('aiswarya_cart', JSON.stringify(cart));
 
         const syncCart = async () => {
@@ -61,7 +62,45 @@ export function ShopProvider({ children }) {
 
         const timer = setTimeout(syncCart, 1000);
         return () => clearTimeout(timer);
-    }, [cart, user?.id, hasMounted]);
+    }, [cart, user?.id, hasMounted, isCartLoaded]);
+
+    // Load cart from DB when user logs in or session is restored
+    useEffect(() => {
+        if (!hasMounted) return;
+
+        const loadUserCart = async () => {
+            if (user?.id) {
+                try {
+                    const { data } = await supabase.from('customers').select('cart_data').eq('id', user.id).single();
+                    if (data?.cart_data && Array.isArray(data.cart_data)) {
+                        setCart(prev => {
+                            // Merge guest items into DB items
+                            const dbCart = [...data.cart_data];
+                            const guestItems = prev.filter(g => !dbCart.find(d => (g.variantId ? d.variantId === g.variantId : d.id === g.id)));
+                            const merged = [...dbCart, ...guestItems];
+                            return merged;
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error loading DB cart:', err);
+                }
+            }
+            setIsCartLoaded(true); // Now we are safe to sync back to DB
+        };
+
+        loadUserCart();
+    }, [user?.id, hasMounted]);
+
+    // Initial local cart load on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('aiswarya_cart');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) setCart(parsed);
+            } catch (e) { }
+        }
+    }, []);
 
     async function checkSession() {
         const storedUser = localStorage.getItem('aiswarya_user');
@@ -89,6 +128,8 @@ export function ShopProvider({ children }) {
     async function handleLogout() {
         localStorage.clear();
         setUser(null);
+        setCart([]);
+        setIsCartLoaded(true);
         setCheckoutForm({
             name: '', phone: '', address: '', city: '', state: 'Tamil Nadu', country: 'India', pincode: '', paymentMethod: 'COD'
         });
@@ -172,10 +213,15 @@ export function ShopProvider({ children }) {
     function updateQty(index, delta) {
         setCart(prev => {
             const newCart = [...prev];
-            const item = newCart[index];
-            // Simple stock check helper logic could be added here if needed
+            const item = { ...newCart[index] };
             item.qty = Math.max(0, item.qty + delta);
-            return item.qty > 0 ? newCart : newCart.filter((_, i) => i !== index);
+
+            if (item.qty > 0) {
+                newCart[index] = item;
+                return newCart;
+            } else {
+                return newCart.filter((_, i) => i !== index);
+            }
         });
     }
 

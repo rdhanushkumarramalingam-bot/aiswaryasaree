@@ -1,11 +1,11 @@
 .cartContainer {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 4rem 2rem 5rem;
+    padding: 4rem 12% 5rem;
 }
 
 .sectionTitle {
-    text-align: center;
+    text-align: left;
     margin-bottom: 3rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -60,7 +60,7 @@
 
 .tableHeader {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr 34px;
     padding: 1.5rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.4);
@@ -72,7 +72,7 @@
 
 .cartItem {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr 34px;
     align-items: center;
     padding: 2rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -80,8 +80,9 @@
 
 .productCell {
     display: flex;
-    align-items: center;
-    gap: 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
 }
 
 .itemImg {
@@ -114,7 +115,8 @@
 .itemName {
     font-weight: 600;
     color: #fff;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
     display: flex;
     flex-direction: column;
 }
@@ -129,6 +131,12 @@
 .subtotalCell {
     font-weight: 700;
     color: #fff;
+    font-size: 1rem;
+}
+
+.removeCell {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .qtyControl {
@@ -156,46 +164,34 @@
 
 .cartActions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    justify-content: flex-end;
     margin-top: 2rem;
 }
 
-.couponBox {
-    display: flex;
-    gap: 1rem;
-}
-
-.couponBox input {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px;
-    color: #fff;
-}
-
-.couponBox button {
-    background: #121827;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff;
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px;
-    cursor: pointer;
-}
-
 .updateCartBtn {
-    background: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.6);
-    padding: 0.75rem 2rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 0.85rem 2.5rem;
     border-radius: 12px;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
-    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.updateCartBtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.updateCartBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .cartSummary {
-    flex: 1;
+    flex: 1.2;
 }
 
 .summaryCard {
@@ -247,6 +243,28 @@
 .checkoutBtn:hover {
     background: #2db875;
     transform: translateY(-2px);
+}
+
+.continueShoppingBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1.1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.continueShoppingBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .divider {

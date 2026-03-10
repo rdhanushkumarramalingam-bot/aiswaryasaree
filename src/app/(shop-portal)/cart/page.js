@@ -1,12 +1,24 @@
 'use client';
 
+import { useState } from 'react';
 import { X, ShoppingCart, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import styles from './cart.module.css';
 
 export default function CartPage() {
-    const { cart, removeFromCart, updateQty, cartTotal } = useShop();
+    const { cart, removeFromCart, updateQty, cartTotal, showToast } = useShop();
+    const [isDirty, setIsDirty] = useState(false);
+
+    const handleQtyChange = (idx, delta) => {
+        updateQty(idx, delta);
+        setIsDirty(true);
+    };
+
+    const handleUpdateCart = () => {
+        setIsDirty(false);
+        showToast('Cart updated successfully');
+    };
 
     return (
         <div className={styles.cartContainer}>
@@ -29,13 +41,11 @@ export default function CartPage() {
                             <span>Price</span>
                             <span>Quantity</span>
                             <span>Subtotal</span>
+                            <span></span>
                         </div>
                         {cart.map((item, idx) => (
                             <div key={idx} className={styles.cartItem}>
                                 <div className={styles.productCell}>
-                                    <button onClick={() => removeFromCart(idx)} className={styles.removeBtn} title="Remove item">
-                                        <X size={18} />
-                                    </button>
                                     <img src={item.image_url} className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} alt={item.name} />
                                     <div className={styles.itemName}>
                                         {item.name}
@@ -45,21 +55,30 @@ export default function CartPage() {
                                 <div className={styles.priceCell}>₹{item.price.toLocaleString()}.00</div>
                                 <div className={styles.qtyCell}>
                                     <div className={styles.qtyControl}>
-                                        <button onClick={() => updateQty(idx, -1)}>-</button>
+                                        <button onClick={() => handleQtyChange(idx, -1)}>-</button>
                                         <span>{item.qty}</span>
-                                        <button onClick={() => updateQty(idx, 1)}>+</button>
+                                        <button onClick={() => handleQtyChange(idx, 1)}>+</button>
                                     </div>
                                 </div>
-                                <div className={styles.subtotalCell}>₹{(item.price * item.qty).toLocaleString()}.00</div>
+                                <div className={styles.subtotalCell}>
+                                    <span>₹{(item.price * item.qty).toLocaleString()}.00</span>
+                                </div>
+                                <div className={styles.removeCell}>
+                                    <button onClick={() => removeFromCart(idx)} className={styles.removeBtn} title="Remove item">
+                                        <X size={18} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
 
                         <div className={styles.cartActions}>
-                            <div className={styles.couponBox}>
-                                <input type="text" placeholder="Coupon code" />
-                                <button>Apply Coupon</button>
-                            </div>
-                            <Link href="/shop" className={styles.updateCartBtn}>Continue Shopping</Link>
+                            <button
+                                className={styles.updateCartBtn}
+                                onClick={handleUpdateCart}
+                                disabled={!isDirty}
+                            >
+                                Update Cart
+                            </button>
                         </div>
                     </div>
 
@@ -81,6 +100,9 @@ export default function CartPage() {
                             </div>
                             <Link href="/checkout" className={styles.checkoutBtn}>
                                 Proceed to Checkout <ArrowRight size={18} />
+                            </Link>
+                            <Link href="/shop" className={styles.continueShoppingBtn}>
+                                Continue Shopping
                             </Link>
                         </div>
                     </div>
