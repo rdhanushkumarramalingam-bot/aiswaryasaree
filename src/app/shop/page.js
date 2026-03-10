@@ -51,6 +51,7 @@ function ShopContent() {
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
     const [selectedBrand, setSelectedBrand] = useState('All');
+    const [selectedType, setSelectedType] = useState('All');
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
     const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
@@ -87,12 +88,15 @@ function ShopContent() {
             filtered = filtered.filter(p => p.product_group === selectedBrand);
         }
 
-        // 1c. Size Filter (Mocking check or variant check)
-        if (selectedSize !== 'All') {
-            // For now, if price/name contains size or if product has it. 
-            // In a real scenario, we'd check variants.
-            // Since most sarees are Free Size, we'll keep it simple: matches if 'Free Size' or if name matches.
-            filtered = filtered.filter(p => p.name.toLowerCase().includes(selectedSize.toLowerCase()) || selectedSize === 'Free Size');
+        // 1c. Type of Saree Filter
+        if (selectedType !== 'All') {
+            const type = selectedType.toLowerCase();
+            filtered = filtered.filter(p =>
+                (p.name || '').toLowerCase().includes(type) ||
+                (p.description || '').toLowerCase().includes(type) ||
+                (p.category || '').toLowerCase().includes(type) ||
+                (p.product_group || '').toLowerCase().includes(type)
+            );
         }
 
         // 2. Search Query
@@ -602,7 +606,7 @@ function ShopContent() {
     function clearAllFilters() {
         setSelectedCategory('All');
         setSelectedBrand('All');
-        setSelectedSize('All');
+        setSelectedType('All');
         setSearchQuery('');
         setPriceRange({ min: 0, max: 25000 });
         setTempPriceRange({ min: 0, max: 25000 });
@@ -615,7 +619,7 @@ function ShopContent() {
         return b.length > 1 ? b : ['All', 'Aiswarya', 'Mahaa', 'Premium Silk', 'Handloom'];
     }, [products]);
 
-    const availableSizes = ['All', 'S', 'M', 'L', 'XL', 'Free Size'];
+    const availableSareeTypes = ['All', 'Pure Silk', 'Soft Silk', 'Cotton', 'Georgette', 'Banarasi', 'Handloom', 'Chiffon', 'Net'];
 
     if (!hasMounted) return null;
 
@@ -820,69 +824,20 @@ function ShopContent() {
                             </div>
 
                             <div className={styles.sidebarSection}>
-                                <h3 className={styles.sidebarTitle}>Size</h3>
+                                <h3 className={styles.sidebarTitle}>Type of Saree</h3>
                                 <div className={styles.sizeChips}>
-                                    {availableSizes.map(size => (
+                                    {availableSareeTypes.map(type => (
                                         <button
-                                            key={size}
-                                            onClick={() => setSelectedSize(size)}
-                                            className={`${styles.sizeChip} ${selectedSize === size ? styles.sizeChipActive : ''}`}
+                                            key={type}
+                                            onClick={() => setSelectedType(type)}
+                                            className={`${styles.sizeChip} ${selectedType === type ? styles.sizeChipActive : ''}`}
                                         >
-                                            {size}
+                                            {type}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className={styles.sidebarSection}>
-                                <h3 className={styles.sidebarTitle}>Filter by Price</h3>
-                                <div className={styles.sidebarPriceFilter}>
-                                    <div className={styles.priceBrackets}>
-                                        {[
-                                            { label: 'Under ₹2,000', min: 0, max: 2000 },
-                                            { label: '₹2,000 - ₹5,000', min: 2000, max: 5000 },
-                                            { label: '₹5,000 - ₹10,000', min: 5000, max: 10000 },
-                                            { label: 'Above ₹10,000', min: 10000, max: 50000 },
-                                        ].map(bracket => (
-                                            <button
-                                                key={bracket.label}
-                                                className={`${styles.priceBracket} ${priceRange.min === bracket.min && priceRange.max === bracket.max ? styles.priceBracketActive : ''}`}
-                                                onClick={() => {
-                                                    setPriceRange({ min: bracket.min, max: bracket.max });
-                                                    setTempPriceRange({ min: bracket.min, max: bracket.max });
-                                                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                                                }}
-                                            >
-                                                {bracket.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className={styles.customPriceLabel}>Custom Range:</div>
-                                    <div className={styles.priceInputsSidebar}>
-                                        <div className={styles.priceField}>
-                                            <span>₹</span>
-                                            <input
-                                                type="number"
-                                                value={tempPriceRange.min}
-                                                onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                        <span className={styles.separator}>—</span>
-                                        <div className={styles.priceField}>
-                                            <span>₹</span>
-                                            <input
-                                                type="number"
-                                                value={tempPriceRange.max}
-                                                onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <button onClick={() => { applyPriceFilter(); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={styles.sidebarFilterBtn}>
-                                        APPLY CUSTOM
-                                    </button>
-                                </div>
-                            </div>
 
                             <div className={styles.sidebarSection}>
                                 <h3 className={styles.sidebarTitle}>Availability</h3>
@@ -896,7 +851,7 @@ function ShopContent() {
                                 </label>
                             </div>
 
-                            {(selectedCategory !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 25000) && (
+                            {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 25000) && (
                                 <button onClick={clearAllFilters} className={styles.sidebarClearBtn}>
                                     RESET ALL FILTERS
                                 </button>
@@ -985,6 +940,36 @@ function ShopContent() {
                                                     </button>
                                                 ))}
                                             </div>
+
+                                            <div className={styles.customPriceLabel} style={{ marginTop: '1rem', fontWeight: 600, fontSize: '0.8rem' }}>Custom Range:</div>
+                                            <div className={styles.priceInputsSidebar} style={{ marginTop: '0.5rem' }}>
+                                                <div className={styles.priceField}>
+                                                    <span>₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={tempPriceRange.min}
+                                                        onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
+                                                        style={{ width: '60px' }}
+                                                    />
+                                                </div>
+                                                <span className={styles.separator}>—</span>
+                                                <div className={styles.priceField}>
+                                                    <span>₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={tempPriceRange.max}
+                                                        onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
+                                                        style={{ width: '60px' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={applyPriceFilter}
+                                                className={styles.sidebarFilterBtn}
+                                                style={{ marginTop: '0.75rem', padding: '0.4rem', fontSize: '0.7rem' }}
+                                            >
+                                                APPLY CUSTOM
+                                            </button>
                                         </div>
 
                                         <div className={styles.filterColumn}>
@@ -1003,15 +988,15 @@ function ShopContent() {
                                         </div>
 
                                         <div className={styles.filterColumn}>
-                                            <h4>Size</h4>
+                                            <h4>Type of Saree</h4>
                                             <div className={styles.sizeChipsSmall}>
-                                                {availableSizes.map(size => (
+                                                {availableSareeTypes.map(type => (
                                                     <button
-                                                        key={size}
-                                                        onClick={() => setSelectedSize(size)}
-                                                        className={`${styles.sizeChip} ${selectedSize === size ? styles.sizeChipActive : ''}`}
+                                                        key={type}
+                                                        onClick={() => setSelectedType(type)}
+                                                        className={`${styles.sizeChip} ${selectedType === type ? styles.sizeChipActive : ''}`}
                                                     >
-                                                        {size}
+                                                        {type}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1025,7 +1010,7 @@ function ShopContent() {
                             )}
 
                             {/* Active Filters Display */}
-                            {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedSize !== 'All' || (priceRange.min > 0 || priceRange.max < 25000)) && (
+                            {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 25000)) && (
                                 <div className={styles.activeFiltersRow}>
                                     {selectedCategory !== 'All' && (
                                         <span className={styles.filterTag}>
@@ -1037,9 +1022,9 @@ function ShopContent() {
                                             {selectedBrand} <X size={12} onClick={() => setSelectedBrand('All')} />
                                         </span>
                                     )}
-                                    {selectedSize !== 'All' && (
+                                    {selectedType !== 'All' && (
                                         <span className={styles.filterTag}>
-                                            {selectedSize} <X size={12} onClick={() => setSelectedSize('All')} />
+                                            {selectedType} <X size={12} onClick={() => setSelectedType('All')} />
                                         </span>
                                     )}
                                     {(priceRange.min > 0 || priceRange.max < 25000) && (
