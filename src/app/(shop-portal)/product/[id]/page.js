@@ -128,7 +128,6 @@ export default function ProductDetailsPage() {
                     </div>
 
                     <div className={styles.meta}>
-                        <div className={styles.metaItem}><strong>SKU:</strong> {product.id}</div>
                         <div className={styles.metaItem}><strong>Category:</strong> {product.category}</div>
                         {product.product_group && <div className={styles.metaItem}><strong>Brand:</strong> {product.product_group}</div>}
                     </div>
