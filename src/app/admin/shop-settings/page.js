@@ -120,7 +120,7 @@ export default function ShopSettingsPage() {
                                 type="text"
                                 value={settings.shop_name || ''}
                                 onChange={(e) => handleUpdate('shop_name', e.target.value)}
-                                placeholder="Aiswarya Sarees"
+                                placeholder="Cast Prince"
                             />
                         </div>
                         <div className="field-group">

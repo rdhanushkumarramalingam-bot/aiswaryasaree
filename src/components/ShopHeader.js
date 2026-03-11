@@ -57,7 +57,7 @@ export default function ShopHeader() {
                         <Link href="/shop" className={styles.logo}>
                             <span className={styles.logoIcon}>💮</span>
                             <div className={styles.logoText}>
-                                <div className={styles.logoName}>Aiswarya Sarees</div>
+                                <div className={styles.logoName}>Cast Prince</div>
                                 <div className={styles.logoTagline}>Premium Ethnic Collections</div>
                             </div>
                         </Link>

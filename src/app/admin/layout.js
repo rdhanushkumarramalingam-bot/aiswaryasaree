@@ -13,7 +13,7 @@ export default function AdminLayout({ children }) {
 
     useEffect(() => {
         setMounted(true);
-        const isAdmin = localStorage.getItem('aiswarya_admin');
+        const isAdmin = localStorage.getItem('cast_prince_admin');
         if (!isAdmin) {
             router.push('/login');
         } else {

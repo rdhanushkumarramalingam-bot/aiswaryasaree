@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './orders.module.css';
 
 export default function MyOrdersPage() {
     const { user, supabase } = useShop();
+    const router = useRouter();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -47,6 +49,9 @@ export default function MyOrdersPage() {
 
     return (
         <div className={styles.ordersContainer}>
+            <button onClick={() => router.back()} className={styles.backButton}>
+                <ChevronLeft size={20} /> Back
+            </button>
             <div className={styles.sectionHeader}>
                 <div className={styles.sectionTitle}>
                     <h2>Order History</h2>

@@ -35,7 +35,7 @@ export default function ProfilePage() {
             if (error) throw error;
 
             setUser(data);
-            localStorage.setItem('aiswarya_user', JSON.stringify(data));
+            localStorage.setItem('cast_prince_user', JSON.stringify(data));
             showToast('Profile updated successfully!');
         } catch (err) {
             console.error(err);

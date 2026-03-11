@@ -49,14 +49,14 @@ export default function AdminSidebar({ isOpen }) {
                     boxShadow: '0 8px 16px hsl(var(--primary) / 0.3)',
                     border: '1px solid hsl(var(--primary-light) / 0.2)'
                 }}>
-                    A
+                    C
                 </div>
                 <div>
                     <h1 style={{
                         fontSize: '1.1rem', fontWeight: 800, margin: 0,
                         fontFamily: 'var(--font-heading)', letterSpacing: '0.02em',
                         color: 'white'
-                    }}>Aiswarya Saree</h1>
+                    }}>Cast Prince</h1>
                     <p style={{
                         fontSize: '0.6rem', color: 'hsl(var(--primary))', margin: 0,
                         textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800

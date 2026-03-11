@@ -66,6 +66,9 @@ export default function ProductDetailsPage() {
 
     return (
         <div className={styles.productContainer}>
+            <button onClick={() => router.back()} className={styles.backButton}>
+                <ChevronLeft size={20} /> Back
+            </button>
             <div className={styles.mainSection}>
                 {/* Left: Product Image */}
                 <div className={styles.imageGallery}>

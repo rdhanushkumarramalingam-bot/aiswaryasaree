@@ -1,7 +1,30 @@
 .ordersContainer {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 4rem 2rem 5rem;
+    padding: 10rem 2rem 5rem;
+    position: relative;
+}
+
+.backButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: rgba(255, 255, 255, 0.6);
+    background: transparent;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+    font-family: inherit;
+    padding: 0;
+    position: absolute;
+    top: 5rem;
+    left: 2rem;
+}
+
+.backButton:hover {
+    color: #fff;
 }
 
 .sectionHeader {

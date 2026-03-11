@@ -45,7 +45,7 @@ export function ShopProvider({ children }) {
     // ── CART PERSISTENCE ──
     useEffect(() => {
         if (!hasMounted || !isCartLoaded) return; // Wait until we've loaded the real cart
-        localStorage.setItem('aiswarya_cart', JSON.stringify(cart));
+        localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
 
         const syncCart = async () => {
             if (user?.id) {
@@ -93,7 +93,7 @@ export function ShopProvider({ children }) {
 
     // Initial local cart load on mount
     useEffect(() => {
-        const saved = localStorage.getItem('aiswarya_cart');
+        const saved = localStorage.getItem('cast_prince_cart');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -103,7 +103,7 @@ export function ShopProvider({ children }) {
     }, []);
 
     async function checkSession() {
-        const storedUser = localStorage.getItem('aiswarya_user');
+        const storedUser = localStorage.getItem('cast_prince_user');
         if (storedUser) {
             try {
                 const localUser = JSON.parse(storedUser);
@@ -120,7 +120,7 @@ export function ShopProvider({ children }) {
                 }));
             } catch (e) {
                 console.error('Failed to parse user session');
-                localStorage.removeItem('aiswarya_user');
+                localStorage.removeItem('cast_prince_user');
             }
         }
     }

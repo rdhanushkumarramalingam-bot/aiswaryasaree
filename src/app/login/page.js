@@ -35,8 +35,8 @@ export default function UnifiedLoginPage() {
             const data = await res.json();
             if (res.ok) {
                 // Save to LocalStorage (No Cookies)
-                localStorage.setItem('aiswarya_admin', 'true');
-                localStorage.setItem('aiswarya_user', JSON.stringify(data));
+                localStorage.setItem('cast_prince_admin', 'true');
+                localStorage.setItem('cast_prince_user', JSON.stringify(data));
                 setUser(data);
                 router.push('/admin');
             } else {
@@ -82,7 +82,7 @@ export default function UnifiedLoginPage() {
             const data = await res.json();
             if (res.ok) {
                 // Save to LocalStorage (No Cookies)
-                localStorage.setItem('aiswarya_user', JSON.stringify(data.customer));
+                localStorage.setItem('cast_prince_user', JSON.stringify(data.customer));
                 setUser(data.customer);
                 router.push('/shop');
             } else {

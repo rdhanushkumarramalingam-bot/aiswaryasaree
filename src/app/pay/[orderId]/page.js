@@ -103,7 +103,7 @@ function PaymentPageInner({ orderId }) {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency || 'INR',
-                name: 'Aiswarya Saree',
+                name: 'Cast Prince',
                 description: `Order #${orderId}`,
                 image: '/favicon.ico',
                 order_id: data.razorpayOrderId,
@@ -242,7 +242,7 @@ function PaymentPageInner({ orderId }) {
                     {/* Header */}
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                         <h2 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Checkout</h2>
-                        <p style={{ color: '#c2185b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '0.25rem' }}>Aiswarya Saree — Secure Payment</p>
+                        <p style={{ color: '#c2185b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Cast Prince — Secure Payment</p>
                     </div>
 
                     {/* Order Summary Card */}

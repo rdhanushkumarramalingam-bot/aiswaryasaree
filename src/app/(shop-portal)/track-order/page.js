@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Search, Package, MapPin, Truck, CheckCircle, Clock } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Search, Package, MapPin, Truck, CheckCircle, Clock, ChevronLeft } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './track.module.css';
 
 function TrackContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const orderIdParam = searchParams.get('id') || '';
 
     const { supabase, showToast } = useShop();
@@ -52,6 +53,9 @@ function TrackContent() {
 
     return (
         <div className={styles.trackContainer}>
+            <button onClick={() => router.back()} className={styles.backButton}>
+                <ChevronLeft size={20} /> Back
+            </button>
             <div className={styles.trackHeader}>
                 <h1>Track Order</h1>
                 <p>Enter your order ID to see the latest status of your purchase.</p>

@@ -18,7 +18,7 @@ export async function POST(req) {
         }
 
         const { username, password } = body;
-        const VALID_USERNAME = 'aiswarya';
+        const VALID_USERNAME = 'castprince';
         const VALID_PASSWORD = 'saree2024';
 
         if (username === VALID_USERNAME && password === VALID_PASSWORD) {

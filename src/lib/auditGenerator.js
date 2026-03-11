@@ -6,7 +6,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
 
     // 1. Fetch Branding/Shop Info
     let branding = {
-        shop_name: "Aiswarya Sarees",
+        shop_name: "Cast Prince",
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         shop_pan: "", // Add if possible

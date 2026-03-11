@@ -68,14 +68,14 @@ export async function POST(request) {
                 .join('\n');
 
             const message =
-                `✅ *Order Confirmed — Aiswarya Saree* 🎉\n\n` +
+                `✅ *Order Confirmed — Cast Prince* 🎉\n\n` +
                 `Hi ${order.customer_name || 'Customer'}! Your payment was successful.\n\n` +
                 `📦 *Order ID:* #${orderId}\n` +
                 `💳 *Amount Paid:* ₹${order.total_amount?.toLocaleString()}\n` +
                 `🛍️ *Items:*\n${itemsList}\n\n` +
                 `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
                 `We will send your tracking details soon. Thank you for shopping with us! 🙏\n\n` +
-                `— Aiswarya Sarees`;
+                `— Cast Prince`;
 
             await sendWhatsAppText(order.customer_phone, message);
         }
