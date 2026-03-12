@@ -317,8 +317,9 @@ async function generateAndUploadInvoice(order) {
 
         // Summary
         doc.setFontSize(10);
+        const subtotal = order.subtotal || (order.total_amount - (order.shipping_cost || 0) - (order.tax_amount || 0));
         doc.text(`Subtotal:`, 140, y, { align: "right" });
-        doc.text(`Rs. ${(order.subtotal || grandTotal).toLocaleString()}`, 195, y, { align: "right" });
+        doc.text(`Rs. ${subtotal.toLocaleString()}`, 195, y, { align: "right" });
         y += 6;
 
         if (order.shipping_cost > 0) {
@@ -327,17 +328,26 @@ async function generateAndUploadInvoice(order) {
             y += 6;
         }
 
-        if (order.tax_amount > 0) {
-            if (order.cgst > 0) {
-                doc.text(`CGST (2.5%):`, 140, y, { align: "right" });
-                doc.text(`Rs. ${order.cgst.toLocaleString()}`, 195, y, { align: "right" });
-                y += 6;
-                doc.text(`SGST (2.5%):`, 140, y, { align: "right" });
-                doc.text(`Rs. ${order.sgst.toLocaleString()}`, 195, y, { align: "right" });
-                y += 6;
-            } else if (order.igst > 0) {
+        const cgst = order.cgst || 0;
+        const sgst = order.sgst || 0;
+        const igst = order.igst || 0;
+        const taxAmount = order.tax_amount || (cgst + sgst + igst);
+
+        if (taxAmount > 0) {
+            if (cgst > 0 || sgst > 0) {
+                if (cgst > 0) {
+                    doc.text(`CGST (2.5%):`, 140, y, { align: "right" });
+                    doc.text(`Rs. ${cgst.toLocaleString()}`, 195, y, { align: "right" });
+                    y += 6;
+                }
+                if (sgst > 0) {
+                    doc.text(`SGST (2.5%):`, 140, y, { align: "right" });
+                    doc.text(`Rs. ${sgst.toLocaleString()}`, 195, y, { align: "right" });
+                    y += 6;
+                }
+            } else if (igst > 0) {
                 doc.text(`IGST (5%):`, 140, y, { align: "right" });
-                doc.text(`Rs. ${order.igst.toLocaleString()}`, 195, y, { align: "right" });
+                doc.text(`Rs. ${igst.toLocaleString()}`, 195, y, { align: "right" });
                 y += 6;
             }
         }
@@ -353,7 +363,12 @@ async function generateAndUploadInvoice(order) {
 
         if (error) return null;
         const { data } = supabase.storage.from('invoices').getPublicUrl(fileName);
-        return data.publicUrl;
+        const invoiceUrl = data.publicUrl;
+
+        // Save URL to Database
+        await supabase.from('orders').update({ invoice_url: invoiceUrl }).eq('id', order.id);
+
+        return invoiceUrl;
     } catch (e) { console.error(e); return null; }
 }
 
@@ -938,6 +953,57 @@ export async function askPaymentMode(to, orderId) {
         { id: `pay_cod_${orderId}`, title: "💵 Cash on Delivery" }
     ]);
 }
+// Centralized Order Notification (Rich Message + Invoice)
+export async function notifyOrderSuccess(orderId) {
+    try {
+        console.log(`[NOTIFY] Triggering success notification for #${orderId}`);
+        const { data: order, error } = await supabase
+            .from('orders')
+            .select(`*, order_items(*)`)
+            .eq('id', orderId)
+            .single();
+
+        if (error || !order) {
+            console.error(`[NOTIFY] Failed to fetch order #${orderId} for notification:`, error);
+            return;
+        }
+
+        const to = order.customer_phone;
+        if (!to) return;
+
+        const total = order.total_amount?.toLocaleString() || '0';
+        const itemsList = (order.order_items || [])
+            .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
+            .join('\n');
+
+        const message =
+            `✅ *Order Confirmed — Cast Prince* 🎉\n\n` +
+            `Hi ${order.customer_name || 'Customer'}! Your order has been placed successfully.\n\n` +
+            `📦 *Order ID:* #${orderId}\n` +
+            `💰 *Grand Total:* ₹${total}\n` +
+            `🛍️ *Items:*\n${itemsList}\n\n` +
+            `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
+            `📄 Generating your invoice...`;
+
+        await sendText(to, message);
+
+        // Send Invoice
+        const invoiceUrl = await generateAndUploadInvoice(order);
+        if (invoiceUrl) {
+            await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+        }
+
+        await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
+            { id: "menu_track", title: "Track Order" },
+            { id: "menu_my_orders", title: "My Orders" }
+        ]);
+
+        console.log(`[NOTIFY] Notification sent successfully for #${orderId}`);
+    } catch (err) {
+        console.error(`[NOTIFY] Error in notifyOrderSuccess:`, err);
+    }
+}
+
 // Finalize Order
 export async function finalizeOrder(to, method, orderId) {
     const status = method === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
@@ -952,7 +1018,7 @@ export async function finalizeOrder(to, method, orderId) {
         const upiId = 'samypranesh@okicici';
         const payeeName = 'Cast Prince+Sarees';
         const note = `Order+${orderId}`;
-        const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=${note}`;
+        const upiLink = `upi://pay?pa=${upiId}\u0026pn=${payeeName}\u0026am=${rawAmount}\u0026cu=INR\u0026tn=${note}`;
 
         await sendText(to,
             `📲 *UPI Payment — ₹${total}*\n\n` +
@@ -969,27 +1035,10 @@ export async function finalizeOrder(to, method, orderId) {
         ]);
 
     } else {
-        // COD — deduct stock, clear cart, send invoice immediately
+        // COD — deduct stock, clear cart, send notification
         await clearCart(to);
         await deductStock(orderId);
-
-        await sendText(to,
-            `✅ *Order Placed — Cash on Delivery*\n\n` +
-            `Order ID: *#${orderId}*\n` +
-            `Total: *₹${total}*\n\n` +
-            `Our team will contact you to confirm delivery.`
-        );
-
-        // Send invoice immediately for COD
-        await sendText(to, "📄 Generating your invoice...");
-        const invoiceUrl = await generateAndUploadInvoice(order);
-        if (invoiceUrl) {
-            await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
-        }
-        await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
-            { id: "menu_track", title: "Track Order" },
-            { id: "menu_my_orders", title: "My Orders" }
-        ]);
+        await notifyOrderSuccess(orderId);
     }
 }
 

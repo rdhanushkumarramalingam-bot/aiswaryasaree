@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft } from 'lucide-react';
+import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './orders.module.css';
@@ -12,6 +12,7 @@ export default function MyOrdersPage() {
     const router = useRouter();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [generatingId, setGeneratingId] = useState(null); // ID of the order being generated
 
     useEffect(() => {
         if (user?.phone) {
@@ -33,6 +34,45 @@ export default function MyOrdersPage() {
             console.error('Fetch Orders Error:', err);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleDownloadInvoice(order) {
+        if (order.invoice_url) {
+            window.open(order.invoice_url, '_blank');
+            return;
+        }
+
+        // Trigger generation if missing
+        setGeneratingId(order.id);
+        try {
+            await fetch('/api/orders/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id })
+            });
+
+            // Start polling for this specific order
+            const interval = setInterval(async () => {
+                const { data } = await supabase.from('orders').select('invoice_url').eq('id', order.id).single();
+                if (data?.invoice_url) {
+                    // Update the order in local state
+                    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, invoice_url: data.invoice_url } : o));
+                    setGeneratingId(null);
+                    clearInterval(interval);
+                    window.open(data.invoice_url, '_blank');
+                }
+            }, 3000);
+
+            // Timeout after 30s
+            setTimeout(() => {
+                clearInterval(interval);
+                if (generatingId === order.id) setGeneratingId(null);
+            }, 30000);
+
+        } catch (err) {
+            console.error('Failed to trigger invoice generation:', err);
+            setGeneratingId(null);
         }
     }
 
@@ -109,7 +149,40 @@ export default function MyOrdersPage() {
                                 <div className={styles.orderDetails}>
                                     <div className={styles.detailItem}>
                                         <Tag size={16} />
-                                        <span>Total: ₹{order.total_amount?.toLocaleString()}.00</span>
+                                        <div className={styles.taxList}>
+                                            <div className={styles.taxSummaryRow}>
+                                                <span>Subtotal:</span>
+                                                <span>₹{(order.subtotal || (order.total_amount - (order.shipping_cost || 0) - (order.tax_amount || 0))).toLocaleString()}</span>
+                                            </div>
+                                            {order.shipping_cost > 0 && (
+                                                <div className={styles.taxSummaryRow}>
+                                                    <span>Shipping:</span>
+                                                    <span>₹{order.shipping_cost.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {order.cgst > 0 && (
+                                                <div className={styles.taxSummaryRow}>
+                                                    <span>CGST (2.5%):</span>
+                                                    <span>₹{order.cgst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {order.sgst > 0 && (
+                                                <div className={styles.taxSummaryRow}>
+                                                    <span>SGST (2.5%):</span>
+                                                    <span>₹{order.sgst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            {order.igst > 0 && (
+                                                <div className={styles.taxSummaryRow}>
+                                                    <span>IGST (5%):</span>
+                                                    <span>₹{order.igst.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                            <div className={`${styles.taxSummaryRow} ${styles.grandTotalRow}`}>
+                                                <span>Total:</span>
+                                                <span>₹{order.total_amount?.toLocaleString()}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className={styles.detailItem}>
                                         <MapPin size={16} />
@@ -122,18 +195,25 @@ export default function MyOrdersPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.orderActions}>
-                                <Link href={`/track-order?id=${order.id}`} className={styles.trackBtn}>
-                                    Track Status <ChevronRight size={16} />
-                                </Link>
-                                <a
-                                    href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732'}?text=Hi, query about Order %23${order.id}`}
-                                    className={styles.supportLink}
-                                    target="_blank"
-                                >
-                                    <MessageCircle size={16} /> Support
-                                </a>
-                            </div>
+                            <Link href={`/track-order?id=${order.id}`} className={styles.trackBtn}>
+                                Track Status <ChevronRight size={16} />
+                            </Link>
+
+                            <button
+                                onClick={() => handleDownloadInvoice(order)}
+                                className={`${styles.downloadBtn} ${generatingId === order.id ? styles.pulsing : ''}`}
+                                disabled={generatingId !== null}
+                            >
+                                <Download size={16} /> {generatingId === order.id ? 'Generating...' : 'Invoice'}
+                            </button>
+
+                            <a
+                                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732'}?text=Hi, query about Order %23${order.id}`}
+                                className={styles.supportLink}
+                                target="_blank"
+                            >
+                                <MessageCircle size={16} /> Support
+                            </a>
                         </div>
                     ))}
                 </div>

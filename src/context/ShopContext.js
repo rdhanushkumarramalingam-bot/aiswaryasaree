@@ -297,6 +297,7 @@ export function ShopProvider({ children }) {
                 shipping_zone_id: taxDetails.activeZone?.id,
                 status: checkoutForm.paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT',
                 total_amount: taxDetails.totalOrder,
+                tax_amount: (taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0),
                 cgst: taxDetails.cgst,
                 sgst: taxDetails.sgst,
                 igst: taxDetails.igst,
@@ -350,6 +351,7 @@ export function ShopProvider({ children }) {
                 orderId,
                 customerName: checkoutForm.name,
                 total: taxDetails.totalOrder,
+                subtotal: taxDetails.subtotal || (taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0))),
                 cgst: taxDetails.cgst,
                 sgst: taxDetails.sgst,
                 igst: taxDetails.igst,
@@ -358,6 +360,20 @@ export function ShopProvider({ children }) {
 
             setCart([]);
             showToast('Order Placed Successfully!', 'success');
+
+            // Trigger WhatsApp Notification automatically for COD
+            if (checkoutForm.paymentMethod === 'COD') {
+                try {
+                    fetch('/api/orders/notify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId })
+                    });
+                } catch (notifyErr) {
+                    console.error('Failed to trigger background notification:', notifyErr);
+                }
+            }
+
             return finalOrderData;
 
         } catch (err) {

@@ -3,11 +3,20 @@
     margin: 0 auto;
     display: flex;
     gap: 3rem;
-    padding: 4rem 2rem 5rem;
+    padding: 2rem 1.5rem 5rem;
+    min-height: 100vh;
+}
+
+@media (max-width: 1024px) {
+    .checkoutLayout {
+        flex-direction: column;
+        gap: 2rem;
+        padding-top: 1rem;
+    }
 }
 
 .checkoutLeft {
-    flex: 2;
+    flex: 1.5;
 }
 
 .checkoutRight {
@@ -22,17 +31,25 @@
 }
 
 .cardTitle {
-    font-size: 1.25rem;
-    font-weight: 800;
+    font-size: 1.1rem;
+    font-weight: 700;
     color: #fff;
     margin-bottom: 2rem;
     letter-spacing: -0.01em;
+    text-transform: none;
 }
 
 .formGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+}
+
+@media (max-width: 600px) {
+    .formGrid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
 }
 
 .formGroupFull {
@@ -96,39 +113,89 @@
     background: rgba(37, 163, 102, 0.05);
 }
 
-.radioInfo {
+.paymentMeta {
     display: flex;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1rem;
+    justify-content: space-between;
+    width: 100%;
 }
 
-.radioTitle {
-    font-weight: 700;
-    color: #fff;
-    font-size: 1rem;
+.paymentDesc {
+    background: rgba(255, 255, 255, 0.04);
+    padding: 1.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 1rem;
+    position: relative;
 }
 
-.radioDesc {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 2px;
+.paymentDesc::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 20px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid rgba(255, 255, 255, 0.04);
 }
 
 .summaryCard {
     background: #121827;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 2rem;
+    padding: 0;
     position: sticky;
     top: 100px;
+    z-index: 10;
+}
+
+@media (max-width: 1024px) {
+    .summaryCard {
+        position: static;
+        margin-top: 2rem;
+    }
+}
+
+.summaryHeader {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.summaryHeader h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.summaryBody {
+    padding: 2rem;
+}
+
+.tableHeader {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1.5rem;
 }
 
 .summaryItem {
     display: flex;
     justify-content: space-between;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.4;
+}
+
+.summaryItem span:last-child {
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
 }
 
 .summaryDivider {
@@ -141,29 +208,32 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 1rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.95rem;
 }
 
-.totalRow {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 2rem;
-    margin-bottom: 2rem;
-}
-
-.totalRow span {
-    font-size: 1.15rem;
+.summaryRow span:first-child {
     font-weight: 700;
     color: #fff;
 }
 
-.totalBox {
-    text-align: right;
+.summaryTotalRow {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.summaryTotalRow span {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
 }
 
 .totalPrice {
-    font-size: 1.75rem;
-    font-weight: 800;
+    font-size: 1.1rem;
+    font-weight: 700;
     color: #25a366;
 }
 
@@ -179,36 +249,48 @@
 }
 
 .placeOrderBtn {
-    width: 100%;
-    background: #25a366;
+    width: calc(100% - 4rem);
+    margin: 0 2rem 2rem;
+    background: #333;
     color: #fff;
     border: none;
-    padding: 1.25rem;
-    border-radius: 12px;
-    font-weight: 800;
-    font-size: 1rem;
+    padding: 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .placeOrderBtn:hover:not(:disabled) {
-    background: #2db875;
-    transform: translateY(-2px);
+    background: #000;
 }
 
-.termsNote {
-    text-align: center;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.3);
-    margin-top: 1.25rem;
-    line-height: 1.5;
+.razorpayBrand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.razorpayLogo {
+    height: 24px;
+}
+
+.privacyNote {
+    margin-top: 3rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.6;
 }
 
 .successView {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 5rem 0;
+    padding: 10rem 0 5rem;
 }
 
 .successCard {
@@ -217,7 +299,7 @@
     border-radius: 20px;
     padding: 4rem 3rem;
     text-align: center;
-    max-width: 500px;
+    max-width: 600px;
 }
 
 .successBadge {
@@ -263,6 +345,133 @@
     margin-bottom: 1rem;
 }
 
+.successCard h2 {
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+.successSub {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1rem;
+    margin-bottom: 2.5rem;
+}
+
+.successDetailsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+    text-align: left;
+}
+
+.taxBreakdownContainer {
+    width: 100%;
+}
+
+.successTaxRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 0.5rem;
+}
+
+.successTaxRow span:last-child {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.successTotalRow {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff !important;
+}
+
+.successTotalRow strong {
+    font-size: 1.1rem;
+    color: #25a366;
+}
+
+.detailCard {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.detailCard label {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.detailCard strong {
+    font-size: 1rem;
+    color: #fff;
+}
+
+.successActions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.downloadBtn {
+    width: 100%;
+    background: rgba(37, 163, 102, 0.1);
+    color: #25a366;
+    border: 1px solid rgba(37, 163, 102, 0.2);
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.downloadBtn:hover:not(.disabled) {
+    background: rgba(37, 163, 102, 0.2);
+    transform: translateY(-2px);
+}
+
+.downloadBtn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.3);
+    border-color: transparent;
+}
+
+.navigationLinks {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.navigationLinks .secondaryBtn {
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.navigationLinks .secondaryBtn:hover {
+    color: #fff;
+}
+
 .secondaryBtn {
     color: rgba(255, 255, 255, 0.5);
     text-decoration: none;
@@ -271,4 +480,22 @@
 .emptyCheckout {
     text-align: center;
     padding: 10rem 0;
+}
+
+.primaryBtn {
+    display: inline-block;
+    background: #25a366;
+    color: #fff;
+    text-decoration: none;
+    padding: 1rem 2.5rem;
+    border-radius: 50px;
+    font-weight: 800;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.primaryBtn:hover {
+    background: #2db875;
+    transform: translateY(-2px);
 }

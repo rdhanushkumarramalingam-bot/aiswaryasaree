@@ -28,11 +28,15 @@ export async function POST(request) {
             return Response.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        // If no Razorpay keys yet, return placeholder response for testing
-        if (!settings.razorpay_key_id || !settings.razorpay_key_secret) {
+        // Detect if keys are placeholders or missing
+        const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY');
+        const hasValidKeys = !isPlaceholder(settings.razorpay_key_id) && !isPlaceholder(settings.razorpay_key_secret);
+
+        if (!hasValidKeys) {
+            console.log('Using Razorpay Test Mode Fallback');
             return Response.json({
                 razorpayOrderId: `order_test_${Date.now()}`,
-                amount: order.total_amount * 100,
+                amount: Math.round(order.total_amount * 100),
                 currency: 'INR',
                 keyId: 'rzp_test_placeholder',
                 orderDetails: order,
@@ -67,7 +71,7 @@ export async function POST(request) {
             razorpayOrderId: rzpOrder.id,
             amount: rzpOrder.amount,
             currency: rzpOrder.currency,
-            keyId: process.env.RAZORPAY_KEY_ID,
+            keyId: settings.razorpay_key_id,
             orderDetails: order,
         });
 

@@ -43,8 +43,16 @@ export async function POST(req) {
             }).select().single();
 
             if (insertError) {
-                console.error('[AUTH] Customer creation error:', insertError);
-                return NextResponse.json({ error: 'Failed to create customer account' }, { status: 500 });
+                console.error('[AUTH] Customer creation error:', {
+                    error: insertError,
+                    details: insertError.details,
+                    hint: insertError.hint,
+                    phone: fullPhone
+                });
+                return NextResponse.json({
+                    error: 'Failed to create customer account',
+                    details: insertError.message
+                }, { status: 500 });
             }
             customer = newCustomer;
         } else {

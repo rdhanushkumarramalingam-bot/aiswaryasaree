@@ -223,6 +223,28 @@
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.taxList {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.taxSummaryRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.grandTotalRow {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-weight: 700;
+}
+
 .trackBtn {
     background: #25a366;
     color: #fff;
@@ -253,6 +275,52 @@
 
 .supportLink:hover {
     color: #25d366;
+}
+
+.downloadBtn {
+    background: rgba(37, 163, 102, 0.1);
+    color: #25a366;
+    text-decoration: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    border: 1px solid rgba(37, 163, 102, 0.2);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.downloadBtn:hover:not(:disabled) {
+    background: rgba(37, 163, 102, 0.2);
+    border-color: rgba(37, 163, 102, 0.4);
+    transform: translateY(-2px);
+}
+
+.downloadBtn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.pulsing {
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
 }
 
 .loadingState {

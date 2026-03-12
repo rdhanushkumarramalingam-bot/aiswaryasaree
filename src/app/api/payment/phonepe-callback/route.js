@@ -1,7 +1,7 @@
-import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { sendWhatsAppText } from '@/lib/whatsapp';
+import { notifyOrderSuccess } from '@/services/whatsappService';
 import { NextResponse } from 'next/server';
+// import { sendWhatsAppText } from '@/lib/whatsapp';
 
 import { getGatewaySettings } from '@/lib/settings';
 
@@ -69,23 +69,9 @@ export async function GET(request) {
                 })
                 .eq('id', orderId);
 
-            // Send WhatsApp confirmation
+            // Send WhatsApp confirmation via centralized helper
             if (order?.customer_phone) {
-                const itemsList = (order.order_items || [])
-                    .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
-                    .join('\n');
-
-                const message =
-                    `✅ *Order Confirmed — Cast Prince* 🎉\n\n` +
-                    `Hi ${order.customer_name || 'Customer'}! Your payment via PhonePe was successful.\n\n` +
-                    `📦 *Order ID:* #${orderId}\n` +
-                    `💳 *Amount Paid:* ₹${order.total_amount?.toLocaleString()}\n` +
-                    `🛍️ *Items:*\n${itemsList}\n\n` +
-                    `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
-                    `We will send your tracking details soon. Thank you for shopping with us! 🙏\n\n` +
-                    `— Cast Prince`;
-
-                await sendWhatsAppText(order.customer_phone, message);
+                await notifyOrderSuccess(orderId);
             }
 
             // Redirect to thank you page
