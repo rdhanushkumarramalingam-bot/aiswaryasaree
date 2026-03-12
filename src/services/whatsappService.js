@@ -106,9 +106,9 @@ export async function sendRawMessage(to, payload) {
             body: JSON.stringify(payload)
         });
         const data = await response.json();
-        if (data.error) {
-            console.error('❌ WA API Error:', JSON.stringify(data.error));
-            console.error('Payload attempted:', JSON.stringify(payload));
+        if (data.error || !response.ok) {
+            console.error(`❌ WA API Error [Status ${response.status}]:`, JSON.stringify(data.error || data, null, 2));
+            console.error('Payload attempted:', JSON.stringify(payload, null, 2));
         }
         return data;
     } catch (error) { console.error('❌ Network Error:', error); }
