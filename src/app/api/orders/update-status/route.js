@@ -1,14 +1,21 @@
 // API Route: Update Order Status + Send WhatsApp Notification
 import { supabase } from '@/lib/supabaseClient';
 
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
+const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
+const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
 
 async function sendWhatsAppText(to, text) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials missing, skipping notification');
         return;
+    }
+
+    // Clean number: remove all non-digits
+    let cleanedNum = to.replace(/\D/g, '');
+    // For India: If starts with 7,8,9 and is 10 digits, add 91
+    if (cleanedNum.length === 10 && /^[789]/.test(cleanedNum)) {
+        cleanedNum = '91' + cleanedNum;
     }
 
     try {
@@ -21,7 +28,7 @@ async function sendWhatsAppText(to, text) {
             body: JSON.stringify({
                 messaging_product: "whatsapp",
                 recipient_type: "individual",
-                to,
+                to: cleanedNum,
                 type: "text",
                 text: { body: text }
             })
@@ -43,12 +50,11 @@ async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
+    const brand = 'Aiswarya Saree';
 
     switch (status) {
         case 'PAID':
-            // Generate an itemized table-like list for the WhatsApp message
             const itemList = items.map(i => `• ${i.product_name} (x${i.quantity}) - ₹${(i.price_at_time * i.quantity).toLocaleString()}`).join('\n');
-
             return [
                 `🧾 *INVOICE: ${orderId}*`,
                 `--------------------------`,
@@ -63,7 +69,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `🔗 *View Full Bill:* ${invoiceUrl}`,
                 ``,
                 `Your order is being processed. Thank you! 💮`,
-                `— Cast Prince`
+                `— ${brand}`
             ].join('\n');
 
         case 'CANCELLED':
@@ -75,11 +81,22 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 ``,
                 `If you did not request this cancellation, please contact us!`,
                 ``,
-                `— Cast Prince 💮`
+                `— ${brand} 💮`
+            ].join('\n');
+
+        case 'PACKING':
+            return [
+                `📦 *ORDER PACKING*`,
+                ``,
+                `Hi! We are currently packing your order #${orderId}.`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `It will be shipped shortly. Thank you! 💮`,
+                `— ${brand}`
             ].join('\n');
 
         case 'SHIPPED':
-            const shippingInfo = [
+            return [
                 `🚚 *ORDER SHIPPED!*`,
                 ``,
                 `Order #${orderId} is on its way!`,
@@ -91,9 +108,9 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 ``,
                 order.tracking_url ? `🔗 *Track Here:* ${order.tracking_url}` : `🔗 *View Details:* ${invoiceUrl}`,
                 ``,
-                `Thank you for shopping with us! 💮`
+                `Thank you for shopping with us! 💮`,
+                `— ${brand}`
             ].join('\n');
-            return shippingInfo;
 
         case 'DELIVERED':
             return [
@@ -105,7 +122,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `Hope you love your new saree! 💕`,
                 `Type *Hi* to shop again anytime.`,
                 ``,
-                `— Cast Prince 💮`
+                `— ${brand} 💮`
             ].join('\n');
 
         case 'PLACED':
@@ -116,11 +133,11 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `We are preparing your saree for shipping.`,
-                `— Cast Prince 💮`
+                `— ${brand} 💮`
             ].join('\n');
 
         default:
-            return `📋 Order #${orderId} status updated to: ${status}\n— Cast Prince`;
+            return `📋 Order #${orderId} status updated to: ${status}\n— ${brand}`;
     }
 }
 

@@ -18,7 +18,7 @@ import {
 import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-const STATUS_OPTIONS = ['PLACED', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+const STATUS_OPTIONS = ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
 
@@ -32,6 +32,8 @@ const getStatusReference = (status) => {
         case 'PENDING': return 'badge-placed';
 
         case 'PAID': return 'badge-paid';
+
+        case 'PACKING': return 'badge-placed'; // Use placed/pending style for packing
 
         case 'SHIPPED': return 'badge-shipped';
 
