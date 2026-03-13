@@ -55,8 +55,8 @@ export async function POST(request) {
             const messages = value?.messages;
 
             if (messages && messages.length > 0) {
-                // Process the message in the background to avoid timing out the WhatsApp webhook receiver (which has a 10s limit)
-                processIncomingMessage(body).catch(err => console.error('Error in background processing:', err));
+                // Process the message and wait for it to complete on Vercel/Serverless
+                await processIncomingMessage(body);
             }
             return new Response('EVENT_RECEIVED', { status: 200 });
         } else {
