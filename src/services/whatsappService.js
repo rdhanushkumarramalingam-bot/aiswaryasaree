@@ -495,7 +495,7 @@ export async function handleProductInquiry(to, catalogId) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "💮 *Welcome to Cast Prince!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "💮 *Welcome to Aiswarya Saree!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
@@ -519,7 +519,7 @@ export async function sendMainMenu(to) {
     });
 
     // 2. Send Action Buttons
-    await sendButtons(to, "Explore our collections & manage orders:", [
+    await sendButtons(to, "Explore our collection and manage:", [
         { id: "menu_catalogue", title: "📖 View Catalogue" },
         { id: "menu_track", title: "My Orders" },
         { id: "menu_contact", title: "Contact Us" }
@@ -1010,7 +1010,7 @@ export async function notifyOrderSuccess(orderId) {
             .join('\n');
 
         const message =
-            `✅ *Order Confirmed — Cast Prince* 🎉\n\n` +
+            `✅ *Order Confirmed — Aiswarya Saree* 🎉\n\n` +
             `Hi ${order.customer_name || 'Customer'}! Your order has been placed successfully.\n\n` +
             `📦 *Order ID:* #${orderId}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
@@ -1026,7 +1026,7 @@ export async function notifyOrderSuccess(orderId) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
 
-        await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
+        await sendButtons(to, "💗 Thank you for shopping with *Aiswarya Saree*!\n\nTap below to manage your orders.", [
             { id: "menu_track", title: "Track Order" },
             { id: "menu_my_orders", title: "My Orders" }
         ]);
@@ -1092,7 +1092,7 @@ export async function handlePaymentConfirmed(to, orderId) {
         await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
     }
 
-    await sendButtons(to, "💗 Thank you for shopping with *Cast Prince*!\n\nTap below to manage your orders.", [
+    await sendButtons(to, "💗 Thank you for shopping with *Aiswarya Saree*!\n\nTap below to manage your orders.", [
         { id: "menu_track", title: "Track Order" },
         { id: "menu_my_orders", title: "My Orders" }
     ]);
@@ -1268,8 +1268,6 @@ export async function processIncomingMessage(body) {
                 } else {
                     debugLog(`New customer created: ${from} (${profileName})`);
                     customer = newCust;
-                    // Welcome message for new account
-                    await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
                 }
             } else {
                 customer = data;
