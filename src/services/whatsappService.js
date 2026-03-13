@@ -16,6 +16,16 @@ const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 
+// --- UTILS ---
+const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, limit - 3) + "..." : str;
+
+// --- DEBUG LOGGER ---
+const debugLog = (msg, obj = null) => {
+    const timestamp = new Date().toISOString();
+    if (obj) console.log(`[WA-DEBUG][${timestamp}] ${msg}`, JSON.stringify(obj, null, 2));
+    else console.log(`[WA-DEBUG][${timestamp}] ${msg}`);
+};
+
 // ─── PREMIUM IMAGE ASSETS ─────────────────────────────────────────────────────
 
 // Updated with distinct Saree visuals
@@ -99,7 +109,13 @@ function getPremiumImage(product) {
 // ─── 2. WHATSAPP API HELPERS ──────────────────────────────────────────────────
 
 export async function sendRawMessage(to, payload) {
+    if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+        console.error('❌ WhatsApp Credentials Missing! Check WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID');
+        return { error: 'Missing credentials' };
+    }
+
     try {
+        debugLog(`Sending ${payload.type} to ${to}`);
         const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -108,7 +124,7 @@ export async function sendRawMessage(to, payload) {
         const data = await response.json();
         if (data.error || !response.ok) {
             console.error(`❌ WA API Error [Status ${response.status}]:`, JSON.stringify(data.error || data, null, 2));
-            console.error('Payload attempted:', JSON.stringify(payload, null, 2));
+            debugLog('Payload that failed:', payload);
         }
         return data;
     } catch (error) { console.error('❌ Network Error:', error); }
@@ -125,8 +141,8 @@ export async function sendImageButtons(to, imageUrl, bodyText, buttons) {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
             type: "button", header: { type: "image", image: { link: imageUrl } },
-            body: { text: bodyText },
-            action: { buttons: buttons.map(b => ({ type: "reply", reply: { id: b.id, title: b.title } })) }
+            body: { text: truncate(bodyText, 1024) },
+            action: { buttons: buttons.slice(0, 3).map(b => ({ type: "reply", reply: { id: b.id, title: truncate(b.title, 20) } })) }
         }
     });
 }
@@ -135,20 +151,33 @@ export async function sendButtons(to, bodyText, buttons) {
     return sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
-            type: "button", body: { text: bodyText },
-            action: { buttons: buttons.map(b => ({ type: "reply", reply: { id: b.id, title: b.title } })) }
+            type: "button", body: { text: truncate(bodyText, 1024) },
+            action: { buttons: buttons.slice(0, 3).map(b => ({ type: "reply", reply: { id: b.id, title: truncate(b.title, 20) } })) }
         }
     });
 }
 
 export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Prince • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
+    
+    // Truncate sections for WhatsApp limits
+    const sanitizedSections = finalSections.slice(0, 10).map(sec => ({
+        title: truncate(sec.title || "Options", 24),
+        rows: sec.rows.slice(0, 10).map(row => ({
+            id: row.id,
+            title: truncate(row.title, 24),
+            description: truncate(row.description, 72)
+        }))
+    }));
+
     return sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
-            type: "list", header: { type: "text", text: headerText },
-            body: { text: bodyText }, footer: { text: footerText },
-            action: { button: buttonLabel, sections: finalSections }
+            type: "list", 
+            header: headerText ? { type: "text", text: truncate(headerText, 60) } : undefined,
+            body: { text: truncate(bodyText, 1024) }, 
+            footer: footerText ? { text: truncate(footerText, 60) } : undefined,
+            action: { button: truncate(buttonLabel, 20), sections: sanitizedSections }
         }
     });
 }
@@ -1199,10 +1228,14 @@ function isDuplicate(msgId) {
 }
 
 export async function processIncomingMessage(body) {
+    debugLog('Processing incoming message body:', body);
     try {
         const value = body.entry?.[0]?.changes?.[0]?.value;
         const message = value?.messages?.[0];
-        if (!message) return;
+        if (!message) {
+            debugLog('No message found in body');
+            return;
+        }
         const from = message.from;
         const msgType = message.type;
 
