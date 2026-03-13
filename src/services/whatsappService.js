@@ -1187,26 +1187,26 @@ async function analyzeImageForCatalogId(mediaId) {
         const patterns = [
             /CAT[-\s]?([A-Z0-9]{5})/i,   // CAT-KY028 or CAT KY028 or CATKY028
             /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,  // XX-YYYY or XXX-YYY
+            /([A-Z0-9]{5})/i, // Last resort: just any 5 chars
         ];
 
+        let catalogId = null;
         for (const pattern of patterns) {
             const m = detectedText.match(pattern);
             if (m) {
-                // Reconstruct as CAT-XXXXX (first group might be prefix, second is code)
                 const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '');
-                if (/^[A-Z]{2,3}[A-Z0-9]{3,5}$/i.test(code) && code.length <= 8) {
-                    const catalogId = `CAT-${code.slice(-5).toUpperCase()}`;
+                if (/^[A-Z0-9]{5,8}$/i.test(code)) {
+                    catalogId = `CAT-${code.slice(-5).toUpperCase()}`;
                     console.log('[OCR] ✅ Extracted catalog ID:', catalogId);
-                    return catalogId;
+                    break;
                 }
             }
         }
 
-        console.log('[OCR] ❌ No CAT-XXXXX pattern found in text');
-        return null;
+        return { catalogId, detectedText };
     } catch (err) {
         console.error('[OCR] Exception:', err.message);
-        return null;
+        return { catalogId: null, detectedText: `Error: ${err.message}` };
     }
 }
 
@@ -1291,15 +1291,16 @@ export async function processIncomingMessage(body) {
         if (msgType === 'image') {
             const mediaId = message.image?.id;
             await sendText(from, '🔍 Analysing your image... Please wait a moment!');
-            const catalogId = await analyzeImageForCatalogId(mediaId);
-            if (catalogId) {
-                console.log(`[WA] OCR found catalog ID: ${catalogId} from ${from}`);
-                return await handleProductInquiry(from, catalogId);
+            const ocrResult = await analyzeImageForCatalogId(mediaId);
+            if (ocrResult?.catalogId) {
+                console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);
+                return await handleProductInquiry(from, ocrResult.catalogId);
             } else {
+                const debugInfo = ocrResult?.detectedText ? `\n\n🔍 *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
                 return await sendText(from,
                     '❌ Could not read a product code from the image.\n\n' +
-                    'Please make sure the image shows the product code clearly (e.g. *CAT-AB12X*).\n\n' +
-                    'Or send *Hi* to browse our catalogue! 💮'
+                    'Please make sure the image shows the product code clearly (e.g. *CAT-AB12X*).\n' +
+                    'Or send *Hi* to browse our catalogue! 💮' + debugInfo
                 );
             }
         }
