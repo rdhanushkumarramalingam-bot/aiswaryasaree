@@ -54,16 +54,22 @@ export async function POST(request) {
 
         // Check if this is a WhatsApp message
         if (body.object === 'whatsapp_business_account') {
-            const entry = body.entry?.[0];
-            const changes = entry?.changes?.[0];
-            const value = changes?.value;
+            const value = body.entry?.[0]?.changes?.[0]?.value;
             const messages = value?.messages;
 
-            if (messages && messages.length > 0) {
-                // Process the message and wait for it to complete on Vercel/Serverless
-                await processIncomingMessage(body);
+            // 1. If it's a status update (sent, delivered, read), just acknowledge and exit
+            if (value?.statuses) {
+                return new Response('STATUS_ACKNOWLEDGED', { status: 200 });
             }
-            return new Response('EVENT_RECEIVED', { status: 200 });
+
+            // 2. If it's a message, process it
+            if (messages && messages.length > 0) {
+                // We MUST await here on Vercel to ensure the bot has time to reply
+                await processIncomingMessage(body);
+                return new Response('MESSAGE_PROCESSED', { status: 200 });
+            }
+            
+            return new Response('EVENT_ACKNOWLEDGED', { status: 200 });
         } else {
             return new Response('Not Found', { status: 404 });
         }

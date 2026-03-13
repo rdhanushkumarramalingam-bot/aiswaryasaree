@@ -35,6 +35,7 @@ function CustomersPage() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [editedOrderData, setEditedOrderData] = useState({ total_amount: 0, payment_method: '', status: '' });
+    const [filterMode, setFilterMode] = useState('ALL'); // ALL, ORDERED, UNORDERED
 
 
 
@@ -428,13 +429,12 @@ function CustomersPage() {
 
 
 
-    const filteredCustomers = customers.filter(c =>
-
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-        c.phone.includes(searchTerm)
-
-    );
+    const filteredCustomers = customers.filter(c => {
+        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm);
+        if (filterMode === 'ORDERED') return matchesSearch && c.totalOrders > 0;
+        if (filterMode === 'UNORDERED') return matchesSearch && c.totalOrders === 0;
+        return matchesSearch;
+    });
 
 
 
@@ -677,6 +677,23 @@ function CustomersPage() {
                                 <div>
                                     <h1 style={{ marginBottom: '0.5rem' }}>Customers</h1>
                                     <p>All registered customers from Website & WhatsApp • {customers.length} total</p>
+                                    
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
+                                        {['ALL', 'ORDERED', 'UNORDERED'].map(m => (
+                                            <button 
+                                                key={m} 
+                                                onClick={() => setFilterMode(m)}
+                                                style={{
+                                                    padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700,
+                                                    border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: '0.2s',
+                                                    background: filterMode === m ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
+                                                    color: filterMode === m ? 'white' : 'hsl(var(--text-muted))'
+                                                }}
+                                            >
+                                                {m} ({m === 'ALL' ? customers.length : (m === 'ORDERED' ? customers.filter(c => c.totalOrders > 0).length : customers.filter(c => c.totalOrders === 0).length)})
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

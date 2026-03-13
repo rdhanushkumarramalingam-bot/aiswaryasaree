@@ -4,7 +4,7 @@ import { sendText } from '@/services/whatsappService';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 
@@ -14,37 +14,61 @@ export async function POST(req) {
 
         if (!phone) return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
 
-        // Clean phone number
-        const cleanPhone = phone.replace(/\D/g, '');
-        const fullPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+        // Clean phone number (strip non-digits, ensure 91 prefix)
+        let cleanPhone = phone.trim().replace(/\D/g, '');
+        if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
+        if (cleanPhone.length < 12) {
+            return NextResponse.json({ error: 'Invalid phone number format. Please include country code.' }, { status: 400 });
+        }
 
-        // Set Static OTP as requested
-        const otp = "758369";
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry for safety
+        // 1. Generate 6-digit random OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
 
-        // Store OTP in database (optional but good for tracking)
-        await supabase.from('otp_verifications').insert({
-            phone: fullPhone,
-            otp_code: otp,
-            expires_at: expiresAt,
-            is_used: false
+        console.log(`[AUTH] Sending Dynamic OTP: ${otp} to ${cleanPhone}`);
+
+        // 3. Store OTP in database (table: otps)
+        // First delete any previous OTP for this phone to avoid duplicates
+        await supabase.from('otps').delete().eq('phone', cleanPhone);
+        
+        const { error: dbError } = await supabase
+            .from('otps')
+            .insert({
+                phone: cleanPhone,
+                code: otp,
+                expires_at: expiresAt
+            });
+
+        if (dbError) {
+            console.error('[AUTH] DB OTP Save Error:', dbError.message);
+            return NextResponse.json({ 
+                error: 'Failed to generate verification code', 
+                debug: dbError.message 
+            }, { status: 500 });
+        }
+
+        // 3. Send via WhatsApp Service
+        const waMsg = `💮 *Your Cast Prince Login Code*\n\nYour verification code is: *${otp}*\n\nPlease enter this on the website to continue. Code expires in 10 minutes.`;
+        const waResult = await sendText(cleanPhone, waMsg);
+
+        if (waResult?.error) {
+            console.error('[AUTH] WhatsApp Dispatch Failed:', waResult.error);
+            // Return the specific error for debugging
+            return NextResponse.json({ 
+                error: `WhatsApp Error: ${waResult.error}`,
+                details: waResult.full
+            }, { status: 500 });
+        }
+
+        return NextResponse.json({ 
+            success: true, 
+            message: 'OTP sent successfully to your WhatsApp' 
         });
 
-
-        // Disable WhatsApp sending to avoid expired token errors
-        // const waMsg = `💮 *Your Cast Prince Login Code*\n\nYour verification code is: *${otp}*\n\nPlease enter this on the website to continue.`;
-        // const waResult = await sendText(fullPhone, waMsg);
-
-        console.log(`[AUTH] Static OTP session (WhatsApp skipped): ${otp} for ${fullPhone}`);
-
-        return NextResponse.json({ success: true, message: 'OTP ready (Static: 758369)' });
-
-
-
     } catch (error) {
-        console.error('OTP Send Error:', error);
-        return NextResponse.json({ error: 'Failed to send OTP' }, { status: 500 });
+        console.error('OTP Send Route Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
 

@@ -9,7 +9,10 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Phone and Code are required' }, { status: 400 });
         }
 
-        const cleanPhone = phone.trim().replace(/\s+/g, '').replace('+', '');
+        let cleanPhone = phone.trim().replace(/\D/g, '');
+        if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+        console.log(`[AUTH] Verifying OTP for ${cleanPhone} with code ${code}`);
 
         // 1. Check if Code exists and not expired
         const { data: otpData, error: dbError } = await supabase
@@ -34,6 +37,7 @@ export async function POST(req) {
             .from('customers')
             .upsert({
                 phone: cleanPhone,
+                is_verified: true,
                 last_login: new Date().toISOString()
             }, { onConflict: 'phone' })
             .select()
@@ -46,6 +50,7 @@ export async function POST(req) {
                 .from('customers')
                 .insert({
                     phone: cleanPhone,
+                    is_verified: true,
                     last_login: new Date().toISOString()
                 });
             if (insertError) console.error('Customer insert failed:', insertError);

@@ -13,8 +13,8 @@ const supabase = createClient(
 );
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
+const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
 
 // --- UTILS ---
 const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, limit - 3) + "..." : str;
@@ -110,7 +110,7 @@ function getPremiumImage(product) {
 
 export async function sendRawMessage(to, payload) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.error('❌ WhatsApp Credentials Missing! Check WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID');
+        console.error('❌ [WA-ERROR] Credentials Missing! Check your environment variables.');
         return { error: 'Missing credentials' };
     }
 
@@ -118,16 +118,33 @@ export async function sendRawMessage(to, payload) {
         debugLog(`Sending ${payload.type} to ${to}`);
         const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify(payload)
         });
+        
         const data = await response.json();
-        if (data.error || !response.ok) {
-            console.error(`❌ WA API Error [Status ${response.status}]:`, JSON.stringify(data.error || data, null, 2));
-            debugLog('Payload that failed:', payload);
+        
+        if (!response.ok) {
+            const errorMsg = data.error?.message || 'Unknown Meta API Error';
+            const errorCode = data.error?.code || 'No Code';
+            console.error(`❌ [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
+            
+            if (errorCode === 131030) {
+                console.error('💡 TIP: This usually means the 24-hour window is closed. The customer must message the bot first.');
+            }
+            
+            return { error: errorMsg, code: errorCode, full: data.error };
         }
+        
+        debugLog(`Message sent successfully to ${to}`, { message_id: data.messages?.[0]?.id });
         return data;
-    } catch (error) { console.error('❌ Network Error:', error); }
+    } catch (error) { 
+        console.error('❌ [WA-NETWORK-ERROR]:', error);
+        return { error: 'Network failure' };
+    }
 }
 
 export async function sendText(to, text) {
@@ -1225,30 +1242,44 @@ export async function processIncomingMessage(body) {
         }
         const from = message.from;
         const msgType = message.type;
+        const msgId = message.id;
 
-        // --- 0. CUSTOMER SYNC ---
+        // --- DEDUPLICATION CHECK ---
+        if (isDuplicate(msgId)) {
+            debugLog(`Ignoring duplicate message ID: ${msgId}`);
+            return;
+        }
+
+        const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
+
+        // --- 0. CUSTOMER SYNC (Always ensure customer exists) ---
         let customer = null;
         try {
             const { data, error } = await supabase.from('customers').select('*').eq('phone', from).single();
-            if (error && error.code !== 'PGRST116') {
-                debugLog(`Customer fetch error for ${from}:`, error);
+            if (!data) {
+                const { data: newCust, error: insertErr } = await supabase.from('customers').insert({ 
+                    phone: from, 
+                    name: profileName, 
+                    role: 'user' 
+                }).select().single();
+                
+                if (insertErr) {
+                    debugLog(`Customer creation failed for ${from}:`, insertErr);
+                } else {
+                    debugLog(`New customer created: ${from} (${profileName})`);
+                    customer = newCust;
+                    // Welcome message for new account
+                    await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
+                }
+            } else {
+                customer = data;
+                // Update name if it was generic and we got a real one
+                if ((!customer.name || customer.name === 'WhatsApp Customer') && profileName !== 'WhatsApp Customer') {
+                    await supabase.from('customers').update({ name: profileName }).eq('id', customer.id);
+                }
             }
-            customer = data;
         } catch (supabaseErr) {
             debugLog(`Supabase connection error during sync for ${from}:`, supabaseErr);
-        }
-
-        if (!customer) {
-            try {
-                const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
-                await supabase.from('customers').insert({ phone: from, name: profileName, role: 'user' });
-                debugLog(`New customer created: ${from} (${profileName})`);
-
-                // Welcome message for new account
-                await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
-            } catch (insertErr) {
-                debugLog(`Customer creation failed for ${from}:`, insertErr);
-            }
         }
 
         // -------------------------
