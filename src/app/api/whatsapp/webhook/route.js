@@ -43,9 +43,14 @@ export async function GET(request) {
 
 // 2. MESSAGE HANDLING
 export async function POST(request) {
+    console.log('[WA-WEBHOOK] Webhook hit received.');
     try {
         const body = await request.json();
-        console.log('Webhook received:', JSON.stringify(body, null, 2));
+        console.log('[WA-WEBHOOK] Payload Received:', JSON.stringify(body, null, 2));
+
+        if (!process.env.WHATSAPP_ACCESS_TOKEN) {
+            console.error('[WA-WEBHOOK] CRITICAL: WHATSAPP_ACCESS_TOKEN is missing in environment!');
+        }
 
         // Check if this is a WhatsApp message
         if (body.object === 'whatsapp_business_account') {

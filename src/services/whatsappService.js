@@ -485,36 +485,23 @@ export async function sendMainMenu(to) {
     );
 
     // Build shop URL
-    // Automatically detect Vercel URL or fallback to env variable
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprince.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // ── Message 1: Welcome image + NATIVE SHOP BUTTON ──
-    // Using cta_url is the most integrated way to launch the store.
+    // ── SIMPLIFIED FLOW (More robust for Vercel/V21.0) ──
+    // 1. Send Image with caption
     await sendRawMessage(to, {
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to,
-        type: "interactive",
-        interactive: {
-            type: "cta_url",
-            header: {
-                type: "image",
-                image: { link: welcomeImg }
-            },
-            body: { text: welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl + "\n\nTap below to open our store natively in the app." },
-            footer: { text: "Premium Shopping Experience" },
-            action: {
-                name: "cta_url",
-                parameters: {
-                    display_text: "🛍️ Open Store",
-                    url: shopUrl
-                }
-            }
+        type: "image",
+        image: {
+            link: welcomeImg,
+            caption: welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl
         }
     });
 
-    // ── Message 2: Quick actions with View Catalogue ──
+    // 2. Send Action Buttons
     await sendButtons(to, "Explore our collections & manage orders:", [
         { id: "menu_catalogue", title: "📖 View Catalogue" },
         { id: "menu_track", title: "My Orders" },
@@ -1240,15 +1227,28 @@ export async function processIncomingMessage(body) {
         const msgType = message.type;
 
         // --- 0. CUSTOMER SYNC ---
-        const { data: customer } = await supabase.from('customers').select('*').eq('phone', from).single();
+        let customer = null;
+        try {
+            const { data, error } = await supabase.from('customers').select('*').eq('phone', from).single();
+            if (error && error.code !== 'PGRST116') {
+                debugLog(`Customer fetch error for ${from}:`, error);
+            }
+            customer = data;
+        } catch (supabaseErr) {
+            debugLog(`Supabase connection error during sync for ${from}:`, supabaseErr);
+        }
 
         if (!customer) {
-            const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
-            await supabase.from('customers').insert({ phone: from, name: profileName, role: 'user' });
-            console.log(`[WA] New customer created: ${from} (${profileName})`);
+            try {
+                const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
+                await supabase.from('customers').insert({ phone: from, name: profileName, role: 'user' });
+                debugLog(`New customer created: ${from} (${profileName})`);
 
-            // Welcome message for new account
-            await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
+                // Welcome message for new account
+                await sendText(from, `💮 *Welcome to Cast Prince, ${profileName}!*\n\nYour account has been created successfully using your WhatsApp number.\n\nYou can now browse our sarees and even login to our website using this number to track orders and more! ✨`);
+            } catch (insertErr) {
+                debugLog(`Customer creation failed for ${from}:`, insertErr);
+            }
         }
 
         // -------------------------
