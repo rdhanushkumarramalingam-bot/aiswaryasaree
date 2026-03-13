@@ -1285,12 +1285,6 @@ export async function processIncomingMessage(body) {
         // -------------------------
         const text = message.text?.body?.toLowerCase().trim();
 
-        // 🔁 DEDUPLICATION — drop if we've already processed this message ID
-        if (message.id && isDuplicate(message.id)) {
-            console.log(`[WA] Duplicate message ignored: ${message.id}`);
-            return;
-        }
-
         // 🛑 Stop any active stream for this user immediately
         cancelStream(from);
 
