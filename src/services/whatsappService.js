@@ -1127,7 +1127,7 @@ async function analyzeImageForCatalogId(mediaId) {
         const mediaUrl = mediaJson?.url;
         if (!mediaUrl) {
             console.error('[OCR] ❌ No media URL in response:', JSON.stringify(mediaJson));
-            return null;
+            return { catalogId: null, detectedText: 'Failed to get image from WhatsApp' };
         }
         console.log('[OCR] ✅ Got media URL, downloading image...');
 
@@ -1136,50 +1136,38 @@ async function analyzeImageForCatalogId(mediaId) {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
         const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        console.log(`[OCR] Image size: ${(imgBuffer.length / 1024).toFixed(1)} KB`);
-
-        // Step 3: Convert to base64 (OCR.space free key limit: 1MB)
-        // If image > 900KB, we still try — OCR.space may resize internally
         const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
 
-        // Step 4: Call OCR.space API
-        const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
-        const params = new URLSearchParams({
-            base64Image,
-            language: 'eng',
-            isOverlayRequired: 'false',
-            detectOrientation: 'true',
-            scale: 'true',
-            OCREngine: '2',          // Engine 2 is better for printed text
-            isTable: 'false',
-        });
+        // Step 4: Call OCR.space API (Try Engine 2 first, then Engine 1 as fallback)
+        const callOcr = async (engine) => {
+            const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
+            const params = new URLSearchParams({
+                base64Image, language: 'eng', isOverlayRequired: 'false',
+                detectOrientation: 'true', scale: 'true', OCREngine: engine, isTable: 'false',
+            });
+            const res = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                headers: { 'apikey': ocrApiKey, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            });
+            return res.json();
+        };
 
-        console.log('[OCR] Sending to OCR.space...');
-        const ocrRes = await fetch('https://api.ocr.space/parse/image', {
-            method: 'POST',
-            headers: {
-                'apikey': ocrApiKey,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params.toString()
-        });
+        console.log('[OCR] Trying Engine 2...');
+        let ocrJson = await callOcr('2');
+        let detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
 
-        const ocrJson = await ocrRes.json();
-
-        // Log the full response for debugging
-        console.log('[OCR] Response:', JSON.stringify({
-            IsErroredOnProcessing: ocrJson.IsErroredOnProcessing,
-            ErrorMessage: ocrJson.ErrorMessage,
-            ErrorDetails: ocrJson.ErrorDetails,
-            ParsedText: ocrJson?.ParsedResults?.[0]?.ParsedText?.substring(0, 300)
-        }));
-
-        if (ocrJson.IsErroredOnProcessing) {
-            console.error('[OCR] ❌ OCR.space error:', ocrJson.ErrorMessage);
-            return null;
+        if (!detectedText.trim() || ocrJson.IsErroredOnProcessing) {
+            console.log('[OCR] Engine 2 failed or empty, trying Engine 1...');
+            ocrJson = await callOcr('1');
+            detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
         }
 
-        const detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
+        if (ocrJson.IsErroredOnProcessing && !detectedText) {
+            console.error('[OCR] ❌ OCR.space error:', ocrJson.ErrorMessage);
+            return { catalogId: null, detectedText: `Service Error: ${ocrJson.ErrorMessage}` };
+        }
+
         console.log('[OCR] Detected text:', detectedText.substring(0, 300));
 
         // Step 5: Flexible pattern matching — handles:
